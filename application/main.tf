@@ -15,9 +15,12 @@ module "openvpn" {
 # Monitoring
 module "prometheus" {
   source = "./modules/prometheus"
+  name = "grafana"
   namespace = "monitoring"
   cert_issuer = var.deployment.cert.cert_issuer
-  domain = "grafana.${var.deployment.common.domain}"
+  domain = var.deployment.common.domain
+  keycloak_realm = var.deployment.keycloak.realm
+  keycloak_domain = data.kubernetes_secret.keycloak_secrets.data.site
 }
 
 

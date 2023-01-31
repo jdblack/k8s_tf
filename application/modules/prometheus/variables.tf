@@ -1,7 +1,15 @@
+locals {
+  fqdn = "${var.name}.${var.domain}"
+}
 
 variable namespace {
   type = string
 }
+
+variable name {
+  type = string
+}
+
 variable domain {
   type = string
 }
@@ -24,12 +32,11 @@ variable chart {
   default = "kube-prometheus-stack"
 }
 
-variable oidc_ns { 
+
+variable keycloak_realm {
   type = string
-  default = "keycloak"
 }
 
-variable oidc_name {
+variable keycloak_domain {
   type = string
-  default = "oidc-prometheus"
 }

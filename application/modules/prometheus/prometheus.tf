@@ -1,54 +1,49 @@
 locals {
-  oidc_auth = data.kubernetes_secret.oidc.data == null ? {} : {
-    grafana = { 
-      enabled=true
-      adminPassword="admin"
+  config = {
+    grafana = {
       "grafana.ini" = {
-        auth = { 
-          generic_oauth = {
-            enabled= true
-            name="Keycloak"
-            allow_sign_up= true
-            scopes=  "profile,email,groups"
-            auth_url= "https://keycloak.vn.linuxguru.net/realms/linuxguru/protocol/openid-connect/auth"
-            token_url= "https://keycloak.vn.linuxguru.net/realms/linuxguru/protocol/openid-connect/token"
-            api_url= "https://keycloak.vn.linuxguru.net/realms/linuxguru/protocol/openid-connect/userinfo"
-            client_id= data.kubernetes_secret.oidc.data.username
-            client_secret= data.kubernetes_secret.oidc.data.password
-            role_attribute_path="contains(groups[*], 'grafana-admin') && 'Admin' || contains(groups[*], 'grafana-dev') && 'Editor' || 'Viewer'"
-            server = {
-              root_url= "http://grafana.vn.linuxguru.net"
-            }
-          }
+        "auth.generic_oauth" = {
+          enabled= true
+          oauth_auto_login = true
+          tls_skip_verify_insecure = true
+          name="Keycloak"
+          allow_sign_up= true
+          scopes = "openid email profile roles"
+          auth_url= "${var.keycloak_domain}/realms/${var.keycloak_realm}/protocol/openid-connect/auth"
+          token_url= "${var.keycloak_domain}/realms/${var.keycloak_realm}/protocol/openid-connect/token"
+          api_url= "${var.keycloak_domain}/realms/${var.keycloak_realm}/protocol/openid-connect/userinfo"
+          client_id= var.name
+          client_secret = random_password.client_pass.result
+          role_attribute_path = "groups[?contains(@, '/grafana-admin') == `true`] && 'Admin' || groups[?contains(@, '/grafana-edit') == `true`] && 'Editor' || 'Viewer'"
+
+          allow_assign_grafana_admin = true
+        }
+        server = {
+          root_url = "https://${local.fqdn}/"
         }
       }
-    }
-  }
-  nginx_cfg = {
-    grafana = {
+      extraSecretMounts = [
+        {
+          name = "prometheus-grafana-cert"
+          secretName = "prometheus-grafana-cert"
+          mountPath = "/tls-secret"
+        }
+      ]
       ingress = {
         enabled = true
         annotations = {
           "cert-manager.io/cluster-issuer" = var.cert_issuer
         }
         ingressClassName = "private"
-        hosts = [ var.domain ]
+        hosts = [ local.fqdn ]
         tls = [
           {
             secretName = "prometheus-grafana-cert"
-            hosts = [ var.domain ]
+            hosts = [ local.fqdn ]
           }
         ]
       }
     }
-  }
-  full_cfg = merge(local.nginx_cfg, local.oidc_auth)
-}
-
-data "kubernetes_secret" "oidc" {
-  metadata {
-    namespace = var.oidc_ns
-    name = var.oidc_name
   }
 }
 
@@ -56,7 +51,7 @@ resource "helm_release" "release" {
   name  = var.release_name
   repository = var.helm_url
   chart = var.chart
-  values = [yamlencode(local.full_cfg)]
+  values = [yamlencode(local.config)]
   namespace = var.namespace
 
 }

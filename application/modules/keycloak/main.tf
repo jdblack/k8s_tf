@@ -13,19 +13,6 @@ resource "keycloak_realm" "realm" {
   sso_session_max_lifespan_remember_me = "720h"
 }
 
-resource keycloak_openid_client k8s {
-  realm_id = keycloak_realm.realm.id
-  client_id = "k8s_auth"
-  name = "K8s Authentication"
-  enabled = true
-  access_type = "CONFIDENTIAL"
-  valid_redirect_uris = [
-    "http://localhost:8000",
-    "http://localhost:18000"
-  ]
-  standard_flow_enabled = true
-
-}
 
 
 resource "keycloak_openid_group_membership_protocol_mapper" "group_membership_mapper" {
@@ -34,8 +21,6 @@ resource "keycloak_openid_group_membership_protocol_mapper" "group_membership_ma
   name      = "groups"
   claim_name = "groups"
 }
-
-
 
 
 resource "keycloak_openid_user_property_protocol_mapper" "user" {
@@ -51,3 +36,4 @@ resource "keycloak_group" "clusteradmin" {
   realm_id = keycloak_realm.realm.id
   name     = "clusteradmin"
 }
+
