@@ -44,7 +44,7 @@ resource "kubernetes_deployment" "deployment" {
       spec {
         container {
           name = var.name
-          image = "registry:5000/openvpn_k8s"
+          image = "${module.registry-puller.server}/openvpn_k8s"
           security_context {
             capabilities {
               add = ["NET_ADMIN"]
