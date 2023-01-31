@@ -6,7 +6,7 @@ terraform {
 module "openvpn" {
   source = "./modules/openvpn"
   namespace = "openvpn"
-  name = "linuxguru"
+  name = "openvpn-linuxguru"
   domain = var.deployment.openvpn.domain
   cert_issuer = var.deployment.cert.cert_issuer
   registry_info = var.deployment.registry
