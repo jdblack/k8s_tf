@@ -51,3 +51,8 @@ locals {
     local.domain
   ]
 }
+
+variable ingress_class {
+  type = string
+  default = "private"
+}

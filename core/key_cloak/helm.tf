@@ -27,7 +27,7 @@ locals {
         EOT
         "cert-manager.io/cluster-issuer" = var.cert_issuer
       }
-      ingressClassName = "private"
+      ingressClassName = var.ingress_class
       hostname = local.domain
       tls = [
         {

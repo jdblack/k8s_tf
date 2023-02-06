@@ -8,7 +8,7 @@ module network {
 
 module cert_man {
   source = "./cert_man"
-  issuer_name  = var.deployment.cert.cert_issuer
+  data = var.deployment.cert
 }
 
 module registry {
@@ -27,6 +27,7 @@ module openebs {
 module keycloak {
   source = "./key_cloak"
   tld = var.deployment.common.domain
-  cert_issuer = module.cert_man.issuer
+   cert_issuer = module.cert_man.issuer
+  ingress_class = "private"
 }
 

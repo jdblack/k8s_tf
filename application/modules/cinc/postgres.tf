@@ -75,7 +75,7 @@ resource "kubernetes_persistent_volume_claim" "database" {
   }
   spec {
     access_modes = [ "ReadWriteOnce"]
-    storage_class_name = "openebs-jiva-csi-default"
+    storage_class_name = "jiva-rr2"
     resources {
       requests = {
         storage = "5Gi"

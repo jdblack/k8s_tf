@@ -1,1 +1,1 @@
-output "issuer" { value = var.issuer_name }
+output "issuer" { value = local.issuer_name }

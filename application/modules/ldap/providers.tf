@@ -12,5 +12,5 @@ terraform {
       version = "~> 2.17"
     }
   }
-
 }
+

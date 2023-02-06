@@ -13,7 +13,7 @@ locals {
     persistence = {
       enabled = true
       accessMode="ReadWriteOnce"
-      storageClass = "openebs-hostpath"
+      storageClass = "jiva-rr2"
     }
     secrets = {
       htpasswd = "${var.docker_user}:${random_password.password.bcrypt_hash}"

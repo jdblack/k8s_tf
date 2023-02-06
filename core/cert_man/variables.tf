@@ -7,8 +7,13 @@ variable cert_version {
   default="1.10.1"
 }
 
-variable issuer_name {
-  type=string
+variable data {
+  type = map
+}
+
+variable external_issuer_name {
+  type = string
+  default = "letsencrypt"
 }
 
 variable ca_certfile {

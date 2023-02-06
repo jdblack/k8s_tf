@@ -12,14 +12,6 @@ resource "helm_release" "ingress_public" {
     name = "controller.ingressClassResource.controllerValue"
     value = "k8s.io/${local.charts.ingress_public.name}"
   }
-  set {
-    name = "controller.ingressClassResource.enabled"
-    value = true
-  }
-  set {
-    name = "controller.ingressClassByName"
-    value = true
-  }
 }
 resource "helm_release" "ingres_private" {
   namespace  = var.namespace

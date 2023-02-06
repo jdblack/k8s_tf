@@ -1,5 +1,40 @@
 locals {
   res_name = "${var.release_name}-openldap"
+
+  values = {
+    replicaCount=1
+    replication = {
+      enabled = "false"
+    }
+    group: "users"
+    users: "jblack"
+    userPasswords: "admin1"
+    global = {
+      storageClass = "openebs-jiva-csi-default"
+      #      ldapDomain = "vn.linxguru.net"
+    }
+    phpldapadmin = {
+      ingress = {
+        enabled = true
+        annotations = {
+          "cert-manager.io/cluster-issuer" = var.cert_issuer
+        }
+        ingressClassName = "private"
+        path = "/"
+        hosts = [
+          "ldap.${var.ldap_domain}"
+        ]
+
+        tls = [
+          {
+            secretName = "openldap-cert"
+            hosts = [ "ldap.${var.ldap_domain}" ]
+
+          }
+        ]
+      }
+    }
+  }
 }
 
 resource "kubernetes_namespace" "namespace" {
@@ -8,38 +43,13 @@ resource "kubernetes_namespace" "namespace" {
   }
 }
 
-# check out https://github.com/osixia/docker-openldap/issues/105#issuecomment-279673189 
 
 resource "helm_release" "release" {
   name  = var.release_name
-  chart = "stable/openldap"
+  repository = "https://jp-gouin.github.io/helm-openldap/"
+  chart = "openldap-stack-ha"
+
   namespace = var.namespace
-  values = [
-    templatefile("${path.module}/settings.yaml.tpl", {
-      org=var.ldap_org
-      domain=var.ldap_domain
-    })
-  ]
-
-  set {
-    name = "persistence.storageClass"
-    value = "openebs-jiva-default"
-  }
-
-  set {
-    name = "service.type"
-    value = "LoadBalancer"
-  }
-
-  set {
-    name = "tls.enabled"
-    value = true
-  }
-
-  set {
-    name = "tls.secret"
-    value = module.ssl_cert.secret
-  }
-
+  values = [ yamlencode(local.values) ]
 }
 

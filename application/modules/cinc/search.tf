@@ -4,7 +4,7 @@ module "search" {
   source = "../../../common/opensearch/"
   cert_issuer = var.cert_issuer
   domain = local.search_fqdn
-  singlenode = true
+  replicas = 2
   TLSforLB = false
   #tag = "1"
 }

@@ -9,6 +9,7 @@ locals {
       tsigSecret = var.deployment.dyndns.secret
     }
     sources = [ "service", "ingress" ]
+    domainFilters = [ var.deployment.dyndns.domain ]
 
   }
 }

@@ -18,6 +18,3 @@ output "passwords" {
   value = data.kubernetes_secret.ldap.data
 }
 
-output "lb" {
-  value = data.kubernetes_service.service.load_balancer_ingress.0.ip
-}

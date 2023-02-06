@@ -1,14 +1,15 @@
 locals {
+  issuer_name = var.data["cert_issuer"]
   issuer_manifest = {
     apiVersion= "cert-manager.io/v1"
     kind= "ClusterIssuer"
     metadata = {
-      name= var.issuer_name
+      name= local.issuer_name
       namespace = var.namespace
     }
     spec = {
       ca = {
-        secretName = var.issuer_name
+        secretName = local.issuer_name
       }
     }
   }
@@ -24,7 +25,7 @@ resource "kubernetes_secret" "ca-key"  {
   depends_on  = [ kubernetes_namespace.namespace ]
   metadata {
     namespace = var.namespace
-    name = var.issuer_name
+    name = local.issuer_name
   }
   data = {
     "tls.crt" = file(var.ca_certfile)

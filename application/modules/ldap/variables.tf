@@ -1,7 +1,18 @@
-variable domains      { type = list}
-variable cert_issuer  { }
-variable namespace    { default = "ldap" }
-variable release_name { default = "ldap" }
+variable cert_issuer  {
+  type = string
+}
+variable namespace    {
+  type = string
+  default = "ldap" 
+}
+variable release_name { 
+  type = string
+  default = "ldap"
+}
 
-variable ldap_org { }
-variable ldap_domain { }
+variable ldap_org { 
+  type = string
+}
+variable ldap_domain { 
+  type = string 
+}
