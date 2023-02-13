@@ -5,6 +5,7 @@ resource "keycloak_realm" "realm" {
   display_name      = var.realm_display
   display_name_html = "<b>Linuxguru.Net</b>"
   login_theme = "keycloak"
+  admin_theme = "keycloak"
   access_token_lifespan = "1h"
   access_token_lifespan_for_implicit_flow = "1h"
   sso_session_idle_timeout = "24h"

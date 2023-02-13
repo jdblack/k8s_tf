@@ -39,9 +39,3 @@ module keycloak {
   namespace = var.deployment.keycloak.namespace
 }
 
-module ldap {
-  source = "./modules/ldap"
-  cert_issuer = var.deployment.cert.cert_issuer
-  ldap_org= "linuxguru"
-  ldap_domain = "vn.linuxguru.net"
-}

@@ -25,7 +25,7 @@ resource "kubernetes_deployment" "cinc" {
           image = "${module.registry-puller.server}/cinc_k8s"
           resources  {
             requests = {
-              memory = "7Gi"
+              memory = "2Gi"
             }
           }
 
