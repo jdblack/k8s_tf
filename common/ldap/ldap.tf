@@ -6,12 +6,14 @@ locals {
     replication = {
       enabled = "false"
     }
-    group: "users"
-    users: "jblack"
-    userPasswords: "admin1"
     global = {
-      storageClass = "openebs-jiva-csi-default"
-      #      ldapDomain = "vn.linxguru.net"
+      ldapDomain = var.ldap_domain
+      adminPassword: random_password.password.result
+      configPassword: random_password.password.result
+      storageClass = "jiva-rr2"
+    }
+    env = {
+      LDAP_EXTRA_SCHEMAS: "cosine,inetorgperson,nis"
     }
     phpldapadmin = {
       ingress = {
@@ -34,12 +36,6 @@ locals {
         ]
       }
     }
-  }
-}
-
-resource "kubernetes_namespace" "namespace" {
-  metadata {
-    name = var.namespace
   }
 }
 

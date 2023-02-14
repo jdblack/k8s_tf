@@ -2,6 +2,12 @@ locals {
   clusterName = local.name
 
   opensearch_values = [ yamlencode({
+    resources = {
+      requests = {
+        cpu = "1m"
+        memory: "100Mi"
+      }
+    }
     extraEnvs = [
       { 
         name = "DISABLE_INSTALL_DEMO_CONFIG"

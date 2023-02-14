@@ -1,9 +1,0 @@
-dn: dc=vn,dc=linuxguru,dc=net
-dc: linuxguru
-objectClass: dcObject
-objectClass: organizationalUnit
-out: Linuxguru.net
-
-dn: ou=people,dc=linuxguru,dc=net
-ou: people
-objectClass: organizatrionalUnbit

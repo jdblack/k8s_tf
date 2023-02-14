@@ -11,6 +11,9 @@ terraform {
     kubernetes = {
       version = "~> 2.17"
     }
+    random = {
+      version = "~> 3.4"
+    }
   }
 }
 

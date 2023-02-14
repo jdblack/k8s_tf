@@ -1,12 +1,13 @@
 
 
-data http flannel_manifest {
-  url = var.deployment.flannel.manifest
-  request_headers = { Accept = "*" }
-}
+#data http flannel_manifest {
+#  url = var.deployment.flannel.manifest
+#  request_headers = { Accept = "*" }
+#}
 
 data kubectl_file_documents flannel {
-  content = data.http.flannel_manifest.response_body
+  content = file("${path.module}/kube-flannel-0.20.2.yml")
+  # content =  data.http.flannel_manifest.response_body
 }
 
 resource kubectl_manifest flannel {

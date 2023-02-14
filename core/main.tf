@@ -24,10 +24,10 @@ module openebs {
   source = "./open_ebs"
 }
 
-module keycloak {
-  source = "./key_cloak"
-  tld = var.deployment.common.domain
-   cert_issuer = module.cert_man.issuer
-  ingress_class = "private"
-}
 
+module auth {
+  source = "./auth"
+  cert_issuer = var.deployment.cert.cert_issuer
+  domain = var.deployment.common.domain
+  namespace = "kube-auth"
+}
