@@ -6,13 +6,14 @@ locals {
     }
     customLdifFiles= {
       "root.ldif" = local.root_ldif
-      "groups.ldif" = local.groups_ldif
       "users.ldif" = local.users_ldif
     }
     global = {
       ldapDomain = var.ldap_domain
       adminPassword: random_password.password.result
       configPassword: random_password.password.result
+    }
+    persistence = {
       storageClass = "jiva-rr2"
     }
     env = {
