@@ -1,10 +1,13 @@
 locals {
-  res_name = "${var.release_name}-openldap"
-
   values = {
     replicaCount=1
     replication = {
       enabled = "false"
+    }
+    customLdifFiles= {
+      "root.ldif" = local.root_ldif
+      "groups.ldif" = local.groups_ldif
+      "users.ldif" = local.users_ldif
     }
     global = {
       ldapDomain = var.ldap_domain
@@ -13,7 +16,8 @@ locals {
       storageClass = "jiva-rr2"
     }
     env = {
-      LDAP_EXTRA_SCHEMAS: "cosine,inetorgperson,nis"
+      LDAP_EXTRA_SCHEMAS: "cosine,inetorgperson,nis",
+      LDAP_SKIP_DEFAULT_TREE = "yes"
     }
     phpldapadmin = {
       ingress = {

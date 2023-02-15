@@ -4,7 +4,7 @@ variable credentials {
 }
 
 variable namespace {
-  default = "keycloak"
+  default = "kube-auth"
   type = string
 }
 

@@ -1,3 +1,11 @@
+variable ldap_dn {
+  type = string
+}
+
+variable ldap_org {
+  type = string
+}
+
 variable cert_issuer  {
   type = string
 }

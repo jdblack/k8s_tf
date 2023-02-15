@@ -29,5 +29,7 @@ module auth {
   source = "./auth"
   cert_issuer = var.deployment.cert.cert_issuer
   domain = var.deployment.common.domain
+  ldap_org = var.deployment.ldap.org
+  ldap_dn = var.deployment.ldap.dn
   namespace = "kube-auth"
 }
