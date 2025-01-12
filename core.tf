@@ -40,9 +40,7 @@ output "registry_password" {
 }
 
 
-
-# Right now this just includes kube metrics_server
 module misc {
-  source = "../../core_modules/misc"
+  source = "../../core_modules/metrics_server"
 }
 
