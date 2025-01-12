@@ -1,7 +1,8 @@
 
 terraform {
   backend "kubernetes" {
-    secret_suffix = "state"
+    namespace = "kube-system"
+    secret_suffix = "tfstate"
     config_path = "~/.kube/config"
   }
 }
