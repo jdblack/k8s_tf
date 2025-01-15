@@ -6,14 +6,3 @@ resource "kubernetes_namespace" "namespace" {
   }
 }
 
-
-module corsless {
-  source = "../../service_modules/corsless"
-  domain = var.deployment.common.domain
-  deployment = var.deployment
-  namespace = var.namespace
-  depends_on =  [ module.registry ]
-
-}
-
-

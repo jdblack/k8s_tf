@@ -1,6 +1,24 @@
 # This file is maintained automatically by "tofu init".
 # Manual edits may be lost in future updates.
 
+provider "registry.opentofu.org/argoproj-labs/argocd" {
+  version     = "7.3.0"
+  constraints = "7.3.0"
+  hashes = [
+    "h1:Db21QpRBlhsqHBD1AuM+57uG/38DtmfdCcO9XTg93mA=",
+    "zh:1a84c3ba201fac898a35cc1b28f613e1c17de6b8a864374349da1086b38352fa",
+    "zh:2222347fe9effa6430e8f8a4bb9b830788f1fb8666858307863bf41e1348a311",
+    "zh:25ac33def27c00dc475eba223d040c8fcad6cc8a7bc8a78f04e11f7675bc1457",
+    "zh:3998ca644f2d0fc736bf29db4db9d1c751729251c16cbf4b539a9b0f29d8165f",
+    "zh:4276390ea9e667b6fa930f3852f46d5582f5a7606f94cffda3eca1e8781aefa0",
+    "zh:435f0c3d71464bec3d0f380a677e3c727f0115c64be38e7113c22b2d487f00f9",
+    "zh:5a636e6c7eb633e59c0d6ba41f541faf7f6f09ac8e038cd58f134a6a93302856",
+    "zh:642e8d5677c3a3f12ccf516c3d5f02d4b8b4d07d225527fd6c7c45087f5f736e",
+    "zh:8f1e5c800701e218f07144c24a9fffbac4e3836fe3fa39edfc43f7b1dcc24926",
+    "zh:ce18e154636b529deddd91085d91d670d5ff6d6b287f2c11e31b2610474ec814",
+  ]
+}
+
 provider "registry.opentofu.org/gavinbunney/kubectl" {
   version     = "1.18.0"
   constraints = "~> 1.14, 1.18.0"

@@ -1,5 +1,6 @@
 
 variable deployment { type = map}
+variable harbor { type = map }
 
 module network {
   source = "../../core_modules/network"
@@ -9,38 +10,61 @@ module network {
 module storage {
   source = "../../core_modules/storage"
   namespace = "kube-storage"
+  depends_on = [ module.network ]
 }
 
 module cert_man {
   source = "../../core_modules/cert_manager"
   data = var.deployment.cert
+  depends_on = [ module.network ]
 }
 
 
-
-module registry {
-  source = "../../core_modules/registry"
-  namespace = var.deployment.registry.namespace
-  depends_on = [ module.cert_man ]
-  tld = var.deployment.common.domain
-  cert_issuer = module.cert_man.issuer
-  secret_name = var.deployment.registry.secret_name
-}
 
 module dyndns {
   source = "../../service_modules/dyndns"
   namespace = "kube-network"
-  deployment = var.deployment
-  depends_on = [ module.registry ]
+
+  registry = "${module.harbor.registry_host}/linuxguru"
+
+  domain = "home.linuxguru.net"
+  r53_zone = var.deployment.dyndns_host.R53_ZONEID
+
+  AWS_REGION = var.deployment.dyndns_host.AWS_REGION
+  AWS_ACCESS_KEY_ID = var.deployment.dyndns_host.AWS_ACCESS_KEY_ID
+  AWS_SECRET_ACCESS_KEY = var.deployment.dyndns_host.AWS_SECRET_ACCESS_KEY
+
+  depends_on = [ module.harbor ]
 }
 
-output "registry_password" {
-  value = module.registry.password
-  sensitive=true
-}
-
-
-module misc {
+module metrics_server {
   source = "../../core_modules/metrics_server"
+  depends_on = [ module.network ]
 }
+
+
+module harbor {
+  source = "../../core_modules/harbor" 
+  certca = var.deployment.cert.cert_issuer
+  domain = var.deployment.common.domain
+  depends_on = [ module.cert_man,  module.storage, module.network ]
+}
+
+module argocd {
+  source = "../../core_modules/argocd"
+  domain = var.deployment.common.domain
+  ssl_ca = var.deployment.cert.cert_issuer
+  devops_deploy_repo = var.deployment.argocd_devops.deploy_repo
+  devops_deploy_key = var.deployment.argocd_devops.deploy_key
+}
+
+
+#module harbor_projects {
+#  source = "../../core_modules/harbor/project"
+#  projects = var.harbor.projects
+#  user = "admin"
+#  password = module.harbor.admin_pass
+#  harbor_url = module.harbor.registry_url
+#}
+
 
