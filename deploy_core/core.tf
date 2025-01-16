@@ -22,7 +22,7 @@ module cert_man {
 
 
 module dyndns {
-  source = "../modules/dyndns"
+  source = "../modules/network/dyndns"
   namespace = "kube-network"
 
   registry = "${module.harbor.registry_host}/linuxguru"

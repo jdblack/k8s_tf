@@ -37,10 +37,9 @@ resource "helm_release" "keycloak" {
     value = random_password.keycloak_admin.result 
   }
 
-
   set {
     name = "ingress.hostname" 
-    value = var.name
+    value = local.domain
   }
 
   set {
@@ -51,17 +50,6 @@ resource "helm_release" "keycloak" {
   set {
     name = "ingress.annotations.external-dns\\.alpha\\.kubernetes\\.io/hostname"
     value = local.domain
-  }
-
-  set {
-    name = "ingress.extraHosts[0].name"
-    value = local.domain
-  }
-
-
-  set {
-    name = "ingress.extraHosts[0].path"
-    value = "/"
   }
 
   set {

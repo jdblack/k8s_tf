@@ -4,3 +4,6 @@ is unable to create a provider for a service that is has just built.  For exampl
 created with the Helm provider,  but then  configured with the Keycloak provider.   The  Keycloak provider can not
 exist until after the helm provider has finished.
 
+To deal with this, we have deploy_core, and deploy_mantle,  each of which need to be deployed indepentendly with
+terraform apply
+
