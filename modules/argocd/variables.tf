@@ -1,0 +1,90 @@
+variable namespace { default = "devops" }
+variable chart  { default = "https://argo-helm/charts/argo-cd" }
+variable name { default = "argo" }
+variable domain { type = string }
+variable storage_size { default = "10Gi" }
+variable storage_class { default = "openebs-lvmpv" } 
+variable ssl_ca { type = string }
+
+variable devops_deploy_key { type = string } 
+variable devops_deploy_repo { type = string }
+
+
+locals {
+  fqdn = "${var.name}.${var.domain}" 
+  config = {
+    global = {
+      domain = local.fqdn
+    }
+
+    server = {
+      service = {
+        type = "ClusterIP"
+      }
+      ingress = {
+        enabled = true
+        extraHosts = [
+          { name = "argo"
+          path = "/"
+        }
+      ]
+
+
+      annotations = {
+        "nginx.ingress.kubernetes.io/ssl-passthrough" : "true"
+        "cert-manager.io/cluster-issuer" : "linuxguru-ca"
+        "nginx.ingress.kubernetes.io/backend-protocol": "HTTPS"
+      }
+      ingressClassName = "private"
+
+      rule = {
+        hosts  = [
+          var.name, 
+          local.fqdn
+        ]
+
+        http = {
+          path = {
+            path = "/"
+            path_type = "Prefix"  # Specify the path_type (Prefix or Exact)
+
+            backend = {
+              service = {
+                name = var.name
+                port = {
+                  name= "https"
+                }
+              }
+            }
+          }
+        }
+      }
+
+      tls = [
+        {
+          secretName = "cert-${local.fqdn}"
+          hosts      = [local.fqdn, var.name]
+        }
+      ]
+    }
+    resources = {
+      requests = {
+        cpu    = "250m"
+        memory = "256Mi"
+      }
+      limits = {
+        cpu    = "500m"
+        memory = "512Mi"
+      }
+    }
+  }
+  persistence = {
+    enabled       = true
+    storageClass  = "openebs-lvmpv"
+    size          = var.storage_size
+  }
+  finalizers = [
+    "resources-finalizer.argocd.argoproj.io"
+  ]
+}
+}

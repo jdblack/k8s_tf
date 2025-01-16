@@ -5,13 +5,13 @@ resource kubernetes_namespace monitoring {
 }
 
 module metrics_server {
-  source = "../../core_modules/monitoring/metrics_server"
+  source = "../modules/monitoring/metrics_server"
   depends_on = [ module.network ]
   namespace = "monitoring"
 }
 
 module prometheus {
-  source = "../../core_modules/monitoring/prometheus"
+  source = "../modules/monitoring/prometheus"
   namespace = "monitoring"
   depends_on = [ module.network ]
   domain = var.deployment.common.domain
