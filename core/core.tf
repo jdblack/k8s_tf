@@ -37,18 +37,6 @@ module dyndns {
   depends_on = [ module.harbor ]
 }
 
-module metrics_server {
-  source = "../../core_modules/metrics_server"
-  depends_on = [ module.network ]
-}
-
-
-module harbor {
-  source = "../../core_modules/harbor" 
-  certca = var.deployment.cert.cert_issuer
-  domain = var.deployment.common.domain
-  depends_on = [ module.cert_man,  module.storage, module.network ]
-}
 
 module argocd {
   source = "../../core_modules/argocd"
@@ -59,12 +47,11 @@ module argocd {
 }
 
 
-#module harbor_projects {
-#  source = "../../core_modules/harbor/project"
-#  projects = var.harbor.projects
-#  user = "admin"
-#  password = module.harbor.admin_pass
-#  harbor_url = module.harbor.registry_url
-#}
+module harbor {
+  source = "../../core_modules/harbor" 
+  certca = var.deployment.cert.cert_issuer
+  domain = var.deployment.common.domain
+  projects = var.harbor.projects
+}
 
 
