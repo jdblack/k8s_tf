@@ -13,6 +13,14 @@ terraform {
       source = "keycloak/keycloak"
       version = "5.0.0"
     }
+    kubectl = {
+      source = "gavinbunney/kubectl"
+      version = "1.18.0"
+    }
+    kubernetes = {
+      source = "hashicorp/kubernetes"
+      version = "2.35.1"
+    }
   }
 }
 
@@ -26,6 +34,17 @@ data kubernetes_secret keycloak_auth {
 provider "kubernetes" {
   config_path    = "~/.kube/config"
 }
+
+provider "helm" {
+  kubernetes { 
+    config_path = "~/.kube/config"
+  }
+}
+
+provider "kubectl" {
+  config_path = "~/.kube/config"
+}
+
 
 provider "keycloak" {
   client_id = "admin-cli"
