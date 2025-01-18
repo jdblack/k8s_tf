@@ -21,6 +21,16 @@ terraform {
       source = "hashicorp/kubernetes"
       version = "2.35.1"
     }
+    harbor = {
+      source = "goharbor/harbor"
+      version = "3.10.17"
+    }
+
+    argocd = {
+      source = "argoproj-labs/argocd"
+      version = "7.3.0"
+    }
+
   }
 }
 
@@ -53,4 +63,30 @@ provider "keycloak" {
   url       = data.kubernetes_secret.keycloak_auth.data["admin_url"]
 }
 
+
+data kubernetes_secret harbor_auth {
+  metadata {
+    namespace = var.deployment.harbor.namespace
+    name = var.deployment.harbor.auth_secret
+  }
+}
+
+provider harbor {
+  username = data.kubernetes_secret.harbor_auth.data["username"]
+  password = data.kubernetes_secret.harbor_auth.data["password"]
+  url = data.kubernetes_secret.harbor_auth.data["url"]
+}
+
+data kubernetes_secret argocd_auth {
+  metadata {
+    namespace = var.deployment.argocd_devops.namespace
+    name = var.deployment.argocd_devops.auth_secret
+  }
+}
+
+provider "argocd" {
+  server_addr = "${var.deployment.argocd_devops.server}:443"
+  username = "admin"
+  password = data.kubernetes_secret.argocd_auth.data["password"]
+}
 
