@@ -1,9 +1,9 @@
 
-variable namespace { default     = "harbor" }
+variable namespace {  }
 variable name      { default     = "harbor" }
 variable domain    { type = string }
-variable projects  { type = map    }
 variable certca    { type = string } 
+variable auth_secret { }
 
 locals {
   fqdn = "${var.name}.${var.domain}"

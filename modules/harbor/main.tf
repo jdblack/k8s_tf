@@ -62,20 +62,9 @@ resource "helm_release" "harbor" {
     value = random_password.admin_password.result
   }
 
-  set {
-    name = "registry.credentials.username"
-    value = "docker"
-  }
-
-  set {
-    name = "registry.credentials.password"
-    value = random_password.registry_password.result
-  }
-
 }
 
 
 output registry_host {  value = local.fqdn }
 output registry_url {  value = local.url }
 output admin_pass { value = random_password.admin_password.result }
-output docker_pass { value = random_password.registry_password.result }

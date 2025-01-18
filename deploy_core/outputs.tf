@@ -8,11 +8,6 @@ output "harbor_admin_pass" {
   sensitive=true
 }
 
-output "harbor_docker_pass" {
-  value = module.harbor.docker_pass
-  sensitive=true
-}
-
 output "harbor_url" {
   value = module.harbor.registry_url
 }

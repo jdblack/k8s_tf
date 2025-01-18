@@ -1,6 +1,5 @@
 
 variable deployment { type = map}
-variable harbor { type = map }
 
 module network {
   source = "../modules/network"
@@ -35,23 +34,6 @@ module dyndns {
   AWS_SECRET_ACCESS_KEY = var.deployment.dyndns_host.AWS_SECRET_ACCESS_KEY
 
   depends_on = [ module.harbor ]
-}
-
-
-module argocd {
-  source = "../modules/argocd"
-  domain = var.deployment.common.domain
-  ssl_ca = var.deployment.cert.cert_issuer
-  devops_deploy_repo = var.deployment.argocd_devops.deploy_repo
-  devops_deploy_key = var.deployment.argocd_devops.deploy_key
-}
-
-
-module harbor {
-  source = "../modules/harbor" 
-  certca = var.deployment.cert.cert_issuer
-  domain = var.deployment.common.domain
-  projects = var.harbor.projects
 }
 
 
