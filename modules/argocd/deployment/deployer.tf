@@ -1,19 +1,20 @@
+
 resource argocd_application deployer {
   metadata {
     name = "deployer"
-    namespace = var.namespace
+    namespace = "devops-argo"
   }
   cascade = true
   wait = true
   spec {
-    project = "devops"
+    project = local.project
     destination {
       name = "in-cluster"
       namespace = var.namespace
     }
     source {
       repo_url = var.repo
-      path = "deployments"
+      path = var.deployment_path
       target_revision = "HEAD"
     }
     sync_policy {
@@ -28,5 +29,5 @@ resource argocd_application deployer {
   lifecycle {
     ignore_changes = [ spec[0].destination ]
   }
-  depends_on = [ argocd_project.devops ]
+  depends_on = [ argocd_project.project ]
 }
