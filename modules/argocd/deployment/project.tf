@@ -9,7 +9,11 @@ resource argocd_project project {
     source_namespaces = ["*"]
     destination {
       name = "in-cluster"
-      namespace = var.namespace
+      namespace = "ai"
+    }
+    destination {
+      name = "in-cluster"
+      namespace = "devops-argo"
     }
     sync_window {
       kind = "allow"
