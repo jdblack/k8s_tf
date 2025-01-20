@@ -12,23 +12,6 @@ resource keycloak_openid_client k8s {
 
 }
 
-resource "keycloak_openid_group_membership_protocol_mapper" "group_membership_mapper" {
-  realm_id  = keycloak_realm.realm.id
-  client_id = keycloak_openid_client.k8s.id
-  name      = "groups"
-  claim_name = "groups"
-}
-
-
-resource "keycloak_openid_user_property_protocol_mapper" "user" {
-  realm_id  = keycloak_realm.realm.id
-  client_id = keycloak_openid_client.k8s.id
-  name      = "username"
-
-  user_property = "username"
-  claim_name    = "name"
-}
-
 #
 #
 #resource kubectl_manifest  authenticate_with_keycloak

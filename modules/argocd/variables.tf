@@ -22,6 +22,7 @@ locals {
       tls = {
         certificates = {
           "harbor.vn.linuxguru.net"= data.kubernetes_secret.ca_cert.data["tls.crt"]
+          "keycloak.vn.linuxguru.net"= data.kubernetes_secret.ca_cert.data["tls.crt"]
         }
       }
     }

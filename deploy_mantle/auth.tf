@@ -7,4 +7,5 @@ module keycloak {
   providers = {
     keycloak = keycloak
   }
+  domain = var.deployment.common.domain
 }
