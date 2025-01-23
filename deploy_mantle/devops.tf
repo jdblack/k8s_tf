@@ -2,6 +2,9 @@
 module harbor_setup {
   source = "./devops/harbor"
   projects = var.harbor_projects
+  domain = var.deployment.common.domain
+  oidc_url = module.keycloak.realm_url
+  realm = var.deployment.keycloak.realm
 }
 
 module argocd_setup {

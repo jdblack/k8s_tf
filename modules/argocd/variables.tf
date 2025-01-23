@@ -5,7 +5,7 @@ variable domain { type = string }
 variable storage_size { default = "10Gi" }
 variable storage_class { default = "openebs-lvmpv" } 
 variable ssl_ca { }
-variable ssl_ca_namespace { default = "kube-certificates" }
+variable ssl_ca_namespace { }
 
 
 

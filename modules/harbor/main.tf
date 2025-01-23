@@ -5,66 +5,40 @@ resource kubernetes_namespace namespace {
   }
 }
 
+locals {
+  ca_secret_name = "${var.ssl_ca}.crt"
+  helm_values = {
+    "externalURL"                = local.url,
+    "updateStrategy.type"        = "Recreate",
+    "harborAdminPassword"        = random_password.admin_password.result,
+
+    "persistentVolumeClaim.registry.size"  = "20Gi",
+    "caBundleSecretName" =  local.ca_secret_name
+
+    "expose.ingress.tls.certSource"        = "secret",
+    "expose.ingress.tls.secret.secretName" = "${var.name}-cert",
+    "expose.ingress.hosts.core"            = local.fqdn,
+    "expose.ingress.className"             = "private",
+
+
+    "expose.ingress.annotations.external-dns\\.alpha\\.kubernetes\\.io/hostname" = local.fqdn,
+    "expose.ingress.annotations.cert-manager\\.io/cluster-issuer" = var.certca,
+
+  }
+}
+
 resource "helm_release" "harbor" {
   name       = "harbor"
   repository = "https://helm.goharbor.io"
   chart      = "harbor"
   namespace  = var.namespace
 
-
-  set {
-    name = "persistentVolumeClaim.registry.size"
-    value = "20Gi"
+  dynamic "set" {
+    for_each = local.helm_values
+    content {
+      name  = set.key
+      value = set.value
+    }
   }
-
-  set {
-    name = "externalURL"
-    value = local.url
-  }
-
-  set {
-    name = "updateStrategy.type"
-    value = "Recreate"
-  }
-
-  set {
-    name = "expose.ingress.tls.certSource"
-    value = "secret"
-  }
-
-  set {
-    name = "expose.ingress.tls.secret.secretName"
-    value = "${var.name}-cert"
-  }
-
-  set {
-    name = "expose.ingress.annotations.external-dns\\.alpha\\.kubernetes\\.io/hostname"
-    value = local.fqdn
-  }
-
-  set {
-    name = "expose.ingress.hosts.core"
-    value = local.fqdn
-  }
-
-  set {
-    name = "expose.ingress.className"
-    value = "private"
-  }
-
-  set {
-    name  = "expose.ingress.annotations.cert-manager\\.io/cluster-issuer"
-    value = var.certca
-  }
-
-  set {
-    name = "harborAdminPassword"
-    value = random_password.admin_password.result
-  }
-
 }
 
-
-output registry_host {  value = local.fqdn }
-output registry_url {  value = local.url }
-output admin_pass { value = random_password.admin_password.result }

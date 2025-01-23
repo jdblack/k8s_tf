@@ -15,11 +15,9 @@ resource "kubernetes_secret" "admin_auth" {
 
 }
 
-
 resource random_password admin_password {
   length = 15
   special = true
   override_special = "_%@"
 }
-
 
