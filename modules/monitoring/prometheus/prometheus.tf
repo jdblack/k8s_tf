@@ -5,57 +5,46 @@ resource helm_release prometheus {
   repository = var.repo
   chart = var.chart
 
-  set {
-    name = "grafana.enabled"
-    value = true
-  }
+  set  = [ 
+    {
+      name = "grafana.enabled"
+      value = true
+    } , {
+      name = "grafana.persistence.enabled"
+      value = true
+    } , {
+      name = "grafana.adminPassword"
+      value = "prom-operator"
+    } , {
+      name = "grafana.persistence.size"
+      value = "1Gi"
+    } , {
+      name = "grafana.ingress.enabled"
+      value = true
+    } , {
+      name = "grafana.ingress.ingressClassName"
+      value = "private"
+    } , {
+      name = "grafana.ingress.annotations.cert-manager\\.io/cluster-issuer"
+      value = var.cert_issuer
+    } , {
+      name = "grafana.ingress.tls[0].secretName"
+      value = "prometheus-grafana-cert"
+    }
 
-  set {
-    name = "grafana.persistence.enabled"
-    value = true
-  }
- 
-  set {
-    name = "grafana.adminPassword"
-    value = "prom-operator"
-  }
-
-  set {
-    name = "grafana.persistence.size"
-    value = "1Gi"
-  }
-
-  set {
-    name = "grafana.ingress.enabled"
-    value = true
-  }
-
-  set {
-    name = "grafana.ingress.ingressClassName"
-    value = "private"
-  }
-
-
-  set {
-    name = "grafana.ingress.annotations.cert-manager\\.io/cluster-issuer"
-    value = var.cert_issuer
-  }
+  ]
 
 
-  set_list {
-    name = "grafana.ingress.hosts"
-    value = [ var.grafana_name, local.grafana.fqdn ]
-  }
+  set_list = [ 
+    {
+      name = "grafana.ingress.hosts"
+      value = [ var.grafana_name, local.grafana.fqdn ]
+    } , {
+      name = "grafana.ingress.tls[0].hosts"
+      value = [ var.grafana_name, local.grafana.fqdn ]
+    }
+  ]
 
-  set {
-    name = "grafana.ingress.tls[0].secretName"
-    value = "prometheus-grafana-cert"
-  }
-
-  set_list {
-    name = "grafana.ingress.tls[0].hosts"
-    value = [ var.grafana_name, local.grafana.fqdn ]
-  }
 
 }
 

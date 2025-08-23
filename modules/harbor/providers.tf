@@ -11,8 +11,8 @@ terraform {
 
 
 
-provider harbor {
-  username = "admin"
-  password = random_password.admin_password.result
-  url = local.url
-}
+#provider harbor {
+#  username = "admin"
+#  password = random_password.admin_password.result
+#  url = local.url
+#}

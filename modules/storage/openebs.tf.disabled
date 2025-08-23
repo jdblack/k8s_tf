@@ -1,0 +1,64 @@
+
+resource helm_release release {
+  name  = "openebs"
+  namespace = var.namespace
+  repository = local.helm_openebs_url
+  chart = local.helm_openebs_chart
+  set {
+    name = "localprovisioner.hostpathClass.isDefaultClass"
+    value = false
+  }
+  set {
+    name = "mayastor.envcontext"
+    value = "iova-mode=pa"
+  }
+  set {
+    name = "mayastor.io_engine.envcontext"
+    value = "iova-mode=pa"
+  }
+
+  set {
+    name = "engines.local.zfs.enabled"
+    value = "false"
+  }
+}
+
+
+resource kubectl_manifest node_storage {
+  for_each = toset(split(" ",var.storage_nodes))
+
+  yaml_body = yamlencode({
+    apiVersion = "openebs.io/v1beta2"
+    kind       = "DiskPool"
+    metadata = {
+      name      = "pool-${each.key}"
+      namespace = var.namespace
+    }
+    spec = {
+      node  = each.key
+      disks = [ "aio://${var.storage_disk}" ]
+    }
+  })
+}
+
+resource "kubernetes_storage_class" "mayastor" {
+  metadata {
+    name = "mayastor-replication-2"
+    annotations = {
+      "storageclass.kubernetes.io/is-default-class" = "true"
+    }
+  }
+
+  storage_provisioner = "io.openebs.csi-mayastor"
+
+  parameters = {
+    replication = "2"
+  }
+
+  reclaim_policy = "Delete"  # You can set to "Retain" based on your needs
+
+  volume_binding_mode = "WaitForFirstConsumer"
+}
+
+
+

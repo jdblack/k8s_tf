@@ -1,16 +1,16 @@
 
 resource kubernetes_namespace auth {
   metadata {
-    name = "auth"
+    name = "kube-auth"
   }
 }
 
 module keycloak {
   source = "../modules/auth/keycloak"
-  namespace = "auth"
-  depends_on = [ module.network ]
+  namespace = "kube-auth"
   domain = var.deployment.common.domain
   cert_issuer = var.deployment.cert.cert_issuer
+  depends_on = [ module.cert_man, module.storage, kubernetes_namespace.auth ]
 }
 
 #module keycloak_setup {
@@ -22,7 +22,7 @@ module keycloak {
 #  admin_url = module.keycloak.url
 #
 #}
-#
+
 
 output keycloak_admin_pass {
   value = module.keycloak.admin_pass

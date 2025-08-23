@@ -29,10 +29,10 @@ resource "helm_release" "metal" {
   name       = local.charts.metal.name
   repository = local.charts.metal.url
   chart      = local.charts.metal.chart
-  set {
+  set = [ {
     name = "spec.loadBalancerClass"
     value = "metallb"
-  }
+  } ] 
   depends_on  = [ kubernetes_namespace.namespace]
 }
 

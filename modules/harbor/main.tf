@@ -32,13 +32,15 @@ resource "helm_release" "harbor" {
   repository = "https://helm.goharbor.io"
   chart      = "harbor"
   namespace  = var.namespace
+  timeout = 500
 
-  dynamic "set" {
-    for_each = local.helm_values
-    content {
-      name  = set.key
-      value = set.value
+  set = [
+    for key, value in local.helm_values : {
+      name  = key
+      value = value
     }
-  }
+  ]
+
+
 }
 

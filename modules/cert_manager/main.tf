@@ -12,10 +12,12 @@ resource "helm_release" "release" {
   chart      = "cert-manager"
   version = var.cert_version
 
-  set {
-    name = "installCRDs" 
-    value = true
-  }
+  set = [ 
+    {
+      name = "installCRDs" 
+      value = true
+    }
+  ]
   depends_on = [ kubernetes_secret.ca-key]
 }
 

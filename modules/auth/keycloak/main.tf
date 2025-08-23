@@ -10,52 +10,36 @@ resource "helm_release" "keycloak" {
   chart      = var.chart
   namespace  = var.namespace
 
-  set {
-    name = "ingress.enabled"
-    value = true
-  }
-
-  set {
-    name = "ingress.ingressClassName"
-    value = var.ingress_class
-  }
-
-  set {
-    name = "ingress.tls"
-    value = true
-  }
-
-
-  set {
-    name = "auth.adminUser"
-    value = var.adminuser
-  }
-
-
-  set {
-    name = "auth.adminPassword"
-    value = random_password.keycloak_admin.result 
-  }
-
-  set {
-    name = "ingress.hostname" 
-    value = local.domain
-  }
-
-  set {
-    name = "ingress.https"
-    value = true
-  }
-
-  set {
-    name = "ingress.annotations.external-dns\\.alpha\\.kubernetes\\.io/hostname"
-    value = local.domain
-  }
-
-  set {
-    name= "ingress.annotations.cert-manager\\.io/cluster-issuer"
-    value = var.cert_issuer
-  }
+  set  = [
+    {
+      name = "ingress.enabled"
+      value = true
+    }, {
+      name = "ingress.ingressClassName"
+      value = var.ingress_class
+    } ,{
+      name = "ingress.tls"
+      value = true
+    } , {
+      name = "auth.adminUser"
+      value = var.adminuser
+    } , {
+      name = "auth.adminPassword"
+      value = random_password.keycloak_admin.result 
+    } , {
+      name = "ingress.hostname" 
+      value = local.domain
+    } , {
+      name = "ingress.https"
+      value = true
+    } , {
+      name = "ingress.annotations.external-dns\\.alpha\\.kubernetes\\.io/hostname"
+      value = local.domain
+    } , {
+      name= "ingress.annotations.cert-manager\\.io/cluster-issuer"
+      value = var.cert_issuer
+    }
+  ]
 
 }
 
