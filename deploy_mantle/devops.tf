@@ -5,6 +5,7 @@ module harbor_setup {
   domain = var.deployment.common.domain
   oidc_url = module.keycloak.realm_url
   realm = var.deployment.keycloak.realm
+  depends_on = [ module.keycloak ]
 }
 
 module argocd_setup {
@@ -17,5 +18,6 @@ module argocd_setup {
   domain = var.deployment.common.domain
   ca_cert_cm = "${var.deployment.cert.cert_issuer}.crt"
   keycloak_url = module.keycloak.realm_url
+  depends_on = [ module.keycloak ]
 }
 

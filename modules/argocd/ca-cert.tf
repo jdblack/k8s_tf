@@ -14,6 +14,7 @@ resource kubernetes_config_map argocd_ca_cert {
   data = {
     "ca.crt"= data.kubernetes_secret.ca_cert.data["tls.crt"]
   }
+  depends_on = [  kubernetes_namespace.argocd ]
 }
 
 resource kubernetes_config_map_v1_data argocd_tls_cert {
@@ -25,5 +26,6 @@ resource kubernetes_config_map_v1_data argocd_tls_cert {
   data = {
     "harbor.vn.linuxguru.net"= data.kubernetes_secret.ca_cert.data["tls.crt"]
   }
+  depends_on = [  helm_release.argocd ] 
 }
 

@@ -1,0 +1,8 @@
+
+
+
+module media {
+  source = "../modules/media"
+  namespace = "kube-storage"
+  media = var.media
+}

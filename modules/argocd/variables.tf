@@ -3,7 +3,6 @@ variable chart  { default = "https://argo-helm/charts/argo-cd" }
 variable name { default = "argo" }
 variable domain { type = string }
 variable storage_size { default = "10Gi" }
-variable storage_class { default = "openebs-lvmpv" } 
 variable ssl_ca { }
 variable ssl_ca_namespace { }
 
@@ -81,7 +80,6 @@ locals {
   }
   persistence = {
     enabled       = true
-    storageClass  = "openebs-lvmpv"
     size          = var.storage_size
   }
   finalizers = [ "resources-finalizer.argocd.argoproj.io" ]

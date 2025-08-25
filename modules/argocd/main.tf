@@ -13,13 +13,14 @@ resource "helm_release" "argocd" {
 
   # Encode local.config to YAML for Helm values
   values = [yamlencode(local.config)]
+  depends_on = [ kubernetes_config_map.argocd_ca_cert ] 
 }
 
 
 data "kubernetes_secret" "initial_admin_pass" {
   metadata {
     name = "argocd-initial-admin-secret"
-    namespace =var.namespace
+    namespace = var.namespace
   }
   depends_on = [ helm_release.argocd ]
 }
