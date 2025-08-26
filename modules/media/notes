@@ -1,0 +1,4 @@
+
+for x in k8smaster k8sn1 k8sn2 k8sn3 k8sn4 k8sn5; do ssh $x  "sudo wget https://github.com/kahing/goofys/releases/latest/download/goofys -O /usr/bin/goofys &&  sudo chmod +x /usr/bin/goofys"; done
+
+

@@ -1,0 +1,42 @@
+locals {
+  jelly_domain = "${var.jelly_name}.linuxguru.net"
+  helm_values = {
+    "ingress.enabled"   =  true,
+    "ingress.className" = "public",
+    "ingress.hostname"  = local.jelly_domain,
+    "ingress.hosts.0.host"             = local.jelly_domain,
+    "ingress.hosts.0.paths.0.path"     = "/"
+    "ingress.hosts.0.paths.0.pathType" = "ImplementationSpecific",
+    "ingress.tls.0.hosts.0"    = local.jelly_domain,
+    "ingress.tls.0.secretName" = "cert-${local.jelly_domain}"
+    "ingress.annotations.cert-manager\\.io/cluster-issuer"  = var.cert_issuer,
+    "ingress.annotations.external-dns\\.alpha\\.kubernetes\\.io/hostname"  = local.jelly_domain,
+    "ingress.annotations.cert-manager\\.io/cluster-issuer" = var.cert_issuer,
+
+    "persistence.media.enabled"     = true,
+    "persistence.media.existingClaim" = var.movies_name,  # This should match the name of your PVC
+    "persistence.media.accessMode"  = "ReadOnceMany",
+    "persistence.media.size"        = var.media_s3_auth.storage_size,
+    "persistence.media.storageClass" = "csi-s3"  # Match with your storage provider
+
+
+  }
+}
+
+
+
+resource helm_release release {
+  name  = "jellyfin"
+  repository = "https://jellyfin.github.io/jellyfin-helm"
+  chart = "jellyfin"
+  namespace = var.namespace
+  depends_on = [ kubernetes_namespace.namespace ]
+  set = [
+    for key, value in local.helm_values : {
+      name  = key
+      value = value
+    }
+  ]
+
+}
+
