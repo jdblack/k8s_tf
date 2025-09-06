@@ -1,8 +1,8 @@
 locals {
-  jelly_domain = "${var.jelly_name}.linuxguru.net"
+  jelly_domain = "${var.jelly_name}.vn.linuxguru.net"
   helm_values = {
     "ingress.enabled"   =  true,
-    "ingress.className" = "public",
+    "ingress.className" = "private",
     "ingress.hostname"  = local.jelly_domain,
     "ingress.hosts.0.host"             = local.jelly_domain,
     "ingress.hosts.0.paths.0.path"     = "/"
@@ -18,8 +18,6 @@ locals {
     "persistence.media.accessMode"  = "ReadOnceMany",
     "persistence.media.size"        = var.media_s3_auth.storage_size,
     "persistence.media.storageClass" = "csi-s3"  # Match with your storage provider
-
-
   }
 }
 

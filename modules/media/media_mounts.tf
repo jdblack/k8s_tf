@@ -29,6 +29,7 @@ resource kubernetes_persistent_volume movies {
     persistent_volume_source {
       csi {
         driver = "ru.yandex.s3.csi"
+        read_only = true
         controller_publish_secret_ref {
           name = kubernetes_secret.s3_key.metadata[0].name
 
@@ -45,6 +46,8 @@ resource kubernetes_persistent_volume movies {
         volume_attributes = {
           capacity = var.media_s3_auth.storage_size
           mounter = var.media_s3_auth.mounter
+          allow_other = false
+          umask = 0222
         }
         volume_handle = var.media_s3_auth.bucket
       }

@@ -8,6 +8,9 @@ locals {
   dyndns_config = {
     publishInternalServices = true
     provider = "rfc2136"
+    image = {
+      repository = "bitnamilegacy/external-dns"
+    }
     rfc2136 = {
       zone = var.deployment.internal_dns.domain
       host = var.deployment.internal_dns.server

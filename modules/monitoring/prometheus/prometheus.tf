@@ -30,8 +30,13 @@ resource helm_release prometheus {
     } , {
       name = "grafana.ingress.tls[0].secretName"
       value = "prometheus-grafana-cert"
+    } , {
+      name = "prometheus.prometheusSpec.podMonitorSelectorNilUsesHelmValues"
+      value = false
+    } , {
+      name = "prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues"
+      value = false
     }
-
   ]
 
 
