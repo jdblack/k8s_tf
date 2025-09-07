@@ -1,3 +1,7 @@
+locals {
+  helm_openebs_url = "https://openebs.github.io/openebs"
+  helm_openebs_chart = "openebs"
+}
 
 resource helm_release release {
   name  = "openebs"

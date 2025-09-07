@@ -1,3 +1,8 @@
+locals {
+  helm_longhorn_url = "https://charts.longhorn.io"
+  helm_longhorn_chart = "longhorn"
+}
+
 
 variable helm_longhorn_url  { default = "https://charts.longhorn.io" }
 variable helm_longhorn_chart { default = "longhorn" }
@@ -19,6 +24,10 @@ resource "helm_release" longhorn {
   wait = true
   set =  [ 
     {
+      name = "persistence.defaultDataLocality"
+      value = "best-effort"
+    },
+    {
       name = "metrics.serviceMonitor.enabled"
       value = "true"
     } , {
@@ -29,6 +38,10 @@ resource "helm_release" longhorn {
       value = "0"
     }
   ]
-
+  provisioner "local-exec" {
+    when = destroy
+    command = "kubectl -n longhorn-system patch lhs deleting-confirmation-flag -p '{\"value\": \"true\"}' --type=merge"
+  }
 }
+
 

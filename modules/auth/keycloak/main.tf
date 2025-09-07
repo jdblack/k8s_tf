@@ -9,6 +9,7 @@ resource "helm_release" "keycloak" {
   repository = var.helm_repo
   chart      = var.chart
   namespace  = var.namespace
+  timeout    = 400
 
   set  = [
     {

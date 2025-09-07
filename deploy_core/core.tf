@@ -9,7 +9,7 @@ module network {
 module storage {
   source = "../modules/storage"
   namespace = "kube-storage"
-  storage_nodes = var.deployment.storage.nodes
+  # storage_nodes = var.deployment.storage.nodes   # openebs
   depends_on = [ module.network ]
 }
 
