@@ -6,7 +6,12 @@ locals {
 resource "keycloak_group" "top_groups" {
   realm_id = var.realm
   for_each = toset(local.top_groups)
-
   name = each.value
+
+  lifecycle {
+    ignore_changes = [attributes]
+  }
+
+
 }
 
