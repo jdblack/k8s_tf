@@ -1,16 +1,19 @@
 
 locals {
-  fqdn = "${var.name}.${var.domain}"
+  db_name = "valkey-${var.name}"
   config = {
-    persistence = {
-      size = "1Gi"
+    dataStorage = {
+      enabled        = true
+      requestedSize  = "1Gi"
+      volumeName     = local.db_name
     }
+    valkeyConfig = "appendonly yes" 
   }
 }
 
 resource "helm_release" "valkey" {
-  name       = "valkey-${var.name}"
-  repository = "https://cloudpirates.io/helm-charts"
+  name       = local.db_name
+  repository = "https://valkey.io/valkey-helm/"
   chart      = "valkey"
   namespace  = var.namespace
 

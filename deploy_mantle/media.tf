@@ -1,6 +1,5 @@
 module media {
   source = "../modules/media"
   namespace = "media"
-  media_s3_auth = var.media.movies
-
+  s3 = var.juice.s3
 }

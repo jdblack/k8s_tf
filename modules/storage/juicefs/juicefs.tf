@@ -3,6 +3,13 @@ locals {
   operator_config = {
   }
   csi_config = {
+    mount_options = join(" ", [
+      "cache-dir=/mnt/archive",
+      "cache-size=235000",
+      "free-space-ratio=0.1"
+    ]
+  )
+
   }
 }
 
