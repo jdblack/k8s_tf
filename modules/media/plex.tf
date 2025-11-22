@@ -37,33 +37,8 @@ locals {
         mountPath = "/media"
       }
     ]
-    ingress = {
-      annotations = {
-        "cert-manager.io/cluster-issuer" = "letsencrypt"
-        "external-dns.alpha.kubernetes.io/hostname" = local.plex_domain,
-      }
-      enabled = true
-      ingressClassName = "public"
-      url = local.plex_domain
-      tls = [
-        {
-          hosts      = [local.plex_domain]
-          secretName = "cert-${local.plex_domain}"
-        }
-      ]
-      hosts = [
-        {
-          paths = [
-            {
-              path     = "/"
-              pathType = "ImplementationSpecific"
-            }
-          ]
-        }
-      ]
-      service = {
-        type = "LoadBalancer"
-      }
+    service = {
+      type = "LoadBalancer"
     }
   }
 }
