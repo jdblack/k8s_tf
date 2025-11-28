@@ -1,5 +1,7 @@
 variable namespace  { default = "media" }
 variable movies_name { default = "movies" }
+variable downloads_name { default = "downloads" }
+
 variable s3 { type = map }
 variable cert_authorities  { type = map }
 locals {

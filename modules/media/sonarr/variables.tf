@@ -1,10 +1,11 @@
 variable namespace { type = string }
 variable cert_issuers { type = map }
-variable name { default = "prowlarr" }
+variable name { default = "sonarr" }
 variable config_size { default = "1Gi" }
 variable helm_repo { default = "oci://ghcr.io/m0nsterrr/helm-charts" }
-variable chart { default = "prowlarr" }
+variable chart { default = "sonarr" }
 variable visibility { default = "private" }
+variable download_pvc { type = string }
 
 locals {
   sub = var.visibility == "private" ? ".vn" : "" 
@@ -12,6 +13,38 @@ locals {
   issuer = var.cert_issuers[var.visibility]
 
   helm_values = {
+    volumes = [
+      {
+        name = "downloads"
+        persistentVolumeClaim = {
+          claimName = var.download_pvc
+        }
+      },
+      {
+        name = "media"
+        persistentVolumeClaim = {
+          claimName = "movies"
+        }
+      }
+    ]
+    volumeMounts = [
+      {
+        name      = var.download_pvc
+        mountPath = "/downloads"
+      },
+      {
+        name      = "media"
+        mountPath = "/media"
+      }
+    ]
+    config = {
+      persistence = {
+        size = var.config_size
+      }
+    }
+    securityContext = {
+      runAsUser = 1000
+    }
     ingress = {
       annotations = {
         "cert-manager.io/cluster-issuer" = local.issuer,
@@ -20,7 +53,7 @@ locals {
       enabled = true
       ingressClassName = "private"
       url = local.fqdn
-
+ 
       tls = [
         {
           hosts      = [local.fqdn]

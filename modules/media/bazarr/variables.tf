@@ -1,9 +1,9 @@
 variable namespace { type = string }
 variable cert_issuers { type = map }
-variable name { default = "prowlarr" }
+variable name { default = "bazarr" }
 variable config_size { default = "1Gi" }
 variable helm_repo { default = "oci://ghcr.io/m0nsterrr/helm-charts" }
-variable chart { default = "prowlarr" }
+variable chart { default = "bazarr" }
 variable visibility { default = "private" }
 
 locals {
@@ -12,6 +12,28 @@ locals {
   issuer = var.cert_issuers[var.visibility]
 
   helm_values = {
+    volumes = [
+      {
+        name = "media"
+        persistentVolumeClaim = {
+          claimName = "movies"
+        }
+      }
+    ]
+    volumeMounts = [
+      {
+        name      = "media"
+        mountPath = "/media"
+      }
+    ]
+    config = {
+      persistence = {
+        size = var.config_size
+      }
+    }
+    securityContext = {
+      runAsUser = 1000
+    }
     ingress = {
       annotations = {
         "cert-manager.io/cluster-issuer" = local.issuer,

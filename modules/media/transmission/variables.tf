@@ -1,10 +1,11 @@
 variable namespace { type = string }
 variable cert_issuers { type = map }
-variable name { default = "prowlarr" }
+variable name { default = "transmission" }
 variable config_size { default = "1Gi" }
-variable helm_repo { default = "oci://ghcr.io/m0nsterrr/helm-charts" }
-variable chart { default = "prowlarr" }
+variable helm_repo { default = "oci://ghcr.io/lexfrei/charts" }
+variable chart { default = "transmission" }
 variable visibility { default = "private" }
+variable download_pvc { type = string }
 
 locals {
   sub = var.visibility == "private" ? ".vn" : "" 
@@ -12,13 +13,28 @@ locals {
   issuer = var.cert_issuers[var.visibility]
 
   helm_values = {
+    persistence = {
+      downloads = {
+        type = "pvc"
+        existingClaim = var.download_pvc
+        storageClassName = "longhorn"
+        accessMode = "ReadWriteMany"
+      }
+    }
+    service = {
+      torrent = {
+        annotations = {
+          "metallb.io/address-pool" = "default"
+        }
+      }
+    }
     ingress = {
       annotations = {
         "cert-manager.io/cluster-issuer" = local.issuer,
         "external-dns.alpha.kubernetes.io/hostname" = local.fqdn,
       }
       enabled = true
-      ingressClassName = "private"
+      className = "private"
       url = local.fqdn
 
       tls = [
@@ -38,9 +54,6 @@ locals {
           ]
         }
       ]
-      service = {
-        type = "LoadBalancer"
-      }
     }
   }
 }
