@@ -6,6 +6,6 @@ variable domain {}
 variable cert_issuer {}
 variable credentials { default = "keycloak-credentials" }
 
-variable helm_repo {  default="oci://registry-1.docker.io/bitnamicharts" }
+variable helm_repo {  default="https://charts.bitnami.com/bitnami" }
 variable chart { default = "keycloak" }
 
