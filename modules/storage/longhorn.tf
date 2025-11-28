@@ -1,6 +1,7 @@
 locals {
   helm_longhorn_url = "https://charts.longhorn.io"
   helm_longhorn_chart = "longhorn"
+  longhorn_ns = "longhorn-system"
 }
 
 
@@ -10,13 +11,13 @@ variable helm_longhorn_chart { default = "longhorn" }
 
 resource kubernetes_namespace longhorn {
   metadata {
-    name = "longhorn-system"
+    name = local.longhorn_ns
   }
 }
 
 resource "helm_release" longhorn {
   name  = "longhorn"
-  namespace = "longhorn-system"
+  namespace = local.longhorn_ns
   repository = var.helm_longhorn_url
   chart = var.helm_longhorn_chart
   depends_on = [ kubernetes_namespace.longhorn ]
@@ -43,5 +44,4 @@ resource "helm_release" longhorn {
     command = "kubectl -n longhorn-system patch lhs deleting-confirmation-flag -p '{\"value\": \"true\"}' --type=merge"
   }
 }
-
 
