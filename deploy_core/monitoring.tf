@@ -5,6 +5,7 @@ resource kubernetes_namespace monitoring {
 }
 
 module metrics_server {
+  count = 0
   source = "../modules/monitoring/metrics_server"
   depends_on = [ module.prometheus ]
   namespace = "monitoring"
@@ -15,6 +16,7 @@ module smartctl {
   depends_on = [ module.prometheus ]
   namespace = "monitoring"
 }
+
 module prometheus {
   source = "../modules/monitoring/prometheus"
   namespace = "monitoring"
