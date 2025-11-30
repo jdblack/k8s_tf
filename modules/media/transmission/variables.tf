@@ -23,6 +23,7 @@ locals {
     }
     service = {
       torrent = {
+        type = "LoadBalancer"
         annotations = {
           "metallb.io/address-pool" = "default"
         }
