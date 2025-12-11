@@ -1,6 +1,6 @@
 resource argocd_repository devops_repo {
   repo = var.repo
-  name = "Linuxguru Github Repo"
+  name = "linuxguru github repo"
   username = "git"
   ssh_private_key = var.deploy_key
   type = "git"

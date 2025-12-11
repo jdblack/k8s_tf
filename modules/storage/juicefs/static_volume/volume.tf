@@ -1,25 +1,3 @@
-locals {
-  secret_name = "juicefs-${var.name}"
-}
-
-resource kubernetes_secret secret {
-  metadata {
-    name      = local.secret_name
-    namespace = var.namespace
-    labels = {
-      "juicefs.com/validate-secret" = "true"
-    }
-  }
-
-  data = {
-    name        = var.name
-    metaurl     = "redis://${local.db_name}.${var.namespace}"
-    storage     = "s3"
-    bucket      = var.bucket_url
-    access-key  = var.access_key
-    secret-key  = var.secret_key
-  }
-}
 
 
 resource kubernetes_persistent_volume volume {
@@ -45,7 +23,7 @@ resource kubernetes_persistent_volume volume {
 
         node_publish_secret_ref {
           name      = local.secret_name
-          namespace = var.namespace
+          namespace = var.metadata_namespace
         }
       }
     }
@@ -56,6 +34,7 @@ resource kubernetes_persistent_volume volume {
 
 
 resource kubectl_manifest pvc {
+
   yaml_body = yamlencode({
     apiVersion = "v1"
     kind = "PersistentVolumeClaim"

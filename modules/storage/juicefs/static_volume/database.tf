@@ -15,7 +15,7 @@ resource "helm_release" "valkey" {
   name       = local.db_name
   repository = "https://valkey.io/valkey-helm/"
   chart      = "valkey"
-  namespace  = var.namespace
+  namespace  = var.metadata_namespace
 
   values = [yamlencode(local.config)]
 }
