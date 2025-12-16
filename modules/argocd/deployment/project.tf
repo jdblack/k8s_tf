@@ -4,6 +4,14 @@ resource argocd_project project {
     namespace = var.deployment_namespace
   }
   spec {
+    sync_window {
+      duration = "1h"
+      kind = "allow"
+      manual_sync = true
+      namespaces = [ "ai" ]
+      schedule = "* * * * *"
+      timezone = "UTC"
+    }
     description = "AI Deployments"
     source_repos = [ "*" ]
     source_namespaces = ["*"]
@@ -14,14 +22,6 @@ resource argocd_project project {
     destination {
       name = "in-cluster"
       namespace = "devops-argo"
-    }
-    sync_window {
-      kind = "allow"
-      applications = ["*"]
-      namespaces = ["*"]
-      clusters = [ "*" ]
-      duration = "1h"
-      schedule = "* * * * *"
     }
     role {
       name = "admin"

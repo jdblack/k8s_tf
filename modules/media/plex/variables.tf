@@ -1,14 +1,13 @@
 variable plex_name { default = "plex" }
 variable chart_version { default = "1.3.0" }
 variable namespace { type = string }
-
+variable movies_pvc { type = string}
 
 locals {
   plex_host_internal = "${var.plex_name}.linuxguru.net"
-
   plex_helm_values = {
     extraEnv = {
-//      ADVERTISE_IP = "http://192.168.0.104:32400, http://113.161.41.162:32400"
+      //      ADVERTISE_IP = "http://192.168.0.104:32400, http://113.161.41.162:32400"
       PLEX_UID = 1000
       PLEX_GID = 1000
     }
@@ -23,7 +22,7 @@ locals {
       {
         name = "media"
         persistentVolumeClaim = {
-          claimName = "movies"
+          claimName = var.movies_pvc
         }
       }
     ]
@@ -41,7 +40,7 @@ locals {
         "cert-manager.io/cluster-issuer" = "letsencrypt",
         "external-dns.alpha.kubernetes.io/hostname" = local.plex_host_internal,
       }
-            tls = [
+      tls = [
         {
           hosts      = [local.plex_host_internal]
           secretName = "cert-${local.plex_host_internal}"
@@ -61,9 +60,9 @@ locals {
     }
     service = {
       type = "LoadBalancer"
-//      annotations = {
-//        "external-dns.alpha.kubernetes.io/hostname" = local.plex_host_internal,
-//      }
+      //      annotations = {
+      //        "external-dns.alpha.kubernetes.io/hostname" = local.plex_host_internal,
+      //      }
     }
   }
 }

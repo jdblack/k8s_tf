@@ -4,7 +4,7 @@ variable namespace {
 }
 variable cert_version {
   type = string
-  default="1.16.2"
+  default="latest"
 }
 
 variable data {

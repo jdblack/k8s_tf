@@ -1,0 +1,27 @@
+variable videos { type = map }
+
+module videos {
+  name = "videos"
+  source = "../storage/juicefs/static_volume/"
+  namespace = var.namespace
+  bucket_url = var.videos.endpoint
+  bucket_root = var.videos.bucket
+  access_key = var.videos.access_key_id
+  secret_key = var.videos.secret_access_key
+}
+
+resource kubernetes_persistent_volume_claim  videos {
+  metadata {
+    name = "videos"
+    namespace = var.namespace
+  }
+  spec {
+    access_modes = ["ReadWriteMany"]
+    resources {
+      requests = {
+        storage = "1Pi"
+      }
+    }
+  }
+}
+

@@ -11,15 +11,15 @@ terraform {
   required_providers {
     keycloak = {
       source = "keycloak/keycloak"
-      version = "5.0.0"
+      version = "5.5.0"
     }
     kubectl = {
       source = "gavinbunney/kubectl"
-      version = "1.18.0"
+      version = "1.19.0"
     }
     kubernetes = {
       source = "hashicorp/kubernetes"
-      version = "2.35.1"
+      version = "3.0.1"
     }
     harbor = {
       source = "goharbor/harbor"
@@ -28,7 +28,7 @@ terraform {
 
     argocd = {
       source = "argoproj-labs/argocd"
-      version = "7.12.1"
+      version = "7.12.4"
     }
 
   }

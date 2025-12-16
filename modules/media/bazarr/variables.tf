@@ -5,6 +5,7 @@ variable config_size { default = "1Gi" }
 variable helm_repo { default = "oci://ghcr.io/m0nsterrr/helm-charts" }
 variable chart { default = "bazarr" }
 variable visibility { default = "private" }
+variable movies_pvc { type = string }
 
 locals {
   sub = var.visibility == "private" ? ".vn" : "" 
@@ -16,7 +17,7 @@ locals {
       {
         name = "media"
         persistentVolumeClaim = {
-          claimName = "movies"
+          claimName = var.movies_pvc
         }
       }
     ]
