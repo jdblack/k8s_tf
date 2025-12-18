@@ -8,41 +8,51 @@ resource "kubernetes_service" "dispatcharr" {
   }
 
   spec {
+    type = "ClusterIP"
+
     selector = {
       "app.kubernetes.io/name"    = var.name
     }
 
     port {
-      port        = 80
-      target_port = 9191
+      name = "http"
+      port = 80
+      target_port = "http"
     }
-
-    type = "ClusterIP"
   }
 }
 
-resource "kubernetes_ingress" "dispatcharr" {
+resource "kubernetes_ingress_v1" "dispatcharr" {
   metadata {
     name      = var.name
     namespace = var.namespace
-      annotations = {
+    annotations = {
       "cert-manager.io/cluster-issuer" = local.issuer
       "external-dns.alpha.kubernetes.io/hostname" = local.fqdn
     }
   }
 
-    spec {
-      rule {
-        host = local.fqdn
-        http {
-          path {
-            path = "/"
-            backend {
-              service_name = kubernetes_service.dispatcharr.metadata[0].name
-              service_port = 80
+  spec {
+    ingress_class_name = var.visibility
+    rule {
+      host = local.fqdn
+      http {
+        path {
+          path = "/"
+          backend {
+            service {
+              name = "http"
+              port {
+                number = 80
+              }
             }
           }
         }
       }
     }
+    tls {
+      hosts = [ local.fqdn]
+      secret_name = "cert-${local.fqdn}"
+    }
+  }
 }

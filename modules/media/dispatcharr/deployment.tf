@@ -28,12 +28,12 @@ resource "kubernetes_deployment" "dispatcharr" {
       spec {
         container {
           name  = var.name
-          #          image = "ghcr.io/dispatcharr/dispatcharr:latest"
-          image = "harbor.vn.linuxguru.net/library/dispatcharr:latest"
+          image = "harbor.vn.linuxguru.net/library/dispatcharr:dev"
           image_pull_policy = "Always"
 
           port {
-            container_port = 9191
+            name = "http"
+            container_port = 80
           }
 
           volume_mount {

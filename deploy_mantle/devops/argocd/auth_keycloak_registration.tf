@@ -61,13 +61,13 @@ resource kubernetes_config_map_v1_data argo_config {
       "clientID" : "argocd_auth",
       "clientSecret" : "$oidc.keycloak.clientSecret",
       "requestedScopes" : ["openid", "profile", "email", "groups"],
-      "rootCA": data.kubernetes_config_map.local_ca.data["ca.crt"]
+      "rootCA": data.kubernetes_config_map_v1.local_ca.data["ca.crt"]
     })
   }
 }
 
 # But we also have to give it our CA cert so that we trust the keycloak cert
-data kubernetes_config_map local_ca {
+data kubernetes_config_map_v1 local_ca {
   metadata {
     name = var.ca_cert_cm
     namespace = var.namespace

@@ -5,6 +5,7 @@ locals {
 }
 
 resource "helm_release" "flannel" {
+  count = 0
   namespace  = var.namespace
   name       = local.charts.flannel.name
   repository = local.charts.flannel.url

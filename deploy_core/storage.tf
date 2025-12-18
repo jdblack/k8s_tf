@@ -5,6 +5,7 @@
 #}
 
 module juicefs {
+  count = 0
   source = "../modules/storage/juicefs"
   namespace = "juicefs"
 }

@@ -34,7 +34,7 @@ terraform {
   }
 }
 
-data kubernetes_secret keycloak_auth {
+data kubernetes_secret_v1 keycloak_auth {
   metadata {
     namespace = var.deployment.keycloak.namespace
     name = var.deployment.keycloak.credentials
@@ -58,13 +58,13 @@ provider "kubectl" {
 
 provider "keycloak" {
   client_id = "admin-cli"
-  username  = data.kubernetes_secret.keycloak_auth.data["admin_user"]
-  password  = data.kubernetes_secret.keycloak_auth.data["admin_password"]
-  url       = data.kubernetes_secret.keycloak_auth.data["admin_url"]
+  username  = data.kubernetes_secret_v1.keycloak_auth.data["admin_user"]
+  password  = data.kubernetes_secret_v1.keycloak_auth.data["admin_password"]
+  url       = data.kubernetes_secret_v1.keycloak_auth.data["admin_url"]
 }
 
 
-data kubernetes_secret harbor_auth {
+data kubernetes_secret_v1 harbor_auth {
   metadata {
     namespace = var.deployment.harbor.namespace
     name = var.deployment.harbor.auth_secret
@@ -72,12 +72,12 @@ data kubernetes_secret harbor_auth {
 }
 
 provider harbor {
-  username = data.kubernetes_secret.harbor_auth.data["username"]
-  password = data.kubernetes_secret.harbor_auth.data["password"]
-  url = data.kubernetes_secret.harbor_auth.data["url"]
+  username = data.kubernetes_secret_v1.harbor_auth.data["username"]
+  password = data.kubernetes_secret_v1.harbor_auth.data["password"]
+  url = data.kubernetes_secret_v1.harbor_auth.data["url"]
 }
 
-data kubernetes_secret argocd_auth {
+data kubernetes_secret_v1 argocd_auth {
   metadata {
     namespace = var.deployment.argocd_devops.namespace
     name = var.deployment.argocd_devops.auth_secret
@@ -87,6 +87,6 @@ data kubernetes_secret argocd_auth {
 provider "argocd" {
   server_addr = "${var.deployment.argocd_devops.server}:443"
   username = "admin"
-  password = data.kubernetes_secret.argocd_auth.data["password"]
+  password = data.kubernetes_secret_v1.argocd_auth.data["password"]
 }
 
