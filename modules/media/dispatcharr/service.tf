@@ -1,7 +1,7 @@
 resource "kubernetes_service" "dispatcharr" {
   metadata {
-    name      = var.name
     namespace = var.namespace
+    name      = local.svc_name
     labels = {
       "app.kubernetes.io/name"    = var.name
     }
@@ -15,14 +15,14 @@ resource "kubernetes_service" "dispatcharr" {
     }
 
     port {
-      name = "http"
-      port = 80
-      target_port = "http"
+      name = "service"
+      port = 9191
+      target_port = 9191 
     }
   }
 }
 
-resource "kubernetes_ingress_v1" "dispatcharr" {
+resource kubernetes_ingress_v1 dispatcharr {
   metadata {
     name      = var.name
     namespace = var.namespace
@@ -33,7 +33,7 @@ resource "kubernetes_ingress_v1" "dispatcharr" {
   }
 
   spec {
-    ingress_class_name = var.visibility
+    ingress_class_name = var.ingress_class
     rule {
       host = local.fqdn
       http {
@@ -41,9 +41,9 @@ resource "kubernetes_ingress_v1" "dispatcharr" {
           path = "/"
           backend {
             service {
-              name = "http"
+              name = local.svc_name
               port {
-                number = 80
+                number = 9191
               }
             }
           }

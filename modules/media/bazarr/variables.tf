@@ -1,16 +1,18 @@
 variable namespace { type = string }
-variable cert_issuers { type = map }
 variable name { default = "bazarr" }
-variable config_size { default = "1Gi" }
+
 variable helm_repo { default = "oci://ghcr.io/m0nsterrr/helm-charts" }
 variable chart { default = "bazarr" }
-variable visibility { default = "private" }
+
+variable cert_issuer { type = string }
+variable ingress_class { type = string } 
+variable domain { type = string } 
+
+variable config_size { default = "1Gi" }
 variable movies_pvc { type = string }
 
 locals {
-  sub = var.visibility == "private" ? ".vn" : "" 
-  fqdn = "${var.name}${local.sub}.linuxguru.net"
-  issuer = var.cert_issuers[var.visibility]
+  fqdn = "${var.name}.${var.domain}"
 
   helm_values = {
     volumes = [
@@ -37,11 +39,11 @@ locals {
     }
     ingress = {
       annotations = {
-        "cert-manager.io/cluster-issuer" = local.issuer,
+        "cert-manager.io/cluster-issuer" = var.cert_issuer,
         "external-dns.alpha.kubernetes.io/hostname" = local.fqdn,
       }
       enabled = true
-      ingressClassName = "private"
+      ingressClassName = var.ingress_class
       url = local.fqdn
 
       tls = [

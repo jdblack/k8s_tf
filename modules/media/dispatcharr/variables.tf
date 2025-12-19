@@ -1,13 +1,14 @@
 variable namespace { default = "media" }
-variable "cert_issuers" { type = map(string) }
+variable cert_issuer { type = string }
+variable ingress_class { type = string } 
 variable domain { type = string }
+
 variable name { default = "dispatcharr" }
-variable visibility { default = "private"}
+variable svc_name { default = "" }
 
 locals {
-  sub = var.visibility == "private" ? ".vn" : ""
-  fqdn = "${var.name}${local.sub}.${var.domain}"
-  issuer = var.cert_issuers[var.visibility]
-
+  svc_name = coalesce(var.svc_name, "${var.name}-svc")
+  fqdn = "${var.name}.${var.domain}"
+  issuer = var.cert_issuer
   volume_name  = "${var.name}-data"
 }

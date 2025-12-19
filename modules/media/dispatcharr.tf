@@ -1,10 +1,10 @@
 
 
 module dispatcharr {
-  count = 0
   source = "./dispatcharr"
   namespace = var.namespace
-  cert_issuers = var.cert_authorities
-  domain = "linuxguru.net"
+  ingress_class = local.private_ingress_name
+  cert_issuer = local.local_issuer
+  domain = "vn.linuxguru.net"
 }
 

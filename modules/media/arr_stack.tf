@@ -1,31 +1,49 @@
 
+
 module radarr {
   source = "./radarr"
   namespace = var.namespace
-  cert_issuers = var.cert_authorities
-  #download_pvc = kubernetes_persistent_volume_claim.downloads.metadata[0].name
-  download_pvc = "torrents"
-  movies_pvc = "movies-archive"
+  cert_issuer = local.local_issuer
+  domain = local.local_domain
+  ingress_class = local.private_ingress_name
+  download_pvc = local.download_pvc
+  movies_pvc = local.movies_pvc
 }
 
 module sonarr {
   source = "./sonarr"
   namespace = var.namespace
-  cert_issuers = var.cert_authorities
-  #download_pvc = kubernetes_persistent_volume_claim.downloads.metadata[0].name
-  download_pvc = "torrents"
-  movies_pvc = "movies-archive"
+  cert_issuer = local.local_issuer
+  domain = local.local_domain
+  ingress_class = local.private_ingress_name
+  download_pvc = local.download_pvc
+  movies_pvc = local.movies_pvc
 }
 
 module prowlarr {
   source = "./prowlarr"
   namespace = var.namespace
-  cert_issuers = var.cert_authorities
+  cert_issuer = local.local_issuer
+  ingress_class = local.private_ingress_name
+  domain = local.local_domain
 }
 
 module bazarr {
   source = "./bazarr"
   namespace = var.namespace
-  cert_issuers = var.cert_authorities
-  movies_pvc = "movies-archive"
+  cert_issuer = local.local_issuer
+  ingress_class = local.private_ingress_name
+  domain = local.local_domain
+  movies_pvc = local.movies_pvc
 }
+
+module transmission {
+  source = "./transmission"
+  namespace = var.namespace
+  cert_issuer = local.local_issuer
+  ingress_class = local.private_ingress_name
+  domain = local.local_domain
+  download_pvc = kubernetes_persistent_volume_claim.torrents.metadata[0].name
+  movies_pvc = local.movies_pvc
+}
+
