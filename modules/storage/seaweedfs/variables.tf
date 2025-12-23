@@ -12,6 +12,7 @@ locals {
 
   fqdn = "${var.name}${local.sub}.linuxguru.net"
   master_host = "master.${local.fqdn}"
+  admin_host = "admin.${local.fqdn}"
   filer_host = "filer.${local.fqdn}"
   s3_host = "s3.vn.linuxguru.net"
 
@@ -20,6 +21,22 @@ locals {
       enableReplication = true
       replicationPlacement = "001"
     }
+    admin = {
+      enabled = true
+      adminUser = "admin"
+      adminpassword = "secure"
+      ingress = {
+        enabled = true
+        path = "/"
+        host = local.admin_host
+        className = var.visibility
+        annotations = {
+          "cert-manager.io/cluster-issuer" = local.issuer,
+          "external-dns.alpha.kubernetes.io/hostname" = local.master_host,
+        }
+      }
+    }
+
     master = {
       replicas = 1
       data = {
@@ -62,7 +79,7 @@ locals {
       }
     }
     s3 = {
-      enabled = true
+      enabled = false
       enableAuth = true
       domain_name = local.s3_host
       host = local.s3_host
