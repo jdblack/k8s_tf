@@ -1,5 +1,5 @@
 
-resource "kubernetes_secret" "admin_auth" {
+resource kubernetes_secret_v1 admin_auth {
   type = "Opaque"
   metadata {
     namespace = var.namespace

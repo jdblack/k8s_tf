@@ -12,10 +12,12 @@ locals {
     "updateStrategy.type"        = "Recreate",
     "harborAdminPassword"        = random_password.admin_password.result,
 
-    "persistentVolumeClaim.registry.size"  = "20Gi",
     "caBundleSecretName" =  local.ca_secret_name
+    "persistence.persistentVolumeClaim.registry.size" = "2Pi"
+    "persistence.persistentVolumeClaim.registry.storageClass" = "seaweedfs-csi"
+    "persistence.persistentVolumeClaim.trivy.size" = "5Gi"
 
-    "expose.ingress.tls.certSource"        = "secret",
+    "expose.ingress.tls.certSource"        = "secret"
     "expose.ingress.tls.secret.secretName" = "${var.name}-cert",
     "expose.ingress.hosts.core"            = local.fqdn,
     "expose.ingress.className"             = "private",
