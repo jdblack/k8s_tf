@@ -3,7 +3,7 @@ resource "helm_release" "ingress_public" {
   name       = local.charts.ingress_public.name
   repository = local.charts.ingress_public.url
   chart      = local.charts.ingress_public.chart
-  depends_on  = [ kubernetes_namespace.namespace]
+  depends_on  = [ kubernetes_namespace_v1.namespace]
   set = [
     {
       name = "controller.ingressClassResource.name"
@@ -21,7 +21,7 @@ resource "helm_release" "ingres_private" {
   name       = local.charts.ingress_private.name
   repository = local.charts.ingress_private.url
   chart      = local.charts.ingress_private.chart
-  depends_on  = [ kubernetes_namespace.namespace]
+  depends_on  = [ kubernetes_namespace_v1.namespace]
   set = [
     {
       name = "controller.ingressClassResource.name"

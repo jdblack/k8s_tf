@@ -33,7 +33,7 @@ resource "helm_release" "metal" {
     name = "spec.loadBalancerClass"
     value = "metallb"
   } ] 
-  depends_on  = [ kubernetes_namespace.namespace]
+  depends_on  = [ kubernetes_namespace_v1.namespace]
 }
 
 resource "kubectl_manifest" "addresspool" {

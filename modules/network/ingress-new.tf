@@ -4,7 +4,7 @@ resource helm_release  ingress_internal {
   name       = "ingress-internal"
   repository = "oci://ghcr.io/nginx/charts/"
   chart      = "nginx-ingress"
-  depends_on  = [ kubernetes_namespace.namespace]
+  depends_on  = [ kubernetes_namespace_v1.namespace]
   set = [ {
     name = "controller.ingressClass.name"
     value = "internal"

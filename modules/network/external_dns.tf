@@ -28,5 +28,5 @@ resource "helm_release" "ext_dnsrelease" {
   repository = local.charts.ext_dns.url
   chart      = local.charts.ext_dns.chart
   values = [yamlencode(local.dyndns_config)]
-  depends_on  = [ kubernetes_namespace.namespace]
+  depends_on  = [ kubernetes_namespace_v1.namespace]
 }
