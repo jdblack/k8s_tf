@@ -9,7 +9,7 @@ variable helm_longhorn_url  { default = "https://charts.longhorn.io" }
 variable helm_longhorn_chart { default = "longhorn" }
 
 
-resource kubernetes_namespace longhorn {
+resource kubernetes_namespace_v1 longhorn {
   metadata {
     name = local.longhorn_ns
   }
@@ -20,7 +20,7 @@ resource "helm_release" longhorn {
   namespace = local.longhorn_ns
   repository = var.helm_longhorn_url
   chart = var.helm_longhorn_chart
-  depends_on = [ kubernetes_namespace.longhorn ]
+  depends_on = [ kubernetes_namespace_v1.longhorn ]
   wait_for_jobs = true
   wait = true
   set =  [ 

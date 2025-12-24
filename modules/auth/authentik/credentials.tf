@@ -16,7 +16,7 @@ resource random_password deploy_key {
   override_special = "_%@"
 }
 
-resource kubernetes_secret blueprint_deploy_key {
+resource kubernetes_secret_v1 blueprint_deploy_key {
   metadata {
     name = "${var.name}-tfdeploykey"
     namespace = var.namespace

@@ -3,13 +3,13 @@ locals {
   dyndns_host_labels = { name = var.name } 
 }
 
-resource "kubernetes_deployment" "dyndns" {
+resource kubernetes_deployment_v1 dyndns {
   metadata  {
     namespace = var.namespace
     name = var.name
   }
   timeouts {
-    create = "2m"  # Set the create timeout to 10 minutes
+    create = "2m"  
   }
   wait_for_rollout = false
   spec {

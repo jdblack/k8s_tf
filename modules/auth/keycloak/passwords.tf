@@ -11,7 +11,7 @@ resource random_password database {
   override_special = "_%@"
 }
 
-resource kubernetes_secret keycloak_secrets {
+resource kubernetes_secret_v1 keycloak_secrets {
   metadata {
     name = var.credentials
     namespace = var.namespace
