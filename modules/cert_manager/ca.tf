@@ -20,9 +20,9 @@ resource "kubectl_manifest" "issuer" {
   depends_on =  [ helm_release.release] 
 }
 
-resource "kubernetes_secret" "ca-key"  {
+resource kubernetes_secret_v1 "ca-key"  {
   type="kubernetes.io/tls"
-  depends_on  = [ kubernetes_namespace.namespace ]
+  depends_on  = [ kubernetes_namespace_v1.namespace ]
   metadata {
     namespace = var.namespace
     name = local.issuer_name

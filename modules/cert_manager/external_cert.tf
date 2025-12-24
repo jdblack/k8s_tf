@@ -1,7 +1,7 @@
 
 resource kubectl_manifest "external_issuer" {
   yaml_body = yamlencode(local.external_issuer)
-  depends_on = [ helm_release.release, kubernetes_secret.certman_route53_secret ]
+  depends_on = [ helm_release.release, kubernetes_secret_v1.certman_route53_secret ]
 }
 
 locals {
@@ -40,7 +40,7 @@ locals {
   }
 }
 
-resource  kubernetes_secret certman_route53_secret {
+resource  kubernetes_secret_v1 certman_route53_secret {
   metadata {
     name = "certman-route53-${var.external_issuer_name}"
     namespace = var.namespace
@@ -50,6 +50,6 @@ resource  kubernetes_secret certman_route53_secret {
     AWS_SECRET_ACCESS_KEY = var.data["AWS_SECRET_ACCESS_KEY"]
     AWS_REGION = var.data["AWS_REGION"] 
   }
-  depends_on = [ kubernetes_namespace.namespace ]
+  depends_on = [ kubernetes_namespace_v1.namespace ]
 }
 
