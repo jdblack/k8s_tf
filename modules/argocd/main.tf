@@ -10,6 +10,7 @@ resource "helm_release" "argocd" {
   repository = "https://argoproj.github.io/argo-helm"
   chart      = "argo-cd"
   namespace  = var.namespace
+  upgrade_install = true
 
   # Encode local.config to YAML for Helm values
   values = [yamlencode(local.config)]

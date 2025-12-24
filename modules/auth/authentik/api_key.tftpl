@@ -1,0 +1,13 @@
+version: 1
+metadata:
+  name: Terraform Deploy key
+entries:
+  - id: apikey
+    model: authentik_core.token
+    identifiers:
+      identifier: terraform
+    attrs:
+      key: ${key}
+      expiring: false
+      intent: api
+      user: !Find [authentik_core.user, [username, akadmin]]

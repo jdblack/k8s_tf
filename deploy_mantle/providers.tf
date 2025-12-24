@@ -31,6 +31,12 @@ terraform {
       version = "7.12.4"
     }
 
+    authentik = {
+      source = "goauthentik/authentik"
+      version = "2025.10.1"
+    }
+
+
   }
 }
 
@@ -69,6 +75,19 @@ data kubernetes_secret_v1 harbor_auth {
     namespace = var.deployment.harbor.namespace
     name = var.deployment.harbor.auth_secret
   }
+}
+
+data kubernetes_secret_v1 authentik_auth {
+  metadata {
+    namespace = var.deployment.auth.namespace
+    name = var.deployment.auth.authentik_api_key
+  }
+
+}
+
+provider authentik {
+  url = var.deployment.auth.server
+  token = data.kubernetes_secret_v1.api_key.data["token"]
 }
 
 provider harbor {

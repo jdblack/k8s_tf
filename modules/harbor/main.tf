@@ -34,6 +34,7 @@ resource "helm_release" "harbor" {
   repository = "https://helm.goharbor.io"
   chart      = "harbor"
   namespace  = var.namespace
+  upgrade_install = true
   timeout = 500
 
   set = [
