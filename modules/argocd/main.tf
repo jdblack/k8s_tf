@@ -1,11 +1,11 @@
 
-resource "kubernetes_namespace" "argocd" {
+resource kubernetes_namespace_v1 argocd {
   metadata { 
     name = var.namespace
   }
 }
 
-resource "helm_release" "argocd" {
+resource helm_release argocd {
   name       = "argocd"
   repository = "https://argoproj.github.io/argo-helm"
   chart      = "argo-cd"
@@ -14,11 +14,11 @@ resource "helm_release" "argocd" {
 
   # Encode local.config to YAML for Helm values
   values = [yamlencode(local.config)]
-  depends_on = [ kubernetes_config_map.argocd_ca_cert ] 
+  depends_on = [ kubernetes_config_map_v1.argocd_ca_cert ] 
 }
 
 
-data "kubernetes_secret" "initial_admin_pass" {
+data kubernetes_secret_v1 initial_admin_pass {
   metadata {
     name = "argocd-initial-admin-secret"
     namespace = var.namespace
@@ -28,7 +28,7 @@ data "kubernetes_secret" "initial_admin_pass" {
 
 
 output "admin_pass" {
-  value = data.kubernetes_secret.initial_admin_pass.data.password
+  value = data.kubernetes_secret_v1.initial_admin_pass.data.password
 }
 
 
