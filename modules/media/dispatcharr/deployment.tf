@@ -1,6 +1,6 @@
 
 
-resource "kubernetes_deployment" "dispatcharr" {
+resource kubernetes_deployment_v1 dispatcharr {
   metadata {
     name      = var.name
     namespace = var.namespace
@@ -45,7 +45,7 @@ resource "kubernetes_deployment" "dispatcharr" {
         volume {
           name = local.volume_name
           persistent_volume_claim {
-            claim_name = kubernetes_persistent_volume_claim.dispatcharr_data.metadata[0].name
+            claim_name = kubernetes_persistent_volume_claim_v1.dispatcharr_data.metadata[0].name
           }
         }
       }
@@ -53,7 +53,7 @@ resource "kubernetes_deployment" "dispatcharr" {
   }
 }
 
-resource "kubernetes_persistent_volume_claim" "dispatcharr_data" {
+resource kubernetes_persistent_volume_claim_v1 dispatcharr_data {
   metadata {
     name      = "${var.name}-data"
     namespace = var.namespace

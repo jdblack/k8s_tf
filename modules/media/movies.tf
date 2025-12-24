@@ -1,16 +1,4 @@
-module movies {
-  count = 0
-  name = var.movies_name
-  source = "../storage/juicefs/static_volume/"
-  namespace = var.namespace
-  bucket_url = local.bucket_url
-  metadata_namespace = "media"
-  access_key = var.s3["access_key"]
-  secret_key = var.s3["secret_key"]
-}
-
-
-resource kubernetes_persistent_volume_claim torrents {
+resource kubernetes_persistent_volume_claim_v1 torrents {
   metadata {
     name = "torrents"
     namespace = var.namespace
@@ -27,7 +15,7 @@ resource kubernetes_persistent_volume_claim torrents {
   }
 }
 
-resource kubernetes_persistent_volume_claim movies_archive {
+resource kubernetes_persistent_volume_claim_v1 movies_archive {
   metadata {
     name = "movies-archive"
     namespace = var.namespace
@@ -48,7 +36,7 @@ resource kubernetes_persistent_volume_claim movies_archive {
   }
 }
 
-resource kubernetes_persistent_volume movies_archive {
+resource kubernetes_persistent_volume_v1 movies_archive {
   metadata {
     name = "movies-archive"
     labels = {

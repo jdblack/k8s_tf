@@ -13,6 +13,6 @@ locals {
   local_domain = "vn.linuxguru.net"
   local_issuer = var.cert_authorities["private"]
   movies_pvc = "movies-archive"
-  download_pvc = kubernetes_persistent_volume_claim.torrents.metadata[0].name
+  download_pvc = kubernetes_persistent_volume_claim_v1.torrents.metadata[0].name
 }
 

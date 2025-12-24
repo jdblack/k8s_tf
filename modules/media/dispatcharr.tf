@@ -1,6 +1,7 @@
 
 
 module dispatcharr {
+  count = 0
   source = "./dispatcharr"
   namespace = var.namespace
   ingress_class = local.private_ingress_name

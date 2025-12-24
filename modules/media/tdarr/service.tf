@@ -1,7 +1,7 @@
-resource kubernetes_service_v1 dispatcharr {
+resource kubernetes_service_v1 service {
   metadata {
     namespace = var.namespace
-    name      = local.svc_name
+    name      = var.name
     labels = {
       "app.kubernetes.io/name"    = var.name
     }
@@ -15,19 +15,24 @@ resource kubernetes_service_v1 dispatcharr {
     }
 
     port {
-      name = "service"
-      port = 9191
-      target_port = 9191 
+      name = "webui"
+      port = 8265
+      target_port = 8265 
+    }
+    port {
+      name = "server"
+      port = 8266
+      target_port = 8266 
     }
   }
 }
 
-resource kubernetes_ingress_v1 dispatcharr {
+resource kubernetes_ingress_v1 ingress {
   metadata {
     name      = var.name
     namespace = var.namespace
     annotations = {
-      "cert-manager.io/cluster-issuer" = local.issuer
+      "cert-manager.io/cluster-issuer" = var.cert_issuer
       "external-dns.alpha.kubernetes.io/hostname" = local.fqdn
     }
   }
@@ -41,9 +46,9 @@ resource kubernetes_ingress_v1 dispatcharr {
           path = "/"
           backend {
             service {
-              name = local.svc_name
+              name = "webui"
               port {
-                number = 9191
+                number = 8265
               }
             }
           }
