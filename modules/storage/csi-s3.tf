@@ -6,6 +6,7 @@ locals {
 }
 
 resource helm_release csi_s3 {
+  count = 0
   name = "csi-s3"
   namespace = var.namespace
   repository = "https://yandex-cloud.github.io/k8s-csi-s3/charts"
