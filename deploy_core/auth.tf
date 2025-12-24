@@ -1,5 +1,5 @@
 
-resource kubernetes_namespace auth {
+resource kubernetes_namespace_v1 auth {
   metadata {
     name = "kube-auth"
   }
