@@ -24,7 +24,7 @@ output "argo_pass" {
 module harbor {
   namespace = var.deployment.harbor.namespace
   auth_secret = var.deployment.harbor.auth_secret
-  source = "../modules/harbor" 
+  source = "../modules/harbor/core" 
   certca = var.deployment.cert.cert_issuer
   ssl_ca = var.deployment.cert.cert_issuer
   ssl_ca_namespace = "kube-certificates" 

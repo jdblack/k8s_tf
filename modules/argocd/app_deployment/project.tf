@@ -17,7 +17,7 @@ resource argocd_project project {
     source_namespaces = ["*"]
     destination {
       name = "in-cluster"
-      namespace = "ai"
+      namespace = var.namespace
     }
     destination {
       name = "in-cluster"
@@ -31,8 +31,8 @@ resource argocd_project project {
         "p, proj:${local.project}:admin, logs, *, ${local.project}/*, allow",
       ]
       groups = [
-        "/argocd-admin",
-        "/argocd-admin-${local.project}" 
+        "argocd-admin",
+        "argocd-admin-${local.project}" 
       ]
     }
   }

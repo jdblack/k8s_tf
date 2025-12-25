@@ -1,6 +1,6 @@
 
 module harbor_setup {
-  source = "./devops/harbor"
+  source = "../modules/harbor/mantle"
   projects = var.harbor_projects
   domain = var.deployment.common.domain
   oidc_url = module.keycloak.realm_url
