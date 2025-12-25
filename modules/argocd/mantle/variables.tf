@@ -1,10 +1,14 @@
 
+variable oauth2_server { default = "auth.vn.linuxguru.net" } 
 variable namespace   { type = string }
+variable name        { default = "argocd" }
 variable deploy_key  { type = string }
 variable repo        { type = string } 
 
 variable domain {}
-variable ca_cert_cm {}
+variable cert_issuer { type = string }
 
 
-
+locals {
+  fqdn = "${var.name}.${var.domain}"
+}

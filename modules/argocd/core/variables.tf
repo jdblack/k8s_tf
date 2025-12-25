@@ -1,10 +1,9 @@
 variable namespace { }
 variable chart  { default = "https://argo-helm/charts/argo-cd" }
-variable name { default = "argo" }
+variable name { default = "argocd" }
 variable domain { type = string }
+variable cert_issuer { type = string } 
 variable storage_size { default = "10Gi" }
-variable ssl_ca { }
-variable ssl_ca_namespace { }
 
 
 
@@ -24,12 +23,6 @@ locals {
         EOF
       }
 
-      tls = {
-        certificates = {
-          "harbor.vn.linuxguru.net"= data.kubernetes_secret_v1.ca_cert.data["tls.crt"]
-          "keycloak.vn.linuxguru.net"= data.kubernetes_secret_v1.ca_cert.data["tls.crt"]
-        }
-      }
     }
 
     server = {
@@ -37,6 +30,7 @@ locals {
         type = "ClusterIP"
       }
       ingress = {
+        ingressClassName = "private"
         enabled = true
         extraHosts = [
           { name = "argo"
@@ -47,10 +41,9 @@ locals {
 
       annotations = {
         "nginx.ingress.kubernetes.io/ssl-passthrough" : "true"
-        "cert-manager.io/cluster-issuer" : var.ssl_ca
+        "cert-manager.io/cluster-issuer" : var.cert_issuer
         "nginx.ingress.kubernetes.io/backend-protocol": "HTTPS"
       }
-      ingressClassName = "private"
 
       rule = {
         hosts  = [

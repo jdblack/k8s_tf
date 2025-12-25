@@ -34,4 +34,13 @@ resource kubernetes_secret_v1 "ca-key"  {
 }
 
 
+resource kubernetes_config_map_v1 "ca-cert" {
+  metadata {
+    name = local.issuer_name
+  }
+  data = {
+    "tls.crt" = file(var.ca_certfile)
+  }
+
+}
 

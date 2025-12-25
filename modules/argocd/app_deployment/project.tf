@@ -21,7 +21,7 @@ resource argocd_project project {
     }
     destination {
       name = "in-cluster"
-      namespace = "devops-argo"
+      namespace = var.deployment_namespace
     }
     role {
       name = "admin"

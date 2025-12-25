@@ -9,10 +9,6 @@ terraform {
 
 terraform {
   required_providers {
-    keycloak = {
-      source = "keycloak/keycloak"
-      version = "5.5.0"
-    }
     kubectl = {
       source = "gavinbunney/kubectl"
       version = "1.19.0"
@@ -40,13 +36,6 @@ terraform {
   }
 }
 
-data kubernetes_secret_v1 keycloak_auth {
-  metadata {
-    namespace = var.deployment.keycloak.namespace
-    name = var.deployment.keycloak.credentials
-  }
-}
-
 provider "kubernetes" {
   config_path    = "~/.kube/config"
 }
@@ -59,14 +48,6 @@ provider "helm" {
 
 provider "kubectl" {
   config_path = "~/.kube/config"
-}
-
-
-provider "keycloak" {
-  client_id = "admin-cli"
-  username  = data.kubernetes_secret_v1.keycloak_auth.data["admin_user"]
-  password  = data.kubernetes_secret_v1.keycloak_auth.data["admin_password"]
-  url       = data.kubernetes_secret_v1.keycloak_auth.data["admin_url"]
 }
 
 

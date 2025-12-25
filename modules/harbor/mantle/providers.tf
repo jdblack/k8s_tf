@@ -4,8 +4,5 @@ terraform {
     harbor = {
       source = "goharbor/harbor"
     }
-    keycloak = {
-      source = "keycloak/keycloak"
-    }
   }
 }

@@ -40,7 +40,7 @@ resource  authentik_provider_oauth2 oauth2  {
   allowed_redirect_uris = [
     {
       matching_mode = "strict",
-      url = "https://argo.${var.domain}/auth/callback"
+      url = var.redirect_uri
     }
   ]
 
@@ -58,30 +58,5 @@ resource authentik_application app {
   name = var.name
   slug = var.name
   protocol_provider = authentik_provider_oauth2.oauth2.id
-}
-
-resource kubernetes_config_map_v1_data argo_config {
-  metadata {
-    name = "argocd-cm"
-    namespace = var.namespace
-  }
-  data = {
-    "oidc.config" = yamlencode({
-      "name" : "Authentik",
-      "issuer": "https://${var.oauth2_host}/application/o/${var.name}/", 
-      "clientID" : authentik_provider_oauth2.oauth2.client_id,
-      "clientSecret" : authentik_provider_oauth2.oauth2.client_secret,
-      "requestedScopes" : ["openid", "profile", "email", "groups"],
-      "rootCA": data.kubernetes_config_map_v1.local_ca.data["ca.crt"]
-    })
-  }
-}
-
-# But we also have to give it our CA cert so that we trust the keycloak cert
-data kubernetes_config_map_v1 local_ca {
-  metadata {
-    name = var.ca_cert_cm
-    namespace = var.namespace
-  }
 }
 

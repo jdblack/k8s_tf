@@ -1,9 +1,9 @@
-variable namespace { }
+variable namespace { type = string }
 variable name { default = "" }
 variable project { default = "" }
 variable repo { }
 variable deployment_path {}
-variable deployment_namespace { default="devops-argo" }
+variable deployment_namespace { default="devops-argocd" }
 
 locals {
   name = coalesce(var.name, var.namespace)

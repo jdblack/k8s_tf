@@ -14,7 +14,6 @@ resource helm_release argocd {
 
   # Encode local.config to YAML for Helm values
   values = [yamlencode(local.config)]
-  depends_on = [ kubernetes_config_map_v1.argocd_ca_cert ] 
 }
 
 

@@ -2,7 +2,7 @@
 resource argocd_application deployer {
   metadata {
     name = "deployer"
-    namespace = "devops-argo"
+    namespace = var.deployment_namespace
   }
   cascade = true
   wait = true

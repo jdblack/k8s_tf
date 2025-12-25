@@ -6,26 +6,42 @@ resource kubernetes_namespace_v1 namespace {
 }
 
 locals {
-  ca_secret_name = "${var.ssl_ca}.crt"
   helm_values = {
-    "externalURL"                = local.url,
-    "updateStrategy.type"        = "Recreate",
-    "harborAdminPassword"        = random_password.admin_password.result,
+    externalURL = local.url,
+    updateStrategy = {
+      type = "Recreate"
+    }
+    harborAdminPassword = random_password.admin_password.result,
+    caBundleSecretName =  local.ca_secret_name
+    persistence = {
+      persistentVolumeClaim = {
+        registry = {
+          size = "2Pi"
+          storageClass = "seaweedfs-csi"
+        }
+        trivy = {
+          size = "2Pi"
+          storageClass = "seaweedfs-csi"
+        }
 
-    "caBundleSecretName" =  local.ca_secret_name
-    "persistence.persistentVolumeClaim.registry.size" = "2Pi"
-    "persistence.persistentVolumeClaim.registry.storageClass" = "seaweedfs-csi"
-    "persistence.persistentVolumeClaim.trivy.size" = "5Gi"
-
-    "expose.ingress.tls.certSource"        = "secret"
-    "expose.ingress.tls.secret.secretName" = "${var.name}-cert",
-    "expose.ingress.hosts.core"            = local.fqdn,
-    "expose.ingress.className"             = "private",
-
-
-    "expose.ingress.annotations.external-dns\\.alpha\\.kubernetes\\.io/hostname" = local.fqdn,
-    "expose.ingress.annotations.cert-manager\\.io/cluster-issuer" = var.certca,
-
+      }
+    }
+    expose = {
+      ingress = {
+        annotations = {
+          "external-dns.alpha.kubernetes.io/hostname" = local.fqdn,
+          "cert-manager.io/cluster-issuer" = var.cert_issuer,
+        }
+        className = "private"
+        tls = {
+          certSource = "secret"
+          secretname = "${var.name}-cert"
+        }
+        hosts = {
+          core = local.fqdn
+        }
+      }
+    }
   }
 }
 
@@ -34,16 +50,8 @@ resource "helm_release" "harbor" {
   repository = "https://helm.goharbor.io"
   chart      = "harbor"
   namespace  = var.namespace
-  upgrade_install = true
   timeout = 500
-
-  set = [
-    for key, value in local.helm_values : {
-      name  = key
-      value = value
-    }
-  ]
-
+  values = [yamlencode(local.helm_values)]
 
 }
 
