@@ -4,5 +4,5 @@ module auth {
   domain = var.domain
   oauth2_host = "auth.vn.linuxguru.net"
   ca_cert_cm = var.ca_cert_cm
-  source = "./auth"
+  source = "../../auth/authentik/oidc_provider"
 }
