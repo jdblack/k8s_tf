@@ -1,5 +1,4 @@
 
-
 module keycloak {
   source = "./auth/keycloak"
   realm = var.deployment.keycloak.realm

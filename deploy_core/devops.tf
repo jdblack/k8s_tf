@@ -6,7 +6,7 @@ locals {
 
 module argocd {
   namespace = "devops-argo"
-  source = "../modules/argocd"
+  source = "../modules/argocd/core"
   domain = var.deployment.common.domain
   ssl_ca = var.deployment.cert.cert_issuer
   ssl_ca_namespace = "kube-certificates" 

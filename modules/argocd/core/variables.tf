@@ -17,6 +17,12 @@ locals {
   config = {
     global = { domain = local.fqdn }
     configs = {
+      rbac = {
+        "policy.csv" = <<-EOF
+          g, argocd-admin, role:readonly
+          g, argocd-user, role:readonly
+        EOF
+      }
 
       tls = {
         certificates = {

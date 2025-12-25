@@ -26,7 +26,7 @@ locals {
     }
     blueprints = {
       secrets = [
-        kubernetes_secret_v1.blueprint_deploy_key.metadata[0].name
+        kubernetes_secret_v1.blueprint_deploy_key.metadata[0].name,
       ]
     }
     authentik = {

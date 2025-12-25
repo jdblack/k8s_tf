@@ -1,9 +1,8 @@
 variable namespace { }
-variable name { default = "ai" }
+variable name { default = "" }
 variable project { default = "" }
 variable repo { }
 variable deployment_path {}
-variable realm {} 
 variable deployment_namespace { default="devops-argo" }
 
 locals {

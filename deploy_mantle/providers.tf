@@ -87,7 +87,7 @@ data kubernetes_secret_v1 authentik_auth {
 
 provider authentik {
   url = var.deployment.auth.server
-  token = data.kubernetes_secret_v1.api_key.data["token"]
+  token = data.kubernetes_secret_v1.authentik_auth.data["api_key"]
 }
 
 provider harbor {
