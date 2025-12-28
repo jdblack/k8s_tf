@@ -1,7 +1,6 @@
 
 
 module argo_deployment {
-  count = 0
   name = "ai"
   namespace = "ai"
   source = "../modules/argocd/app_deployment/"

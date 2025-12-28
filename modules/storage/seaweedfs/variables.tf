@@ -78,6 +78,17 @@ locals {
         storageClass = ""
       }
     }
+    worker = {
+      enabled = true
+      replicas = 1
+      capabilities = "vacuum,balance,erasure_coding"
+      maxConcurrent = 1
+      data = {
+        type = "emptyDir"
+        hostPathPrefix = "/seaweed-worker"
+      }
+
+    }
     s3 = {
       enabled = false
       enableAuth = true

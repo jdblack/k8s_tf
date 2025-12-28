@@ -5,7 +5,6 @@ resource kubernetes_namespace_v1 monitoring {
 }
 
 module metrics_server {
-  count = 0
   source = "../modules/monitoring/metrics_server"
   depends_on = [ module.prometheus ]
   namespace = "monitoring"

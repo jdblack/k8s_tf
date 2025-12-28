@@ -10,11 +10,11 @@ module argocd {
   depends_on = [ module.network, module.storage, module.cert_man ]
 }
 
-#output "argo_pass" {
-#  value = module.argocd.admin_pass
-#  sensitive=true
-#}
-#
+output "argo_pass" {
+  value = module.argocd.admin_pass
+  sensitive=true
+}
+
 
 
 module harbor {
@@ -24,6 +24,11 @@ module harbor {
   cert_issuer = var.deployment.cert.cert_issuer
   domain = var.deployment.common.domain
   depends_on = [ module.network, module.storage, module.cert_man ]
+}
+
+output harbor_pass {
+  value = module.harbor.admin_pass
+  sensitive = true
 }
 
 output "harbor_url" {
