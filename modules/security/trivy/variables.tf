@@ -9,5 +9,9 @@ variable chart { default = "trivy-operator" }
 locals {
 
   helm_values = {
+    serviceMonitor = {
+      enabled = true
+      namespace = "monitoring"
+    }
   }
 }

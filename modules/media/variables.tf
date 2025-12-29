@@ -1,6 +1,5 @@
 variable namespace  { default = "media" }
 variable movies_name { default = "movies" }
-variable downloads_name { default = "downloads" }
 
 variable s3 { type = map }
 variable cert_authorities  { type = map }
@@ -13,6 +12,5 @@ locals {
   local_domain = "vn.linuxguru.net"
   local_issuer = var.cert_authorities["private"]
   movies_pvc = "movies-archive"
-  download_pvc = kubernetes_persistent_volume_claim_v1.torrents.metadata[0].name
 }
 

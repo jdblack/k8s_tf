@@ -6,7 +6,6 @@ module radarr {
   cert_issuer = local.local_issuer
   domain = local.local_domain
   ingress_class = local.private_ingress_name
-  download_pvc = local.download_pvc
   movies_pvc = local.movies_pvc
 }
 
@@ -17,7 +16,6 @@ module tdarr {
   cert_issuer = local.local_issuer
   domain = local.local_domain
   ingress_class = local.private_ingress_name
-  download_pvc = local.download_pvc
   movies_pvc = local.movies_pvc
 }
 
@@ -27,7 +25,6 @@ module sonarr {
   cert_issuer = local.local_issuer
   domain = local.local_domain
   ingress_class = local.private_ingress_name
-  download_pvc = local.download_pvc
   movies_pvc = local.movies_pvc
 }
 
@@ -54,7 +51,6 @@ module transmission {
   cert_issuer = local.local_issuer
   ingress_class = local.private_ingress_name
   domain = local.local_domain
-  download_pvc = kubernetes_persistent_volume_claim_v1.torrents.metadata[0].name
   movies_pvc = local.movies_pvc
 }
 

@@ -6,7 +6,6 @@ variable ingress_class { type = string }
 variable domain { type = string } 
 
 variable config_size { default = "1Gi" }
-variable download_pvc { type = string }
 variable movies_pvc { type = string }
 
 locals {

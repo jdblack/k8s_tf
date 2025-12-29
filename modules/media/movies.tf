@@ -1,19 +1,3 @@
-resource kubernetes_persistent_volume_claim_v1 torrents {
-  metadata {
-    name = "torrents"
-    namespace = var.namespace
-  }
-  spec {
-    storage_class_name = "seaweedfs-csi"
-    access_modes = ["ReadWriteMany"]
-
-    resources {
-      requests = {
-        storage = "1Pi"
-      }
-    }
-  }
-}
 
 resource kubernetes_persistent_volume_claim_v1 movies_archive {
   metadata {

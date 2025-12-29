@@ -9,7 +9,6 @@ variable ingress_class { type = string }
 variable domain { type = string } 
 
 variable config_size { default = "1Gi" }
-variable download_pvc { type = string }
 variable movies_pvc { type = string } 
 
 locals {
@@ -18,12 +17,6 @@ locals {
   helm_values = {
     volumes = [
       {
-        name = var.download_pvc
-        persistentVolumeClaim = {
-          claimName = var.download_pvc
-        }
-      },
-      {
         name = "media"
         persistentVolumeClaim = {
           claimName = var.movies_pvc 
@@ -31,10 +24,6 @@ locals {
       }
     ]
     volumeMounts = [
-      {
-        name      = var.download_pvc
-        mountPath = "/downloads"
-      },
       {
         name      = "media"
         mountPath = "/media"

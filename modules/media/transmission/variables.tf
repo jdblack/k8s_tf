@@ -9,7 +9,6 @@ variable ingress_class { type = string }
 variable domain { type = string } 
 
 variable config_size { default = "1Gi" }
-variable download_pvc { type = string }
 variable movies_pvc { type = string }
 
 locals {
@@ -18,11 +17,6 @@ locals {
   helm_values = {
     persistence = {
       downloads = {
-        type = "pvc"
-        existingClaim = var.download_pvc
-        accessMode = "ReadWriteMany"
-      },
-      media = {
         type = "pvc"
         existingClaim = var.movies_pvc
         accessMode = "ReadWriteMany"
