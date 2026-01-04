@@ -10,8 +10,8 @@ module radarr {
 }
 
 module tdarr {
-  count = 0
   source = "./tdarr"
+  count = 0
   namespace = var.namespace
   cert_issuer = local.local_issuer
   domain = local.local_domain
@@ -47,6 +47,16 @@ module bazarr {
 
 module transmission {
   source = "./transmission"
+  count = 0
+  namespace = var.namespace
+  cert_issuer = local.local_issuer
+  ingress_class = local.private_ingress_name
+  domain = local.local_domain
+  movies_pvc = local.movies_pvc
+}
+
+module qbittorrent {
+  source = "./qbittorrent"
   namespace = var.namespace
   cert_issuer = local.local_issuer
   ingress_class = local.private_ingress_name
