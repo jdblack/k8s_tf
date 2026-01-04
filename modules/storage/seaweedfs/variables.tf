@@ -24,6 +24,7 @@ locals {
     admin = {
       enabled = true
       adminUser = "admin"
+      grpcPort = "33646"
       adminpassword = "secure"
       ingress = {
         enabled = true
