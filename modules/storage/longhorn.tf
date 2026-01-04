@@ -1,6 +1,4 @@
 locals {
-  helm_longhorn_url = "https://charts.longhorn.io"
-  helm_longhorn_chart = "longhorn"
   longhorn_ns = "longhorn-system"
 }
 
