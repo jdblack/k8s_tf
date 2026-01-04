@@ -27,7 +27,7 @@ resource kubernetes_deployment_v1 deployment {
       spec {
         container {
           name  = var.name
-          image = "${local.image.repository}/${local.image.tag}"
+          image = "${local.image.repository}:${local.image.tag}"
           image_pull_policy = "Always"
 
           port {

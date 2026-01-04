@@ -46,7 +46,7 @@ resource kubernetes_ingress_v1 ingress {
           path = "/"
           backend {
             service {
-              name = "webui"
+              name = var.name
               port {
                 number = 8265
               }
