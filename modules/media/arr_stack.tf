@@ -45,16 +45,6 @@ module bazarr {
   movies_pvc = local.movies_pvc
 }
 
-module transmission {
-  source = "./transmission"
-  count = 0
-  namespace = var.namespace
-  cert_issuer = local.local_issuer
-  ingress_class = local.private_ingress_name
-  domain = local.local_domain
-  movies_pvc = local.movies_pvc
-}
-
 module qbittorrent {
   source = "./qbittorrent"
   namespace = var.namespace
@@ -64,3 +54,10 @@ module qbittorrent {
   movies_pvc = local.movies_pvc
 }
 
+module threadfin {
+  source = "./threadfin"
+  namespace = var.namespace
+  cert_issuer = local.local_issuer
+  ingress_class = local.private_ingress_name
+  domain = local.local_domain
+}

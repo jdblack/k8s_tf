@@ -1,14 +1,13 @@
 locals {
-  egresses = concat(
-    [local.to_namespace],
-    var.allow_dns ? [local.to_dns] : [],
-    var.allow_internet ? [local.to_internet] : [],
-  )
-  ingresses = concat(
-    [ local.from_namespace ],
-  )
+  ingresses = [
+    {
+      namespaceSelector = {
+        matchLabels = { "kubernetes.io/metadata.name" = var.namespace }
+      }
+      podSelector = {}
+    }
+  ]
 }
-
 
 resource kubectl_manifest limit_egresses {
   yaml_body = yamlencode({
@@ -20,8 +19,7 @@ resource kubectl_manifest limit_egresses {
     }
     spec = {
       podSelector = { }
-      policyTypes = [ "Egress", "Ingress" ]
-      egress = local.egresses
+      policyTypes = [ "Ingress" ]
       ingress = local.ingresses
     }
   })
