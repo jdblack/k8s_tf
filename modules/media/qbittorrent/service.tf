@@ -25,6 +25,11 @@ resource kubernetes_service_v1 service {
       target_port = var.torrent_port
     }
   }
+  lifecycle {
+    ignore_changes = [
+      metadata[0].annotations
+    ]
+  }
 }
 
 resource kubernetes_ingress_v1 ingress {
@@ -36,6 +41,7 @@ resource kubernetes_ingress_v1 ingress {
       "external-dns.alpha.kubernetes.io/hostname" = local.fqdn
     }
   }
+
 
   spec {
     ingress_class_name = var.ingress_class
@@ -60,4 +66,6 @@ resource kubernetes_ingress_v1 ingress {
       secret_name = "cert-${local.fqdn}"
     }
   }
+
+
 }

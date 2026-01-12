@@ -1,9 +1,9 @@
+
 data kubernetes_config_map_v1 ca_cert {
   metadata {
-    name      = "linuxguru-ca"
+    name      = var.cert_issuer
   }
 }
-
 
 resource kubernetes_config_map_v1_data argocd_tls_cert {
   metadata {

@@ -7,4 +7,3 @@ resource helm_release argocd {
 
   values = [yamlencode(local.config)]
 }
-

@@ -7,6 +7,7 @@ resource kubernetes_namespace_v1 ns {
 }
 
 module trivy {
+  count = 0
   source = "../modules/security/trivy"
 }
 
