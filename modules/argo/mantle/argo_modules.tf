@@ -16,3 +16,8 @@ module argo_workflows {
   sso_server =  var.oauth2_server
 }
 
+module argo_events {
+  source = "./argo-events"
+  namespace = var.namespace
+}
+
