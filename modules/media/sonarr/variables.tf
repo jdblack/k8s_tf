@@ -15,6 +15,10 @@ locals {
   fqdn = "${var.name}.${var.domain}"
 
   helm_values = {
+    image = {
+      tag = "4"
+      imagePullPolicy = "Always"
+    }
     volumes = [
       {
         name = "media"

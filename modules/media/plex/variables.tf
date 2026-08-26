@@ -1,5 +1,4 @@
 variable plex_name { default = "plex" }
-variable chart_version { default = "1.3.0" }
 variable namespace { type = string }
 variable movies_pvc { type = string}
 
@@ -60,9 +59,9 @@ locals {
     }
     service = {
       type = "LoadBalancer"
-      //      annotations = {
-      //        "external-dns.alpha.kubernetes.io/hostname" = local.plex_host_internal,
-      //      }
+      annotations = {
+        "external-dns.alpha.kubernetes.io/hostname" = local.plex_host_internal,
+      }
     }
   }
 }

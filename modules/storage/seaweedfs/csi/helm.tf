@@ -4,6 +4,7 @@ resource helm_release helm {
   repository = var.helm_repo
   chart = var.chart
   namespace = var.namespace
+  version = "0.2.35"
   values = [yamlencode(local.helm_values)]
 }
 

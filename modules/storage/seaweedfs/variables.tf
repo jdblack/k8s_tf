@@ -91,7 +91,7 @@ locals {
 
     }
     s3 = {
-      enabled = false
+      enabled = true
       enableAuth = true
       domain_name = local.s3_host
       host = local.s3_host

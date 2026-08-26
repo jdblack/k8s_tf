@@ -8,11 +8,11 @@ resource argocd_project project {
       duration = "1h"
       kind = "allow"
       manual_sync = true
-      namespaces = [ "ai" ]
+      namespaces = [ var.namespace ]
       schedule = "* * * * *"
       timezone = "UTC"
     }
-    description = "AI Deployments"
+    description = "AoA deplyment for #{local.project}"
     source_repos = [ "*" ]
     source_namespaces = ["*"]
     destination {
@@ -25,14 +25,14 @@ resource argocd_project project {
     }
     role {
       name = "admin"
-      description = "Administraative access for project ${local.project}"
+      description = "Administrative access for project ${local.project}"
       policies = [
         "p, proj:${local.project}:admin, applications, *, ${local.project}/*, allow",
         "p, proj:${local.project}:admin, logs, *, ${local.project}/*, allow",
       ]
       groups = [
-        "argocd-admin",
-        "argocd-admin-${local.project}" 
+        "argo-cd-admin",
+        "argo-cd-admin-${local.project}" 
       ]
     }
   }
