@@ -7,6 +7,6 @@ resource helm_release  ingress_internal {
   depends_on  = [ kubernetes_namespace_v1.namespace]
   set = [ {
     name = "controller.ingressClass.name"
-    value = "internal"
+    value = var.internal_ingress_class
   } ]
 }

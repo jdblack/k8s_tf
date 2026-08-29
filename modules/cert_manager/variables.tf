@@ -16,6 +16,10 @@ variable external_issuer_name {
   default = "letsencrypt"
 }
 
+variable acme_email {
+  type = string
+}
+
 variable ca_certfile {
   type = string
   default="~/.ssl/ca.crt"

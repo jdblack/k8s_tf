@@ -12,7 +12,7 @@ locals {
       volumeMounts = [
         {
           name = "cert"
-          mountPath = "/certs/${var.fqdn}"
+          mountPath = "/certs/${local.fqdn}"
         }
       ]
       volumes = [

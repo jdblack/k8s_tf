@@ -2,7 +2,7 @@
 variable domain {}
 variable name { default="harbor" }
 variable cert_issuer {}
-variable oauth2_server { default = "auth.vn.linuxguru.net" } 
+variable oauth2_server {}
 
 
 locals {

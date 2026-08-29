@@ -1,20 +1,26 @@
 variable namespace { type = string }
 variable cert_issuers { type = map }
 variable name { default = "seaweedfs" }
-variable config_size { default = "1Gi" }
 variable helm_repo { default = "https://seaweedfs.github.io/seaweedfs/helm" }
 variable chart { default = "seaweedfs" }
 variable visibility { default = "private" }
+variable domains { type = map }
+variable data_center { type = string }
+variable admin_password {
+  type = string
+  sensitive = true
+}
+variable volume_replicas { default = 6 }
+variable worker_replicas { default = 3 }
+variable host_path_prefix { default = "/ssd" }
 
 locals {
-  sub = var.visibility == "private" ? ".vn" : "" 
   issuer = var.cert_issuers[var.visibility]
 
-  fqdn = "${var.name}${local.sub}.linuxguru.net"
+  fqdn = "${var.name}.${var.domains[var.visibility]}"
   master_host = "master.${local.fqdn}"
   admin_host = "admin.${local.fqdn}"
-  filer_host = "filer.${local.fqdn}"
-  s3_host = "s3.vn.linuxguru.net"
+  s3_host = "s3.${var.domains[var.visibility]}"
 
   helm_values = {
     global = {
@@ -25,7 +31,7 @@ locals {
       enabled = true
       adminUser = "admin"
       grpcPort = "33646"
-      adminpassword = "secure"
+      adminpassword = var.admin_password
       ingress = {
         enabled = true
         path = "/"
@@ -57,22 +63,17 @@ locals {
       }
     }
     volume = {
-      replicas = 6
+      replicas = var.volume_replicas
       rack = "0"
-      dataCenter = "linuxguru-hcmc"
-      idx = {
-        type = "persistentVolumeClaim"
-        size = "2Gi"
-        storageClass = ""
-      }
+      dataCenter = var.data_center
       data = {
         type = "hostPath"
         storageClass = ""
-        hostPathPrefix = "/ssd"
+        hostPathPrefix = var.host_path_prefix
       }
     }
     filer = {
-      replicas = 2
+      replicas = 1
       data = {
         type = "persistentVolumeClaim"
         size = "2Gi"
@@ -81,9 +82,9 @@ locals {
     }
     worker = {
       enabled = true
-      replicas = 1
-      capabilities = "vacuum,balance,erasure_coding"
-      maxConcurrent = 1
+      replicas = var.worker_replicas
+      jobType = "all"
+      maxConcurrent = 3
       data = {
         type = "emptyDir"
         hostPathPrefix = "/seaweed-worker"

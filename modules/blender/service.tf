@@ -3,7 +3,7 @@ resource kubernetes_service_v1 samba {
     name      = local.samba_name
     namespace = kubernetes_namespace_v1.storage.metadata[0].name
     annotations = {
-      "external-dns.alpha.kubernetes.io/hostname" = "samba-${var.name}.vn.linuxguru.net."
+      "external-dns.alpha.kubernetes.io/hostname" = "samba-${var.name}.${var.domain}"
     }
   }
 
@@ -19,5 +19,11 @@ resource kubernetes_service_v1 samba {
       target_port = 445
       protocol    = "TCP"
     }
+  }
+
+  lifecycle {
+    ignore_changes = [
+      metadata[0].annotations
+    ]
   }
 }

@@ -4,9 +4,9 @@ module radarr {
   source = "./radarr"
   namespace = var.namespace
   cert_issuer = local.local_issuer
-  domain = local.local_domain
+  domain = var.domain
   ingress_class = local.private_ingress_name
-  movies_pvc = local.movies_pvc
+  movies_pvc = var.movies_pvc
 }
 
 module tdarr {
@@ -14,18 +14,18 @@ module tdarr {
   count = 0
   namespace = var.namespace
   cert_issuer = local.local_issuer
-  domain = local.local_domain
+  domain = var.domain
   ingress_class = local.private_ingress_name
-  movies_pvc = local.movies_pvc
+  movies_pvc = var.movies_pvc
 }
 
 module sonarr {
   source = "./sonarr"
   namespace = var.namespace
   cert_issuer = local.local_issuer
-  domain = local.local_domain
+  domain = var.domain
   ingress_class = local.private_ingress_name
-  movies_pvc = local.movies_pvc
+  movies_pvc = var.movies_pvc
 }
 
 module prowlarr {
@@ -33,7 +33,7 @@ module prowlarr {
   namespace = var.namespace
   cert_issuer = local.local_issuer
   ingress_class = local.private_ingress_name
-  domain = local.local_domain
+  domain = var.domain
 }
 
 module bazarr {
@@ -41,8 +41,8 @@ module bazarr {
   namespace = var.namespace
   cert_issuer = local.local_issuer
   ingress_class = local.private_ingress_name
-  domain = local.local_domain
-  movies_pvc = local.movies_pvc
+  domain = var.domain
+  movies_pvc = var.movies_pvc
 }
 
 module qbittorrent {
@@ -50,8 +50,8 @@ module qbittorrent {
   namespace = var.namespace
   cert_issuer = local.local_issuer
   ingress_class = local.private_ingress_name
-  domain = local.local_domain
-  movies_pvc = local.movies_pvc
+  domain = var.domain
+  movies_pvc = var.movies_pvc
 }
 
 module threadfin {
@@ -59,5 +59,5 @@ module threadfin {
   namespace = var.namespace
   cert_issuer = local.local_issuer
   ingress_class = local.private_ingress_name
-  domain = local.local_domain
+  domain = var.domain
 }

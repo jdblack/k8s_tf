@@ -12,13 +12,13 @@ locals {
       repository = "bitnamilegacy/external-dns"
     }
     rfc2136 = {
-      zone = var.deployment.internal_dns.domain
-      host = var.deployment.internal_dns.server
-      tsigKeyname = var.deployment.internal_dns.client
-      tsigSecret = var.deployment.internal_dns.secret
+      zone = var.internal_dns.domain
+      host = var.internal_dns.server
+      tsigKeyname = var.internal_dns.client
+      tsigSecret = var.internal_dns.secret
     }
     sources = [ "service", "ingress" ]
-    domainFilters = [ var.deployment.internal_dns.domain ]
+    domainFilters = [ var.internal_dns.domain ]
 
   }
 }

@@ -9,7 +9,7 @@ locals {
       namespace= var.namespace
     }
     spec = {
-      addresses = [var.deployment.metal.networks]
+      addresses = [var.metal_networks]
     }
   }
   advertise_manifest = {

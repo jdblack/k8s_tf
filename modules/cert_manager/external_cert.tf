@@ -14,7 +14,7 @@ locals {
     }
     spec = {
       acme = {
-        email = "<domains@linuxguru.net>"
+        email = var.acme_email
         http01: {}
         server = "https://acme-v02.api.letsencrypt.org/directory"
         solvers = [

@@ -21,7 +21,7 @@ locals {
     }
     ingress = {
       enabled = true
-      className = "private"
+      className = var.ingress_class
       annotations = {
         "cert-manager.io/cluster-issuer" = var.cert_issuer,
         "external-dns.alpha.kubernetes.io/hostname" = local.fqdn,

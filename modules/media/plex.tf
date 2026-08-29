@@ -1,6 +1,9 @@
 module plex {
   source = "./plex"
   namespace = var.namespace
-  movies_pvc = "movies-archive"
+  domain = var.domains["public"]
+  cert_issuer = var.cert_authorities["public"]
+  plex_claim = var.plex_claim
+  movies_pvc = var.movies_pvc
 }
 

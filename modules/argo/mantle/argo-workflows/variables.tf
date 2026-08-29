@@ -8,7 +8,7 @@ variable chart { default = "argo-workflows" }
 variable domain {}
 variable cert_issuer { type = string }
 
-variable sso_server { default = "auth.vn.linuxguru.net" } 
+variable sso_server {}
 
 locals {
   sso_secret = "${var.name}-sso-creds"

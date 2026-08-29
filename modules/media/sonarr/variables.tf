@@ -40,6 +40,7 @@ locals {
     }
     securityContext = {
       runAsUser = 1000
+      runAsGroup = 1000
     }
     ingress = {
       annotations = {

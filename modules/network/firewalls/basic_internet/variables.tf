@@ -1,4 +1,6 @@
 variable namespace { type = string } 
+variable network_namespace { default = "kube-network" }
+variable system_namespace { default = "kube-system" }
 variable allow_internet { default = true }
 variable allow_dns { default = true }
 variable allow_to_ns { default = true }
@@ -23,7 +25,7 @@ locals {
         {
           namespaceSelector = {
             matchlabels = { 
-              "kubernetes.io/metadata.name" = "kube-network"
+              "kubernetes.io/metadata.name" = var.network_namespace
             }
           }
 
@@ -50,7 +52,7 @@ locals {
         {
           namespaceSelector = {
             matchLabels = {
-              "kubernetes.io/metadata.name" = "kube-system"
+              "kubernetes.io/metadata.name" = var.system_namespace
             }
           }
           podSelector = {

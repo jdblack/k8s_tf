@@ -1,5 +1,5 @@
 
-variable oauth2_server { default = "auth.vn.linuxguru.net" } 
+variable oauth2_server {}
 variable namespace   { type = string }
 variable name        { default = "argo-cd" }
 variable deploy_key  { type = string }

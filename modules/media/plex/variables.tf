@@ -1,22 +1,25 @@
 variable plex_name { default = "plex" }
 variable namespace { type = string }
 variable movies_pvc { type = string}
+variable domain { type = string }
+variable cert_issuer { type = string }
+variable plex_claim { type = string }
 
 locals {
-  plex_host_internal = "${var.plex_name}.linuxguru.net"
+  plex_host_internal = "${var.plex_name}.${var.domain}"
   plex_helm_values = {
     extraEnv = {
-      //      ADVERTISE_IP = "http://192.168.0.104:32400, http://113.161.41.162:32400"
+      PLEX_CLAIM = var.plex_claim
       PLEX_UID = 1000
       PLEX_GID = 1000
     }
     pms = {
-      configStorage = "3Gi"
+      configStorage = "30Gi"
     }
     image = {
       tag = "latest"
+      pullPolicy = "Always"
     }
-    pullPolicy = "always"
     extraVolumes = [
       {
         name = "media"
@@ -35,8 +38,8 @@ locals {
       enabled = true
       ingressClassName = "public"
       url = local.plex_host_internal
-      annotatons = {
-        "cert-manager.io/cluster-issuer" = "letsencrypt",
+      annotations = {
+        "cert-manager.io/cluster-issuer" = var.cert_issuer,
         "external-dns.alpha.kubernetes.io/hostname" = local.plex_host_internal,
       }
       tls = [
@@ -65,5 +68,3 @@ locals {
     }
   }
 }
-
-

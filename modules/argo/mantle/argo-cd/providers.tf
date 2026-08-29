@@ -1,4 +1,3 @@
-
 terraform {
   required_providers {
     argocd = {
@@ -6,5 +5,3 @@ terraform {
     }
   }
 }
-
-
