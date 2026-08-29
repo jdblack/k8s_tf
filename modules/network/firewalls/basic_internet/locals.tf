@@ -16,7 +16,7 @@ locals {
       to = [
         {
           namespaceSelector = {
-            matchlabels = {
+            matchLabels = {
               "kubernetes.io/metadata.name" = var.network_namespace
             }
           }
