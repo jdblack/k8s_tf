@@ -3,5 +3,8 @@ terraform {
     kubectl = {
       source = "gavinbunney/kubectl"
     }
+    helm = {
+      source = "hashicorp/helm"
+    }
   }
 }

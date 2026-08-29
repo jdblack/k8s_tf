@@ -3,7 +3,6 @@ variable cert_authority { type = string }
 variable domain { type = string }
 
 variable name { default = "odoo" }
-variable config_size { default = "1Gi" }
 variable helm_repo { default = "oci://registry-1.docker.io/ptnglobalcorp" }
 variable chart { default = "odoo" }
 variable visibility { default = "private" }

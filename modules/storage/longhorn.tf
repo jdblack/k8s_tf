@@ -1,5 +1,3 @@
-variable helm_longhorn_url  { default = "https://charts.longhorn.io" }
-variable helm_longhorn_chart { default = "longhorn" }
 
 
 resource kubernetes_namespace_v1 longhorn {

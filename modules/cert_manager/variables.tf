@@ -2,10 +2,6 @@ variable namespace {
   type = string
   default="kube-certificates"
 }
-variable cert_version {
-  type = string
-  default="latest"
-}
 
 variable data {
   type = map

@@ -1,9 +1,6 @@
 
 module auth {
   name = var.name
-  domain = var.domain
-  oauth2_host = var.oauth2_server
-  cert_issuer = var.cert_issuer
   redirect_uri = "https://${local.fqdn}/auth/callback"
   source = "../../../auth/authentik/oidc_provider"
 }

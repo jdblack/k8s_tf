@@ -1,10 +1,5 @@
 locals {
   charts = {
-    flannel = {
-      name = "flannel"
-      url = "https://flannel-io.github.io/flannel/"
-      chart="flannel"
-    }
 
     metal = {
       name  = "metal"

@@ -7,12 +7,3 @@ variable aoa_name       { default = "" }
 
 variable deployer_repo  { type = string }
 variable deployer_path  { type = string }
-
-
-
-locals {
-  namespace = coalesce(var.namespace, var.name)
-  project = coalesce(var.project, var.name)
-  aoa_name = coalesce(var.aoa_name, "aoa-${var.name}")
-}
-

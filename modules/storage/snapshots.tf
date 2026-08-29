@@ -1,14 +1,10 @@
-locals {
-	snapshot_controller = {
-	}
-}
 
 resource helm_release snapshot_controller {
 	name  = "snapshot-controller"
 	repository = "https://piraeus.io/helm-charts/"
 	chart = "snapshot-controller"
 	namespace = var.namespace
-	values = [yamlencode(local.snapshot_controller)]
+	values = [yamlencode({})]
 }
 
 resource kubernetes_manifest longhorn_snapshot {

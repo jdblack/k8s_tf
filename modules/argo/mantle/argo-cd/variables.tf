@@ -7,8 +7,3 @@ variable repo        { type = string }
 
 variable domain {}
 variable cert_issuer { type = string }
-
-
-locals {
-  fqdn = "${var.name}.${var.domain}"
-}
