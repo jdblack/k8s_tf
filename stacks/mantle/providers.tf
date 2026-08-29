@@ -1,29 +1,32 @@
 terraform {
   backend "kubernetes" {
-    namespace = "kube-system"
+    namespace     = "kube-system"
     secret_suffix = "mantle"
-    config_path = "~/.kube/config"
+    config_path   = "~/.kube/config"
   }
 
   required_providers {
     kubectl = {
-      source = "gavinbunney/kubectl"
+      source  = "gavinbunney/kubectl"
       version = "1.19.0"
     }
     kubernetes = {
-      source = "hashicorp/kubernetes"
+      source  = "hashicorp/kubernetes"
       version = "3.0.1"
     }
+    helm = {
+      source = "hashicorp/helm"
+    }
     harbor = {
-      source = "goharbor/harbor"
+      source  = "goharbor/harbor"
       version = "3.10.17"
     }
     argocd = {
-      source = "argoproj-labs/argocd"
+      source  = "argoproj-labs/argocd"
       version = "7.12.4"
     }
     authentik = {
-      source = "goauthentik/authentik"
+      source  = "goauthentik/authentik"
       version = "2025.10.1"
     }
     random = {
@@ -33,7 +36,7 @@ terraform {
 }
 
 provider "kubernetes" {
-  config_path    = "~/.kube/config"
+  config_path = "~/.kube/config"
 }
 
 provider "helm" {
@@ -46,40 +49,40 @@ provider "kubectl" {
   config_path = "~/.kube/config"
 }
 
-data kubernetes_secret_v1 harbor_auth {
+data "kubernetes_secret_v1" "harbor_auth" {
   metadata {
     namespace = var.deployment.harbor.namespace
-    name = var.deployment.harbor.auth_secret
+    name      = var.deployment.harbor.auth_secret
   }
 }
 
-data kubernetes_secret_v1 authentik_auth {
+data "kubernetes_secret_v1" "authentik_auth" {
   metadata {
     namespace = var.deployment.auth.namespace
-    name = var.deployment.auth.authentik_api_key
+    name      = var.deployment.auth.authentik_api_key
   }
 }
 
-provider authentik {
-  url = var.deployment.auth.server
+provider "authentik" {
+  url   = var.deployment.auth.server
   token = data.kubernetes_secret_v1.authentik_auth.data["api_key"]
 }
 
-provider harbor {
+provider "harbor" {
   username = data.kubernetes_secret_v1.harbor_auth.data["username"]
   password = data.kubernetes_secret_v1.harbor_auth.data["password"]
-  url = data.kubernetes_secret_v1.harbor_auth.data["url"]
+  url      = data.kubernetes_secret_v1.harbor_auth.data["url"]
 }
 
-data kubernetes_secret_v1 argocd_auth {
+data "kubernetes_secret_v1" "argocd_auth" {
   metadata {
     namespace = var.deployment.argocd_devops.namespace
-    name = var.deployment.argocd_devops.auth_secret
+    name      = var.deployment.argocd_devops.auth_secret
   }
 }
 
 provider "argocd" {
   server_addr = "${var.deployment.argocd_devops.server}:443"
-  username = "admin"
-  password = data.kubernetes_secret_v1.argocd_auth.data["password"]
+  username    = "admin"
+  password    = data.kubernetes_secret_v1.argocd_auth.data["password"]
 }

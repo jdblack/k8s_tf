@@ -5,8 +5,8 @@ locals {
       to = [
         {
           ipBlock = {
-            cidr = "0.0.0.0/0"
-            except = [ "10.0.0.0/8" ]
+            cidr   = "0.0.0.0/0"
+            except = ["10.0.0.0/8"]
           }
         }
       ]
@@ -16,7 +16,7 @@ locals {
       to = [
         {
           namespaceSelector = {
-            matchlabels = { 
+            matchlabels = {
               "kubernetes.io/metadata.name" = var.network_namespace
             }
           }
@@ -55,7 +55,7 @@ locals {
       ports = [
         {
           protocol = "UDP"
-          port = 53
+          port     = 53
         }
       ]
     }

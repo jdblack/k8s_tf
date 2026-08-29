@@ -1,8 +1,8 @@
 
-module oauth2 {
-  name = var.name
+module "oauth2" {
+  name         = var.name
   redirect_uri = "https://${local.fqdn}/c/oidc/callback"
-  source = "../../auth/authentik/oidc_provider"
+  source       = "../../auth/authentik/oidc_provider"
 }
 
 
@@ -19,6 +19,6 @@ resource "harbor_config_auth" "oidc" {
   oidc_verify_cert   = true
   oidc_auto_onboard  = true
   oidc_user_claim    = "preferred_username"
-  oidc_groups_claim   = "groups"
+  oidc_groups_claim  = "groups"
   oidc_admin_group   = "harbor-admin"
 }

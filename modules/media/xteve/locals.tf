@@ -1,4 +1,0 @@
-locals {
-  helm_values = {
-  }
-}

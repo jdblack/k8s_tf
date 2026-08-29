@@ -1,9 +1,9 @@
-variable namespace     { }
-variable deploy_key    { }
-variable repo          { } 
+variable "namespace" {}
+variable "deploy_key" {}
+variable "repo" {}
 
-variable oauth2_server { } 
-variable domain        { }
-variable cert_issuer   { }
+variable "oauth2_server" {}
+variable "domain" {}
+variable "cert_issuer" {}
 
 

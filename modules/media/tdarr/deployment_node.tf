@@ -1,10 +1,10 @@
 
-resource kubernetes_deployment_v1 deployment_node {
+resource "kubernetes_deployment_v1" "deployment_node" {
   metadata {
     name      = var.name_node
     namespace = var.namespace
     labels = {
-      "app.kubernetes.io/name"       = var.name_node
+      "app.kubernetes.io/name" = var.name_node
     }
   }
 
@@ -13,14 +13,14 @@ resource kubernetes_deployment_v1 deployment_node {
 
     selector {
       match_labels = {
-        "app.kubernetes.io/name"    = var.name_node
+        "app.kubernetes.io/name" = var.name_node
       }
     }
 
     template {
       metadata {
         labels = {
-          "app.kubernetes.io/name"    = var.name_node
+          "app.kubernetes.io/name" = var.name_node
         }
       }
 
@@ -40,22 +40,22 @@ resource kubernetes_deployment_v1 deployment_node {
 
 
         container {
-          name  = var.name_node
-          image = "${local.node.image.repository}:${local.node.image.tag}"
+          name              = var.name_node
+          image             = "${local.node.image.repository}:${local.node.image.tag}"
           image_pull_policy = "Always"
 
           env {
-            name = "serverIP"
+            name  = "serverIP"
             value = "tdarr"
           }
           env {
-            name = "serverPort"
+            name  = "serverPort"
             value = 8266
           }
 
           volume_mount {
             mount_path = "/media"
-            name = var.movies_pvc
+            name       = var.movies_pvc
           }
         }
 

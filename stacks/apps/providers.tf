@@ -1,24 +1,27 @@
 terraform {
   backend "kubernetes" {
-    namespace = "kube-system"
+    namespace     = "kube-system"
     secret_suffix = "deployment"
-    config_path = "~/.kube/config"
+    config_path   = "~/.kube/config"
   }
   required_providers {
     argocd = {
-      source = "argoproj-labs/argocd"
+      source  = "argoproj-labs/argocd"
       version = "7.12.4"
     }
     kubernetes = {
-      source = "hashicorp/kubernetes"
+      source  = "hashicorp/kubernetes"
       version = "3.0.1"
+    }
+    helm = {
+      source = "hashicorp/helm"
     }
   }
 }
 
 
 provider "kubernetes" {
-  config_path    = "~/.kube/config"
+  config_path = "~/.kube/config"
 }
 
 provider "helm" {
@@ -27,17 +30,17 @@ provider "helm" {
   }
 }
 
-data kubernetes_secret_v1 argocd_auth {
+data "kubernetes_secret_v1" "argocd_auth" {
   metadata {
     namespace = var.argo_namespace
-    name = var.argo_auth_secret
+    name      = var.argo_auth_secret
   }
 }
 
 
-provider argocd {
+provider "argocd" {
   server_addr = var.argo_cd_server != "" ? "${var.argo_cd_server}:443" : "argo-cd.${var.deployment.common.domain}:443"
-  username = "admin"
-  password = data.kubernetes_secret_v1.argocd_auth.data["password"]
+  username    = "admin"
+  password    = data.kubernetes_secret_v1.argocd_auth.data["password"]
 }
 

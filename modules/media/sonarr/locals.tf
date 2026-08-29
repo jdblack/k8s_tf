@@ -3,14 +3,14 @@ locals {
 
   helm_values = {
     image = {
-      tag = "4"
+      tag             = "4"
       imagePullPolicy = "Always"
     }
     volumes = [
       {
         name = "media"
         persistentVolumeClaim = {
-          claimName = var.movies_pvc 
+          claimName = var.movies_pvc
         }
       }
     ]
@@ -26,17 +26,17 @@ locals {
       }
     }
     securityContext = {
-      runAsUser = 1000
+      runAsUser  = 1000
       runAsGroup = 1000
     }
     ingress = {
       annotations = {
-        "cert-manager.io/cluster-issuer" = var.cert_issuer,
+        "cert-manager.io/cluster-issuer"            = var.cert_issuer,
         "external-dns.alpha.kubernetes.io/hostname" = local.fqdn,
       }
-      enabled = true
+      enabled          = true
       ingressClassName = var.ingress_class
-      url = local.fqdn
+      url              = local.fqdn
 
       tls = [
         {

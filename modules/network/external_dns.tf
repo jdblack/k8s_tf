@@ -7,18 +7,18 @@
 locals {
   dyndns_config = {
     publishInternalServices = true
-    provider = "rfc2136"
+    provider                = "rfc2136"
     image = {
       repository = "bitnamilegacy/external-dns"
     }
     rfc2136 = {
-      zone = var.internal_dns.domain
-      host = var.internal_dns.server
+      zone        = var.internal_dns.domain
+      host        = var.internal_dns.server
       tsigKeyname = var.internal_dns.client
-      tsigSecret = var.internal_dns.secret
+      tsigSecret  = var.internal_dns.secret
     }
-    sources = [ "service", "ingress" ]
-    domainFilters = [ var.internal_dns.domain ]
+    sources       = ["service", "ingress"]
+    domainFilters = [var.internal_dns.domain]
 
   }
 }
@@ -27,6 +27,6 @@ resource "helm_release" "ext_dnsrelease" {
   name       = local.charts.ext_dns.name
   repository = local.charts.ext_dns.url
   chart      = local.charts.ext_dns.chart
-  values = [yamlencode(local.dyndns_config)]
-  depends_on  = [ kubernetes_namespace_v1.namespace]
+  values     = [yamlencode(local.dyndns_config)]
+  depends_on = [kubernetes_namespace_v1.namespace]
 }

@@ -9,18 +9,18 @@ locals {
   ]
 }
 
-resource kubectl_manifest limit_egresses {
+resource "kubectl_manifest" "limit_egresses" {
   yaml_body = yamlencode({
     apiVersion = "networking.k8s.io/v1"
-    kind = "NetworkPolicy"
+    kind       = "NetworkPolicy"
     metadata = {
-      name = "namespace-firewall"
+      name      = "namespace-firewall"
       namespace = var.namespace
     }
     spec = {
-      podSelector = { }
-      policyTypes = [ "Ingress" ]
-      ingress = local.ingresses
+      podSelector = {}
+      policyTypes = ["Ingress"]
+      ingress     = local.ingresses
     }
   })
 }

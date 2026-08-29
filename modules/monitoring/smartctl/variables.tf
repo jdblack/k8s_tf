@@ -1,2 +1,2 @@
-variable name { default = "smartctl" }
-variable namespace    {  }
+variable "name" { default = "smartctl" }
+variable "namespace" {}

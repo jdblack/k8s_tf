@@ -1,63 +1,63 @@
 
 
-module radarr {
-  source = "./radarr"
-  namespace = var.namespace
-  cert_issuer = local.local_issuer
-  domain = var.domain
+module "radarr" {
+  source        = "./radarr"
+  namespace     = var.namespace
+  cert_issuer   = local.local_issuer
+  domain        = var.domain
   ingress_class = local.private_ingress_name
-  movies_pvc = var.movies_pvc
+  movies_pvc    = var.movies_pvc
 }
 
-module tdarr {
-  source = "./tdarr"
-  count = 0
-  namespace = var.namespace
-  cert_issuer = local.local_issuer
-  domain = var.domain
+module "tdarr" {
+  source        = "./tdarr"
+  count         = 0
+  namespace     = var.namespace
+  cert_issuer   = local.local_issuer
+  domain        = var.domain
   ingress_class = local.private_ingress_name
-  movies_pvc = var.movies_pvc
+  movies_pvc    = var.movies_pvc
 }
 
-module sonarr {
-  source = "./sonarr"
-  namespace = var.namespace
-  cert_issuer = local.local_issuer
-  domain = var.domain
+module "sonarr" {
+  source        = "./sonarr"
+  namespace     = var.namespace
+  cert_issuer   = local.local_issuer
+  domain        = var.domain
   ingress_class = local.private_ingress_name
-  movies_pvc = var.movies_pvc
+  movies_pvc    = var.movies_pvc
 }
 
-module prowlarr {
-  source = "./prowlarr"
-  namespace = var.namespace
-  cert_issuer = local.local_issuer
+module "prowlarr" {
+  source        = "./prowlarr"
+  namespace     = var.namespace
+  cert_issuer   = local.local_issuer
   ingress_class = local.private_ingress_name
-  domain = var.domain
+  domain        = var.domain
 }
 
-module bazarr {
-  source = "./bazarr"
-  namespace = var.namespace
-  cert_issuer = local.local_issuer
+module "bazarr" {
+  source        = "./bazarr"
+  namespace     = var.namespace
+  cert_issuer   = local.local_issuer
   ingress_class = local.private_ingress_name
-  domain = var.domain
-  movies_pvc = var.movies_pvc
+  domain        = var.domain
+  movies_pvc    = var.movies_pvc
 }
 
-module qbittorrent {
-  source = "./qbittorrent"
-  namespace = var.namespace
-  cert_issuer = local.local_issuer
+module "qbittorrent" {
+  source        = "./qbittorrent"
+  namespace     = var.namespace
+  cert_issuer   = local.local_issuer
   ingress_class = local.private_ingress_name
-  domain = var.domain
-  movies_pvc = var.movies_pvc
+  domain        = var.domain
+  movies_pvc    = var.movies_pvc
 }
 
-module threadfin {
-  source = "./threadfin"
-  namespace = var.namespace
-  cert_issuer = local.local_issuer
+module "threadfin" {
+  source        = "./threadfin"
+  namespace     = var.namespace
+  cert_issuer   = local.local_issuer
   ingress_class = local.private_ingress_name
-  domain = var.domain
+  domain        = var.domain
 }

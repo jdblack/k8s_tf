@@ -1,4 +1,4 @@
-resource kubernetes_persistent_volume_claim_v1 samba {
+resource "kubernetes_persistent_volume_claim_v1" "samba" {
   metadata {
     name      = local.samba_name
     namespace = kubernetes_namespace_v1.storage.metadata[0].name
@@ -15,7 +15,7 @@ resource kubernetes_persistent_volume_claim_v1 samba {
   }
 }
 
-resource kubernetes_persistent_volume_v1 samba {
+resource "kubernetes_persistent_volume_v1" "samba" {
   metadata {
     name = local.pv_name
     labels = {

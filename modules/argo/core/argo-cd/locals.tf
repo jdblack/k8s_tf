@@ -1,5 +1,5 @@
 locals {
-  fqdn = "${var.name}.${var.domain}" 
+  fqdn = "${var.name}.${var.domain}"
   config = {
     global = { domain = local.fqdn }
     configs = {
@@ -18,7 +18,7 @@ locals {
 
       ingress = {
         ingressClassName = "private"
-        enabled = true
+        enabled          = true
         extraHosts = [
           {
             name = var.name
@@ -29,25 +29,25 @@ locals {
         annotations = {
           "nginx.ingress.kubernetes.io/ssl-passthrough" : "true"
           "cert-manager.io/cluster-issuer" : var.cert_issuer
-          "nginx.ingress.kubernetes.io/backend-protocol": "HTTPS"
+          "nginx.ingress.kubernetes.io/backend-protocol" : "HTTPS"
         }
 
         rule = {
-          hosts  = [
-            var.name, 
+          hosts = [
+            var.name,
             local.fqdn
           ]
 
           http = {
             path = {
-              path = "/"
-              path_type = "Prefix"  # Specify the path_type (Prefix or Exact)
+              path      = "/"
+              path_type = "Prefix" # Specify the path_type (Prefix or Exact)
 
               backend = {
                 service = {
                   name = var.name
                   port = {
-                    name= "https"
+                    name = "https"
                   }
                 }
               }
@@ -62,12 +62,12 @@ locals {
           }
         ]
       }
-#      persistence = {
-#        enabled       = true
-#        size          = var.storage_size
-#      }
+      #      persistence = {
+      #        enabled       = true
+      #        size          = var.storage_size
+      #      }
     }
 
-    finalizers = [ "resources-finalizer.argocd.argoproj.io" ]
+    finalizers = ["resources-finalizer.argocd.argoproj.io"]
   }
 }

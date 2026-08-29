@@ -1,9 +1,9 @@
-resource kubectl_manifest monitor {
+resource "kubectl_manifest" "monitor" {
   yaml_body = yamlencode({
     apiVersion = "monitoring.coreos.com/v1"
-    kind = "ServiceMonitor"
+    kind       = "ServiceMonitor"
     metadata = {
-      name = var.name
+      name      = var.name
       namespace = var.namespace
     }
     spec = {

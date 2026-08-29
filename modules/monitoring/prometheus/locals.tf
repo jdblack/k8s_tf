@@ -1,14 +1,14 @@
 locals {
   prometheus = {
     grafana = {
-      enabled = true
+      enabled       = true
       adminPassword = var.grafana_admin_password != "" ? var.grafana_admin_password : random_password.grafana_admin.result
       persistence = {
         enabled = true
-        size = "1Gi"
+        size    = "1Gi"
       }
       ingress = {
-        enabled = true
+        enabled          = true
         ingressClassName = var.ingress_class
         annotations = {
           "cert-manager.io/cluster-issuer" = var.cert_issuer
@@ -30,7 +30,7 @@ locals {
     }
     prometheus = {
       prometheusSpec = {
-        podMonitorSelectorNilUsesHelmValues = false
+        podMonitorSelectorNilUsesHelmValues     = false
         serviceMonitorSelectorNilUsesHelmValues = false
       }
     }

@@ -1,11 +1,11 @@
 
 
-resource kubernetes_deployment_v1 qbittorrent {
+resource "kubernetes_deployment_v1" "qbittorrent" {
   metadata {
     name      = var.name
     namespace = var.namespace
     labels = {
-      "app.kubernetes.io/name"       = var.name
+      "app.kubernetes.io/name" = var.name
     }
   }
 
@@ -14,49 +14,49 @@ resource kubernetes_deployment_v1 qbittorrent {
 
     selector {
       match_labels = {
-        "app.kubernetes.io/name"    = var.name
+        "app.kubernetes.io/name" = var.name
       }
     }
 
     template {
       metadata {
         labels = {
-          "app.kubernetes.io/name"    = var.name
+          "app.kubernetes.io/name" = var.name
         }
       }
 
       spec {
         container {
-          name  = var.name
-          image = "lscr.io/linuxserver/qbittorrent:latest"
+          name              = var.name
+          image             = "lscr.io/linuxserver/qbittorrent:latest"
           image_pull_policy = "Always"
 
           env {
-            name = "PUID"
+            name  = "PUID"
             value = 1000
           }
           env {
-            name = "PGID"
+            name  = "PGID"
             value = 1000
           }
 
 
           port {
-            name = "webui"
+            name           = "webui"
             container_port = var.web_port
           }
           port {
-            name = "torrent"
+            name           = "torrent"
             container_port = var.torrent_port
           }
 
           volume_mount {
-            name = local.app_data_name
+            name       = local.app_data_name
             mount_path = "/config"
           }
 
           volume_mount {
-            name = var.movies_pvc
+            name       = var.movies_pvc
             mount_path = "/downloads"
           }
         }
@@ -78,7 +78,7 @@ resource kubernetes_deployment_v1 qbittorrent {
   }
 }
 
-resource kubernetes_persistent_volume_claim_v1 app_data {
+resource "kubernetes_persistent_volume_claim_v1" "app_data" {
   metadata {
     name      = "${var.name}-data"
     namespace = var.namespace

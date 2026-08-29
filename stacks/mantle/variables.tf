@@ -1,2 +1,2 @@
 
-variable deployment { type = any }
+variable "deployment" { type = any }

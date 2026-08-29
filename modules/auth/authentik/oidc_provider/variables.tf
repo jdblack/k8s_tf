@@ -1,5 +1,5 @@
 
-variable name { } 
-variable redirect_uri { type = string }
+variable "name" {}
+variable "redirect_uri" { type = string }
 
 

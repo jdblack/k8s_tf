@@ -1,5 +1,5 @@
 
-resource kubernetes_namespace_v1 namespace {
+resource "kubernetes_namespace_v1" "namespace" {
   metadata {
     name = var.namespace
   }
@@ -12,15 +12,15 @@ locals {
       type = "Recreate"
     }
     harborAdminPassword = random_password.admin_password.result,
-    caBundleSecretName =  local.ca_secret_name
+    caBundleSecretName  = local.ca_secret_name
     persistence = {
       persistentVolumeClaim = {
         registry = {
-          size = "2Pi"
+          size         = "2Pi"
           storageClass = "seaweedfs-csi"
         }
         trivy = {
-          size = "2Pi"
+          size         = "2Pi"
           storageClass = "seaweedfs-csi"
         }
 
@@ -30,7 +30,7 @@ locals {
       ingress = {
         annotations = {
           "external-dns.alpha.kubernetes.io/hostname" = local.fqdn,
-          "cert-manager.io/cluster-issuer" = var.cert_issuer,
+          "cert-manager.io/cluster-issuer"            = var.cert_issuer,
         }
         className = "private"
         tls = {
@@ -50,8 +50,8 @@ resource "helm_release" "harbor" {
   repository = "https://helm.goharbor.io"
   chart      = "harbor"
   namespace  = var.namespace
-  timeout = 500
-  values = [yamlencode(local.helm_values)]
+  timeout    = 500
+  values     = [yamlencode(local.helm_values)]
 
 }
 

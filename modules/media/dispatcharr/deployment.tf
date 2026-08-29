@@ -1,11 +1,11 @@
 
 
-resource kubernetes_deployment_v1 dispatcharr {
+resource "kubernetes_deployment_v1" "dispatcharr" {
   metadata {
     name      = var.name
     namespace = var.namespace
     labels = {
-      "app.kubernetes.io/name"       = var.name
+      "app.kubernetes.io/name" = var.name
     }
   }
 
@@ -14,31 +14,31 @@ resource kubernetes_deployment_v1 dispatcharr {
 
     selector {
       match_labels = {
-        "app.kubernetes.io/name"    = var.name
+        "app.kubernetes.io/name" = var.name
       }
     }
 
     template {
       metadata {
         labels = {
-          "app.kubernetes.io/name"    = var.name
+          "app.kubernetes.io/name" = var.name
         }
       }
 
       spec {
         container {
-          name  = var.name
-          image = "ghcr.io/dispatcharr/dispatcharr:latest"
+          name              = var.name
+          image             = "ghcr.io/dispatcharr/dispatcharr:latest"
           image_pull_policy = "Always"
 
           port {
-            name = "service"
+            name           = "service"
             container_port = 9191
           }
 
           volume_mount {
             mount_path = "/data"
-            name = local.volume_name
+            name       = local.volume_name
           }
         }
 
@@ -53,7 +53,7 @@ resource kubernetes_deployment_v1 dispatcharr {
   }
 }
 
-resource kubernetes_persistent_volume_claim_v1 dispatcharr_data {
+resource "kubernetes_persistent_volume_claim_v1" "dispatcharr_data" {
   metadata {
     name      = "${var.name}-data"
     namespace = var.namespace

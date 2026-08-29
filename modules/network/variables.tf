@@ -1,4 +1,4 @@
-variable internal_dns {
+variable "internal_dns" {
   type = object({
     server = string
     domain = string
@@ -7,17 +7,17 @@ variable internal_dns {
   })
 }
 
-variable metal_networks {
+variable "metal_networks" {
   type = string
 }
 
-variable namespace {
-  type = string
+variable "namespace" {
+  type    = string
   default = "kube-network"
 }
 
-variable internal_ingress_class {
-  type = string
+variable "internal_ingress_class" {
+  type    = string
   default = "internal"
 }
 

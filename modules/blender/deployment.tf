@@ -1,5 +1,5 @@
 
-resource kubernetes_deployment_v1 samba {
+resource "kubernetes_deployment_v1" "samba" {
   metadata {
     name      = local.samba_name
     namespace = kubernetes_namespace_v1.storage.metadata[0].name
@@ -23,7 +23,7 @@ resource kubernetes_deployment_v1 samba {
 
       spec {
         container {
-          name = local.samba_name
+          name  = local.samba_name
           image = "dockurr/samba"
 
           env {
@@ -54,13 +54,13 @@ resource kubernetes_deployment_v1 samba {
           }
 
           volume_mount {
-            name      = "storage"
+            name       = "storage"
             mount_path = "/storage"
             read_only  = false
           }
 
           volume_mount {
-            name      = "config"
+            name       = "config"
             mount_path = "/etc/samba/smb.conf"
             sub_path   = "smb.conf"
           }

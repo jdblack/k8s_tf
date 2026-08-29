@@ -1,23 +1,15 @@
-variable namespace { }
-
-locals {
-  metric_server_config  = {
-    args = [
-    ]
-  }
-}
+variable "namespace" {}
 
 resource "helm_release" "metrics_server" {
   name       = "metrics-server"
-  namespace = var.namespace
+  namespace  = var.namespace
   repository = "https://kubernetes-sigs.github.io/metrics-server/"
   chart      = "metrics-server"
-  set_list = [ 
+  set_list = [
     {
-      name = "args"
-      value = [ "--kubelet-insecure-tls" ]
+      name  = "args"
+      value = ["--kubelet-insecure-tls"]
     }
   ]
 
 }
-

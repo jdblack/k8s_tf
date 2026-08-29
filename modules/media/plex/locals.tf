@@ -3,14 +3,14 @@ locals {
   plex_helm_values = {
     extraEnv = {
       PLEX_CLAIM = var.plex_claim
-      PLEX_UID = 1000
-      PLEX_GID = 1000
+      PLEX_UID   = 1000
+      PLEX_GID   = 1000
     }
     pms = {
       configStorage = "30Gi"
     }
     image = {
-      tag = "latest"
+      tag        = "latest"
       pullPolicy = "Always"
     }
     extraVolumes = [
@@ -28,11 +28,11 @@ locals {
       }
     ]
     ingress = {
-      enabled = true
+      enabled          = true
       ingressClassName = "public"
-      url = local.plex_host_internal
+      url              = local.plex_host_internal
       annotations = {
-        "cert-manager.io/cluster-issuer" = var.cert_issuer,
+        "cert-manager.io/cluster-issuer"            = var.cert_issuer,
         "external-dns.alpha.kubernetes.io/hostname" = local.plex_host_internal,
       }
       tls = [

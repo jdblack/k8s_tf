@@ -4,7 +4,7 @@ locals {
     global = {
       volumeMounts = [
         {
-          name = "cert"
+          name      = "cert"
           mountPath = "/certs/${local.fqdn}"
         }
       ]
@@ -17,7 +17,7 @@ locals {
         }
       ]
     }
-        blueprints = {
+    blueprints = {
       secrets = [
         kubernetes_secret_v1.blueprint_deploy_key.metadata[0].name,
       ]
@@ -34,15 +34,15 @@ locals {
         password = random_password.postgres_pass.result
       }
     }
-    server = { 
+    server = {
       ingress = {
-        enabled = true
+        enabled          = true
         ingressClassName = var.ingress_class
         annotations = {
-          "cert-manager.io/cluster-issuer" = var.cert_issuer,
+          "cert-manager.io/cluster-issuer"            = var.cert_issuer,
           "external-dns.alpha.kubernetes.io/hostname" = local.fqdn,
         }
-        hosts = [ local.fqdn ]
+        hosts = [local.fqdn]
 
         tls = [
 

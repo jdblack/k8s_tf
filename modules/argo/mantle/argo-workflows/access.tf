@@ -1,34 +1,34 @@
 
-resource kubernetes_service_account_v1 argo_wf_ui_admin {
+resource "kubernetes_service_account_v1" "argo_wf_ui_admin" {
   metadata {
-    name = "${var.name}-ui-admin"
-		namespace = var.namespace
+    name      = "${var.name}-ui-admin"
+    namespace = var.namespace
 
     annotations = {
-      "workflows.argoproj.io/rbac-rule"                = "'${var.name}-admin' in groups"
-      "workflows.argoproj.io/rbac-rule-precedence"     = "1"
+      "workflows.argoproj.io/rbac-rule"            = "'${var.name}-admin' in groups"
+      "workflows.argoproj.io/rbac-rule-precedence" = "1"
     }
   }
-  automount_service_account_token = true  
+  automount_service_account_token = true
 }
 
 
-resource kubernetes_secret_v1 argo_wf_ui_admin_token {
+resource "kubernetes_secret_v1" "argo_wf_ui_admin_token" {
   metadata {
-    name = "${var.name}-ui-admin.service-account-token"
+    name      = "${var.name}-ui-admin.service-account-token"
     namespace = var.namespace
     annotations = {
       "kubernetes.io/service-account.name" = kubernetes_service_account_v1.argo_wf_ui_admin.metadata.0.name
     }
   }
 
-  type = "kubernetes.io/service-account-token"
+  type                           = "kubernetes.io/service-account-token"
   wait_for_service_account_token = true
 }
 
 
 
-resource kubernetes_cluster_role_binding_v1 argo_wf_ui_admin {
+resource "kubernetes_cluster_role_binding_v1" "argo_wf_ui_admin" {
   metadata {
     name = "${var.name}-ui-admin"
   }

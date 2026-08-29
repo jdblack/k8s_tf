@@ -1,11 +1,11 @@
 
-resource kubernetes_persistent_volume_claim_v1 movies_archive {
+resource "kubernetes_persistent_volume_claim_v1" "movies_archive" {
   metadata {
-    name = "movies-archive"
+    name      = "movies-archive"
     namespace = var.namespace
   }
   spec {
-    access_modes = ["ReadWriteMany"]
+    access_modes       = ["ReadWriteMany"]
     storage_class_name = "seaweedfs-csi"
     resources {
       requests = {
@@ -20,7 +20,7 @@ resource kubernetes_persistent_volume_claim_v1 movies_archive {
   }
 }
 
-resource kubernetes_persistent_volume_v1 movies_archive {
+resource "kubernetes_persistent_volume_v1" "movies_archive" {
   metadata {
     name = "movies-archive"
     labels = {
@@ -32,11 +32,11 @@ resource kubernetes_persistent_volume_v1 movies_archive {
     capacity = {
       storage = "2Pi"
     }
-    access_modes = ["ReadWriteMany"]
+    access_modes                     = ["ReadWriteMany"]
     persistent_volume_reclaim_policy = "Retain"
-    persistent_volume_source  {
-      csi  {
-        driver = "seaweedfs-csi-driver"
+    persistent_volume_source {
+      csi {
+        driver        = "seaweedfs-csi-driver"
         volume_handle = "movies-archive"
       }
     }

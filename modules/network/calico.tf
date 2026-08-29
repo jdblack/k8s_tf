@@ -4,7 +4,7 @@ resource "helm_release" "calico" {
   name       = "calico"
   repository = "https://docs.tigera.io/calico/charts"
   chart      = "tigera-operator"
-  values = [yamlencode({})]
-  depends_on  = [ kubernetes_namespace_v1.namespace]
+  values     = [yamlencode({})]
+  depends_on = [kubernetes_namespace_v1.namespace]
 }
 

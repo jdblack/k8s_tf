@@ -1,9 +1,9 @@
-resource kubernetes_service_v1 dispatcharr {
+resource "kubernetes_service_v1" "dispatcharr" {
   metadata {
     namespace = var.namespace
     name      = local.svc_name
     labels = {
-      "app.kubernetes.io/name"    = var.name
+      "app.kubernetes.io/name" = var.name
     }
   }
 
@@ -11,23 +11,23 @@ resource kubernetes_service_v1 dispatcharr {
     type = "ClusterIP"
 
     selector = {
-      "app.kubernetes.io/name"    = var.name
+      "app.kubernetes.io/name" = var.name
     }
 
     port {
-      name = "service"
-      port = 9191
-      target_port = 9191 
+      name        = "service"
+      port        = 9191
+      target_port = 9191
     }
   }
 }
 
-resource kubernetes_ingress_v1 dispatcharr {
+resource "kubernetes_ingress_v1" "dispatcharr" {
   metadata {
     name      = var.name
     namespace = var.namespace
     annotations = {
-      "cert-manager.io/cluster-issuer" = local.issuer
+      "cert-manager.io/cluster-issuer"            = local.issuer
       "external-dns.alpha.kubernetes.io/hostname" = local.fqdn
     }
   }
@@ -51,7 +51,7 @@ resource kubernetes_ingress_v1 dispatcharr {
       }
     }
     tls {
-      hosts = [ local.fqdn]
+      hosts       = [local.fqdn]
       secret_name = "cert-${local.fqdn}"
     }
   }
