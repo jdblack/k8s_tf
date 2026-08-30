@@ -28,3 +28,26 @@ stacks/
 
 Each stack uses a Kubernetes secret backend with a distinct `secret_suffix`
 (`core`, `mantle`, `deployment`) to keep state separate.
+
+### Gateway API (NGINX Gateway Fabric)
+
+- `stacks/core` installs the **Gateway API CRDs** (`gateway.networking.k8s.io/*`)
+  via a `terraform_data` bootstrap step in `modules/network/gateway` (runs `kubectl`,
+  idempotent, requires `kubectl` on the machine running tofu). The NGF Helm
+  chart installs its own CRDs (`gateway.nginx.org/*`) automatically from its
+  `crds/` directory — no manual step needed for those.
+- **Rebuild order matters:** `stacks/core` must be applied before
+  `stacks/mantle`, because the media module's HTTPRoutes
+  (`kubernetes_manifest`) need the HTTPRoute CRD to exist at plan time. On a
+  brand-new cluster, apply `stacks/core` first (or run
+  `tofu apply -target=module.gateway.terraform_data.gateway_api_crds` once) so
+  the CRDs exist before any stack plans Gateway API resources.
+- **The gateway module is generic shared infrastructure** (`modules/network/gateway`,
+  core): control plane, CRDs, and a Gateway with only the shared `:80` HTTP
+  listener (HTTP->HTTPS redirect) that opts into `ListenerSet`s from `media`.
+  It knows nothing about individual apps.
+- **Each media app owns its exposure** in its own module
+  (`modules/media/<app>/expose.tf`): a `ListenerSet` (its HTTPS listener on the
+  shared Gateway), a `Certificate` (`cert-<host>` in the `media` namespace,
+  private CA), and an `HTTPRoute` (host -> service). Certs and secrets live
+  with the services that use them. Rebuild-from-scratch is fully `tofu`-driven.

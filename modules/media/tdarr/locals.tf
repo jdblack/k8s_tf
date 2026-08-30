@@ -1,6 +1,4 @@
 locals {
-  fqdn = "${var.name}.${var.domain}"
-
   image = {
     repository = "ghcr.io/haveagitgat/tdarr"
     tag        = "2.58.02"

@@ -6,7 +6,7 @@ locals {
         {
           ipBlock = {
             cidr   = "0.0.0.0/0"
-            except = ["10.0.0.0/8"]
+            except = var.blocked_egress_cidrs
           }
         }
       ]

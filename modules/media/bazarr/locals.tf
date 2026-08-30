@@ -1,5 +1,6 @@
 locals {
-  fqdn = "${var.name}.${var.domain}"
+  fqdn      = "${var.name}.${var.domain}"
+  cert_name = "cert-${var.name}.${var.domain}"
 
   helm_values = {
     volumes = [
@@ -24,35 +25,23 @@ locals {
     securityContext = {
       runAsUser = 1000
     }
-    ingress = {
-      annotations = {
-        "cert-manager.io/cluster-issuer"            = var.cert_issuer,
-        "external-dns.alpha.kubernetes.io/hostname" = local.fqdn,
-      }
-      enabled          = true
-      ingressClassName = var.ingress_class
-      url              = local.fqdn
-
-      tls = [
-        {
-          hosts      = [local.fqdn]
-          secretName = "cert-${local.fqdn}"
+    route = {
+      main = {
+        enabled   = true
+        hostnames = [local.fqdn]
+        parentRefs = [
+          {
+            kind        = "ListenerSet"
+            name        = var.name
+            namespace   = var.namespace
+            sectionName = var.name
+          }
+        ]
+        annotations = {
+          "external-dns.alpha.kubernetes.io/hostname" = local.fqdn
         }
-      ]
-      hosts = [
-        {
-          host = local.fqdn
-          paths = [
-            {
-              path     = "/"
-              pathType = "ImplementationSpecific"
-            }
-          ]
-        }
-      ]
-      service = {
-        type = "LoadBalancer"
       }
     }
   }
 }
+

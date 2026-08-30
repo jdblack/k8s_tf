@@ -15,6 +15,24 @@ resource "helm_release" "release" {
     {
       name  = "installCRDs"
       value = true
+    },
+    {
+      # Enable cert-manager's gateway-shim so it auto-provisions per-listener
+      # Certificates for annotated Gateways and ListenerSets.
+      name  = "config.enableGatewayAPI"
+      value = true
+    },
+    {
+      name  = "config.enableGatewayAPIListenerSet"
+      value = true
+    },
+    {
+      name  = "config.gatewayAPI.enabled"
+      value = true
+    },
+    {
+      name  = "config.gatewayAPI.enableListenerSet"
+      value = true
     }
   ]
   depends_on = [kubernetes_secret_v1.ca-key]

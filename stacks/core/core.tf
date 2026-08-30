@@ -16,7 +16,23 @@ module "cert_man" {
   source     = "../../modules/cert_manager"
   data       = var.deployment.cert
   acme_email = var.deployment.cert.acme_email
+
+  # cert-manager gateway-shim (config.enableGatewayAPI) needs the Gateway API
+  # CRDs to exist before it starts, so apply the gateway module first. This
+  # guarantees a fresh rebuild provisions the shim before the Gateway exists.
+  depends_on = [module.gateway]
 }
+
+# Gateway API (NGINX Gateway Fabric). Pilot scope: replace the media-private
+# ingress controller. The Gateway data plane takes 192.168.0.106 (the old
+# media-private LB IP), so existing DNS records keep working unchanged.
+# Generic shared infrastructure only - each media app declares its own HTTPS
+# listener (ListenerSet), Certificate, and HTTPRoute in its own module.
+module "gateway" {
+  source = "../../modules/network/gateway"
+  domain = var.deployment.common.domain
+}
+
 
 
 #module dyndns {

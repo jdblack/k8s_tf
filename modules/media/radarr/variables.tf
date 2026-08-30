@@ -4,9 +4,11 @@ variable "name" { default = "radarr" }
 variable "helm_repo" { default = "oci://ghcr.io/m0nsterrr/helm-charts" }
 variable "chart" { default = "radarr" }
 
-variable "cert_issuer" { type = string }
-variable "ingress_class" { type = string }
 variable "domain" { type = string }
 
 variable "config_size" { default = "1Gi" }
 variable "movies_pvc" { type = string }
+
+variable "cert_issuer" { type = string }
+variable "gateway_name" { default = "media-private" }
+variable "gateway_namespace" { default = "nginx-gateway" }

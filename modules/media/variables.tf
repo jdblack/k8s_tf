@@ -5,3 +5,6 @@ variable "plex_claim" { default = "" }
 variable "domain" { type = string }
 variable "cert_authorities" { type = map(any) }
 variable "domains" { type = map(any) }
+
+variable "gateway_namespace" { default = "nginx-gateway" }
+variable "gateway_name" { default = "media-private" }

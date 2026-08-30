@@ -39,7 +39,7 @@ locals {
 
 resource "kubectl_manifest" "wireguard_server" {
   depends_on = [helm_release.wireguard_operator]
-  yaml_body  = yamlencode({
+  yaml_body = yamlencode({
     apiVersion = "vpn.wireguard-operator.io/v1alpha1"
     kind       = "Wireguard"
     metadata = {
@@ -54,7 +54,7 @@ resource "kubectl_manifest" "wireguard_peers" {
   for_each = toset(var.peers)
 
   depends_on = [kubectl_manifest.wireguard_server]
-  yaml_body  = yamlencode({
+  yaml_body = yamlencode({
     apiVersion = "vpn.wireguard-operator.io/v1alpha1"
     kind       = "WireguardPeer"
     metadata = {

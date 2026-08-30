@@ -1,36 +1,31 @@
 locals {
-  fqdn = "${var.name}.${var.domain}"
+  fqdn      = "${var.name}.${var.domain}"
+  cert_name = "cert-${var.name}.${var.domain}"
 
+  # prowlarr kept its old user-supplied ingress values after the ingress block
+  # was removed (an empty values map doesn't reset a release's prior values),
+  # so pin it off explicitly. The old Ingress goes away on the next upgrade.
   helm_values = {
     ingress = {
-      annotations = {
-        "cert-manager.io/cluster-issuer"            = var.cert_issuer,
-        "external-dns.alpha.kubernetes.io/hostname" = local.fqdn,
-      }
-      enabled          = true
-      ingressClassName = var.ingress_class
-      url              = local.fqdn
-
-      tls = [
-        {
-          hosts      = [local.fqdn]
-          secretName = "cert-${local.fqdn}"
+      enabled = false
+    }
+    route = {
+      main = {
+        enabled   = true
+        hostnames = [local.fqdn]
+        parentRefs = [
+          {
+            kind        = "ListenerSet"
+            name        = var.name
+            namespace   = var.namespace
+            sectionName = var.name
+          }
+        ]
+        annotations = {
+          "external-dns.alpha.kubernetes.io/hostname" = local.fqdn
         }
-      ]
-      hosts = [
-        {
-          host = local.fqdn
-          paths = [
-            {
-              path     = "/"
-              pathType = "ImplementationSpecific"
-            }
-          ]
-        }
-      ]
-      service = {
-        type = "LoadBalancer"
       }
     }
   }
 }
+
