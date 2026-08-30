@@ -9,7 +9,7 @@ locals {
 
     ext_dns = {
       name  = "extdns"
-      url   = "oci://registry-1.docker.io/bitnamicharts"
+      url   = "https://kubernetes-sigs.github.io/external-dns/"
       chart = "external-dns"
     }
     ingress_public = {

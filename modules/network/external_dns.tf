@@ -5,24 +5,41 @@
 locals {
   dns_server = endswith(var.internal_dns.server, ".") ? var.internal_dns.server : "${var.internal_dns.server}."
   dyndns_config = {
-    publishInternalServices = true
-    provider                = "rfc2136"
-    image = {
-      registry   = "registry.k8s.io"
-      repository = "external-dns/external-dns"
-      tag        = "v0.21.0"
+    provider = {
+      name = "rfc2136"
     }
-    rfc2136 = {
-      zone        = var.internal_dns.domain
-      host        = local.dns_server
-      tsigKeyname = var.internal_dns.client
-      tsigSecret  = var.internal_dns.secret
-    }
-    sources       = ["service", "ingress", "gateway-httproute"]
-    domainFilters = [var.internal_dns.domain]
-    extraArgs = {
-      "gateway-listener-sets" = true
-    }
+    env = [
+      {
+        name  = "EXTERNAL_DNS_RFC2136_HOST"
+        value = local.dns_server
+      },
+      {
+        name  = "EXTERNAL_DNS_RFC2136_PORT"
+        value = "53"
+      },
+      {
+        name  = "EXTERNAL_DNS_RFC2136_ZONE"
+        value = var.internal_dns.domain
+      },
+      {
+        name  = "EXTERNAL_DNS_RFC2136_TSIG_KEYNAME"
+        value = var.internal_dns.client
+      },
+      {
+        name  = "EXTERNAL_DNS_RFC2136_TSIG_SECRET"
+        value = var.internal_dns.secret
+      },
+      {
+        name  = "EXTERNAL_DNS_RFC2136_TSIG_SECRET_ALG"
+        value = "hmac-sha256"
+      }
+    ]
+    sources                   = ["service", "ingress", "gateway-httproute"]
+    enableGatewayListenerSets = true
+    domainFilters             = [var.internal_dns.domain]
+    extraArgs = [
+      "--publish-internal-services"
+    ]
   }
 }
 
@@ -36,32 +53,5 @@ resource "helm_release" "ext_dnsrelease" {
   depends_on = [kubernetes_namespace_v1.namespace]
 }
 
-# Grant external-dns permissions to read ListenerSets in gateway.networking.k8s.io
-resource "kubernetes_cluster_role_v1" "ext_dns_listenersets" {
-  metadata {
-    name = "extdns-listenersets"
-  }
-  rule {
-    api_groups = ["gateway.networking.k8s.io"]
-    resources  = ["listenersets"]
-    verbs      = ["get", "list", "watch"]
-  }
-}
-
-resource "kubernetes_cluster_role_binding_v1" "ext_dns_listenersets" {
-  metadata {
-    name = "extdns-listenersets"
-  }
-  role_ref {
-    api_group = "rbac.authorization.k8s.io"
-    kind      = "ClusterRole"
-    name      = kubernetes_cluster_role_v1.ext_dns_listenersets.metadata[0].name
-  }
-  subject {
-    kind      = "ServiceAccount"
-    name      = "${local.charts.ext_dns.name}-external-dns"
-    namespace = var.namespace
-  }
-}
 
 
