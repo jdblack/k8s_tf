@@ -1,31 +1,29 @@
+# The gateway is instantiated by a caller that already owns the target
+# namespace (this module never creates one), so namespace is required.
 variable "namespace" {
-  type    = string
-  default = "nginx-gateway"
+  type        = string
+  description = "Existing namespace to run this Gateway + NGF control plane in (caller must create it)"
 }
 
-variable "gateway_name" {
-  type    = string
-  default = "media-private"
+variable "name" {
+  type        = string
+  description = "Gateway instance name (namespaced). Also names the cluster-scoped GatewayClass and derives the controller name (gateway.nginx.org/<name>-controller). Every NGF installation must pass a unique value."
 }
 
-variable "gateway_class" {
-  type    = string
-  default = "nginx"
+variable "watch_namespaces" {
+  type        = list(string)
+  default     = []
+  description = "Namespaces this controller watches ([] = watch all). Its own namespace is always included."
 }
 
 variable "load_balancer_ip" {
   type        = string
-  default     = "192.168.0.106"
-  description = "IP to pin the Gateway data-plane Service to (MetalLB)"
-}
-
-variable "domain" {
-  type        = string
-  description = "Internal DNS domain used for the :80 wildcard listener"
+  default     = null
+  description = "IP to pin the Gateway data-plane Service to (MetalLB); null lets the LoadBalancer provider assign an IP automatically"
 }
 
 variable "routes_namespace" {
   type        = string
-  default     = "media"
-  description = "Namespace allowed to attach HTTPRoutes to the :80 listener and ListenerSets to this Gateway"
+  default     = null
+  description = "Namespace allowed to attach ListenerSets to this Gateway; null allows any namespace"
 }

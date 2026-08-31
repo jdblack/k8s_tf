@@ -1,7 +1,7 @@
 
 
-# Harbor is slightly retarded in regards to the CA.  We need to give it a secret with the ca.crt
-# So here, we read from the config map and map it over
+# Harbor needs the CA as a secret containing ca.crt, so read it from the
+# config map and map it over.
 
 data "kubernetes_config_map_v1" "ca_cert" {
   metadata {

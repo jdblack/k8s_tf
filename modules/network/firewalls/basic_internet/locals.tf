@@ -60,6 +60,27 @@ locals {
       ]
     }
 
+    to_k8s_api = {
+      to = concat(
+        # kubernetes.default.svc ClusterIP
+        [{ ipBlock = { cidr = "10.96.0.1/32" } }],
+        # the apiserver's actual endpoint IPs (control-plane nodes), post-DNAT
+        flatten([
+          for s in try(one(data.kubernetes_endpoints_v1.kubernetes).subset, []) : [
+            for a in s.address : {
+              ipBlock = { cidr = format("%s/32", a.ip) }
+            }
+          ]
+        ]),
+      )
+      ports = [
+        {
+          protocol = "TCP"
+          port     = 6443
+        }
+      ]
+    }
+
   }
 
 }

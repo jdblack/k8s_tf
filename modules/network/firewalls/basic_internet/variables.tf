@@ -6,6 +6,13 @@ variable "allow_dns" { default = true }
 variable "allow_to_ns" { default = true }
 variable "allow_to_services" { default = false }
 
+# Allow pods to reach the Kubernetes API server (kubernetes.default.svc ClusterIP
+# + the apiserver's real endpoint IPs). The ClusterIP (10.0.0.0/8) and the
+# control-plane node IPs (192.168.0.0/16) fall inside blocked_egress_cidrs, so
+# they need explicit carve-out rules. Used by workloads like the NGF
+# cert-generator/controller.
+variable "allow_to_k8sapi" { default = false }
+
 # Private / RFC1918 ranges that pods may NOT egress to. This is what keeps a
 # compromised workload from trampolining into cluster nodes, nodePorts/LBs, or
 # the LAN: kube-proxy SNATs nodePort/remote-backend service traffic, which

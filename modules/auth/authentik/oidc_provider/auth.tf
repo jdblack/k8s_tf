@@ -30,7 +30,6 @@ resource "authentik_provider_oauth2" "oauth2" {
   invalidation_flow  = data.authentik_flow.default-provider-invalidation-flow.id
   authorization_flow = data.authentik_flow.default-authorization-flow.id
   signing_key        = data.authentik_certificate_key_pair.cert.id
-  #  encryption_key = data.authentik_certificate_key_pair.cert.id
   property_mappings = [
     data.authentik_property_mapping_provider_scope.email.id,
     data.authentik_property_mapping_provider_scope.openid.id,

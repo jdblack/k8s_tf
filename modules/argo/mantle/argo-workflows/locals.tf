@@ -24,8 +24,7 @@ locals {
       sso = {
         enabled = true,
         issuer  = "https://${var.sso_server}/application/o/${var.name}/",
-        # redirectUrl = "",
-        scopes = ["openid", "profile", "email", "groups"],
+        scopes  = ["openid", "profile", "email", "groups"],
         clientId = {
           key  = "client_id"
           name = local.sso_secret

@@ -3,7 +3,7 @@ locals {
   cert_name = "cert-${var.name}.${var.domain}"
 }
 
-# App listener on the shared Gateway (e.g. media-private).
+# App HTTPS listener on this Gateway instance (e.g. media-private).
 # cert-manager gateway-shim auto-provisions the certificate secret based on the annotation.
 resource "kubernetes_manifest" "listener_set" {
   manifest = {

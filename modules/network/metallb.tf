@@ -1,5 +1,3 @@
-# Please see https://metallb.universe.tf/installation/ about IPVS
-
 locals {
   pool_name = "default"
 

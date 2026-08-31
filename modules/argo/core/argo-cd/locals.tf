@@ -41,7 +41,7 @@ locals {
           http = {
             path = {
               path      = "/"
-              path_type = "Prefix" # Specify the path_type (Prefix or Exact)
+              path_type = "Prefix"
 
               backend = {
                 service = {
@@ -62,10 +62,6 @@ locals {
           }
         ]
       }
-      #      persistence = {
-      #        enabled       = true
-      #        size          = var.storage_size
-      #      }
     }
 
     finalizers = ["resources-finalizer.argocd.argoproj.io"]

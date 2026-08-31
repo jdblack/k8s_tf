@@ -8,4 +8,4 @@ variable "domain" { type = string }
 
 variable "cert_issuer" { type = string }
 variable "gateway_name" { default = "media-private" }
-variable "gateway_namespace" { default = "nginx-gateway" }
+variable "gateway_namespace" { default = "media" }

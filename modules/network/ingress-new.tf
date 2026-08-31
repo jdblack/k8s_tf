@@ -1,4 +1,3 @@
-# This is the new nginx one
 resource "helm_release" "ingress_internal" {
   namespace  = var.namespace
   name       = "ingress-internal"

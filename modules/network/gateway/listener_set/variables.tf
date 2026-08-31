@@ -21,7 +21,7 @@ variable "gateway_name" {
 
 variable "gateway_namespace" {
   type    = string
-  default = "nginx-gateway"
+  default = "media"
 }
 
 variable "port" {

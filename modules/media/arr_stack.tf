@@ -9,7 +9,7 @@ module "radarr" {
   movies_pvc        = var.movies_pvc
   cert_issuer       = local.private_issuer
   gateway_name      = var.gateway_name
-  gateway_namespace = var.gateway_namespace
+  gateway_namespace = var.namespace
 }
 
 module "tdarr" {
@@ -27,7 +27,7 @@ module "sonarr" {
   movies_pvc        = var.movies_pvc
   cert_issuer       = local.private_issuer
   gateway_name      = var.gateway_name
-  gateway_namespace = var.gateway_namespace
+  gateway_namespace = var.namespace
 }
 
 module "prowlarr" {
@@ -36,17 +36,18 @@ module "prowlarr" {
   domain            = var.domain
   cert_issuer       = local.private_issuer
   gateway_name      = var.gateway_name
-  gateway_namespace = var.gateway_namespace
+  gateway_namespace = var.namespace
 }
 
 module "bazarr" {
+  count             = 0
   source            = "./bazarr"
   namespace         = var.namespace
   domain            = var.domain
   movies_pvc        = var.movies_pvc
   cert_issuer       = local.private_issuer
   gateway_name      = var.gateway_name
-  gateway_namespace = var.gateway_namespace
+  gateway_namespace = var.namespace
 }
 
 module "qbittorrent" {
@@ -56,14 +57,22 @@ module "qbittorrent" {
   movies_pvc        = var.movies_pvc
   cert_issuer       = local.private_issuer
   gateway_name      = var.gateway_name
-  gateway_namespace = var.gateway_namespace
+  gateway_namespace = var.namespace
 }
 
 module "threadfin" {
+  count             = 0
   source            = "./threadfin"
   namespace         = var.namespace
   domain            = var.domain
   cert_issuer       = local.private_issuer
   gateway_name      = var.gateway_name
-  gateway_namespace = var.gateway_namespace
+  gateway_namespace = var.namespace
+}
+
+module "dispatcharr" {
+  count     = 0
+  source    = "./dispatcharr"
+  namespace = var.namespace
+  domain    = var.domain
 }
