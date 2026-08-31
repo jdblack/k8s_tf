@@ -1,6 +1,5 @@
 locals {
   fqdn      = "${var.name}.${var.domain}"
-  cert_name = "cert-${var.name}.${var.domain}"
 
   helm_values = {
     image = {
