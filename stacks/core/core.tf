@@ -3,6 +3,10 @@ module "network" {
   source         = "../../modules/network"
   internal_dns   = var.deployment.internal_dns
   metal_networks = var.deployment.metal.networks
+  gateway_ips = {
+    public  = var.deployment.network_ingress.public_ip
+    private = var.deployment.network_ingress.private_ip
+  }
 }
 
 module "storage" {

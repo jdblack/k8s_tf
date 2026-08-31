@@ -9,3 +9,6 @@ variable "domain" {}
 variable "cert_issuer" { type = string }
 
 variable "sso_server" {}
+
+variable "gateway_name" { default = "private" }
+variable "gateway_namespace" { default = "kube-network" }

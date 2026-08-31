@@ -7,26 +7,6 @@ locals {
         enabled = true
         size    = "1Gi"
       }
-      ingress = {
-        enabled          = true
-        ingressClassName = var.ingress_class
-        annotations = {
-          "cert-manager.io/cluster-issuer" = var.cert_issuer
-        }
-        tls = [
-          {
-            secretName = "prometheus-grafana-cert"
-            hosts = [
-              var.grafana_name,
-              "${var.grafana_name}.${var.domain}"
-            ]
-          }
-        ]
-        hosts = [
-          var.grafana_name,
-          "${var.grafana_name}.${var.domain}"
-        ]
-      }
     }
     prometheus = {
       prometheusSpec = {

@@ -82,7 +82,9 @@ data "kubernetes_secret_v1" "argocd_auth" {
 }
 
 provider "argocd" {
-  server_addr = "${var.deployment.argocd_devops.server}:443"
+  # Full FQDN so the gateway's ListenerSet (argo-cd.vn.linuxguru.net) matches
+  # the TLS SNI -- the old nginx ingress also matched the bare "argo-cd" host.
+  server_addr = "${var.deployment.argocd_devops.server}.${var.deployment.common.domain}:443"
   username    = "admin"
   password    = data.kubernetes_secret_v1.argocd_auth.data["password"]
 }

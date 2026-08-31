@@ -28,30 +28,9 @@ locals {
       }
     ]
     ingress = {
-      enabled          = true
-      ingressClassName = "public"
-      url              = local.plex_host_internal
-      annotations = {
-        "cert-manager.io/cluster-issuer"            = var.cert_issuer,
-        "external-dns.alpha.kubernetes.io/hostname" = local.plex_host_internal,
-      }
-      tls = [
-        {
-          hosts      = [local.plex_host_internal]
-          secretName = "cert-${local.plex_host_internal}"
-        }
-      ]
-      hosts = [
-        {
-          host = local.plex_host_internal
-          paths = [
-            {
-              path     = "/"
-              pathType = "ImplementationSpecific"
-            }
-          ]
-        }
-      ]
+      # Web UI exposure moved to the shared public gateway (listener.tf); the
+      # chart just keeps the LoadBalancer service for direct PMS access (32400).
+      enabled = false
     }
     service = {
       type = "LoadBalancer"

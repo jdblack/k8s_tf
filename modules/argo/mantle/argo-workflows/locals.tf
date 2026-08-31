@@ -34,23 +34,6 @@ locals {
           name = local.sso_secret
         }
       }
-
-      ingress = {
-        ingressClassName = "private"
-        enabled          = true
-        hosts            = [var.name, local.fqdn]
-        annotations = {
-          "cert-manager.io/cluster-issuer" : var.cert_issuer
-          "external-dns.alpha.kubernetes.io/hostname" = local.fqdn
-        }
-
-        tls = [
-          {
-            secretName = "cert-${local.fqdn}"
-            hosts      = [local.fqdn, var.name]
-          }
-        ]
-      }
     }
   }
 }

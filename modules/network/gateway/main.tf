@@ -17,7 +17,11 @@
 # modules/network/api_gateway_config.tf (run from the core stack). Apply that
 # before this module on a fresh cluster.
 resource "helm_release" "ngf" {
-  name       = "ngf"
+  # release_name defaults to "ngf" (single-gateway-per-namespace callers like
+  # media), but shared gateways in the same namespace (public/private in
+  # kube-network) pass unique names so the chart's ClusterRoles/CRD-scoped
+  # objects don't collide.
+  name       = var.release_name
   repository = "oci://ghcr.io/nginx/charts"
   chart      = "nginx-gateway-fabric"
   version    = "2.6.7"
@@ -36,6 +40,13 @@ resource "helm_release" "ngf" {
       gatewayClassName      = var.name
       gatewayControllerName = "gateway.nginx.org/${var.name}-controller"
       watchNamespaces       = var.watch_namespaces
+    }
+    # The chart defaults both TLS secret names to a fixed value (server-tls /
+    # agent-tls), which collides when multiple NGF releases share a namespace
+    # (public + private in kube-network). Derive unique names from the release.
+    certGenerator = {
+      serverTLSSecretName = "${var.release_name}-server-tls"
+      agentTLSSecretName  = "${var.release_name}-agent-tls"
     }
   })]
 }

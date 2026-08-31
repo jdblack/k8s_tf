@@ -27,18 +27,28 @@ locals {
       }
     }
     expose = {
-      ingress = {
+      # Chart-native Gateway API HTTPRoute (expose.type = "route"): the shared
+      # private gateway terminates TLS and the chart routes /api/, /service/,
+      # /v2/, /c/ to harbor-core and / to harbor-portal -- matching the old
+      # ingress path routing exactly.
+      type = "route"
+      tls = {
+        enabled = false
+      }
+      route = {
+        # NGF only attaches routes to listeners contributed by ListenerSets
+        # when the route parentRefs the ListenerSet itself (not the Gateway),
+        # so point the chart-rendered HTTPRoute at our ListenerSet.
+        parentRefs = [{
+          name        = var.name
+          namespace   = var.namespace
+          group       = "gateway.networking.k8s.io"
+          kind        = "ListenerSet"
+          sectionName = var.name
+        }]
+        hosts = [local.fqdn]
         annotations = {
-          "external-dns.alpha.kubernetes.io/hostname" = local.fqdn,
-          "cert-manager.io/cluster-issuer"            = var.cert_issuer,
-        }
-        className = "private"
-        tls = {
-          certSource = "secret"
-          secretname = "${var.name}-cert"
-        }
-        hosts = {
-          core = local.fqdn
+          "external-dns.alpha.kubernetes.io/hostname" = local.fqdn
         }
       }
     }

@@ -17,14 +17,8 @@ locals {
       grpcPort      = "33646"
       adminpassword = var.admin_password
       ingress = {
-        enabled   = true
-        path      = "/"
-        host      = local.admin_host
-        className = var.visibility
-        annotations = {
-          "cert-manager.io/cluster-issuer"            = local.issuer,
-          "external-dns.alpha.kubernetes.io/hostname" = local.master_host,
-        }
+        # Ingress is handled by the shared private gateway (listeners.tf).
+        enabled = false
       }
     }
 
@@ -36,14 +30,8 @@ locals {
         storageClass = ""
       }
       ingress = {
-        enabled   = true
-        path      = "/"
-        host      = local.master_host
-        className = var.visibility
-        annotations = {
-          "cert-manager.io/cluster-issuer"            = local.issuer,
-          "external-dns.alpha.kubernetes.io/hostname" = local.master_host,
-        }
+        # Ingress is handled by the shared private gateway (listeners.tf).
+        enabled = false
       }
     }
     volume = {
@@ -81,17 +69,9 @@ locals {
       domain_name = local.s3_host
       host        = local.s3_host
       ingress = {
-        enabled   = true
-        className = var.visibility
-        host      = local.s3_host
-        path      = "/"
-        annotations = {
-          "nginx.ingress.kubernetes.io/proxy-body-size" = "0",
-          "cert-manager.io/cluster-issuer"              = local.issuer,
-          "external-dns.alpha.kubernetes.io/hostname"   = local.s3_host
-        }
+        # Ingress is handled by the shared private gateway (listeners.tf).
+        enabled = false
       }
-
     }
   }
 }

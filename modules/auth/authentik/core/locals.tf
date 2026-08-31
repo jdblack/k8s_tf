@@ -35,26 +35,25 @@ locals {
       }
     }
     server = {
-      ingress = {
-        enabled          = true
-        ingressClassName = var.ingress_class
-        annotations = {
-          "cert-manager.io/cluster-issuer"            = var.cert_issuer,
-          "external-dns.alpha.kubernetes.io/hostname" = local.fqdn,
-        }
-        hosts = [local.fqdn]
-
-        tls = [
-
-          {
-            hosts      = [local.fqdn]
-            secretName = "cert-${local.fqdn}"
+      # Chart-native Gateway API route (beta): the chart renders the HTTPRoute
+      # against our ListenerSet (NGF only attaches routes to ListenerSet
+      # listeners via a ListenerSet parentRef). TLS is terminated at the
+      # gateway; the backend is plain HTTP (servicePortHttp).
+      route = {
+        main = {
+          enabled    = true
+          hostnames  = [local.fqdn]
+          parentRefs = [{
+            name        = "auth"
+            namespace   = var.namespace
+            group       = "gateway.networking.k8s.io"
+            kind        = "ListenerSet"
+            sectionName = "auth"
+          }]
+          annotations = {
+            "external-dns.alpha.kubernetes.io/hostname" = local.fqdn
           }
-        ]
-        service = {
-          type = "LoadBalancer"
         }
-
       }
     }
   }

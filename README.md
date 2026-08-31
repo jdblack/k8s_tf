@@ -48,9 +48,19 @@ Each stack uses a Kubernetes secret backend with a distinct `secret_suffix`
   redirected or served; HTTPS is the only way in via app-declared
   `ListenerSet`s. It knows nothing about individual apps. Callers instantiate
   it per namespace (the media module creates the `media-private` instance).
-- **Each media app owns its exposure** in its own module
-  (`modules/media/<app>/listener.tf` or `route.tf`): a `ListenerSet` (its HTTPS
-  listener on the media gateway) annotated with the cert-manager issuer so the
-  `cert-<host>` secret is auto-provisioned (private CA), plus an `HTTPRoute`
-  (host -> service). Certs and secrets live with the services that use them.
-  Rebuild-from-scratch is fully `tofu`-driven.
+- **Shared `public` / `private` gateways** replace the old ingress-nginx
+  controllers (`modules/network/gateways.tf`, removed `ingress.tf`). They live
+  in `kube-network`, watch all namespaces, allow ListenerSets from any
+  namespace, and their data-plane Services are pinned to the IPs the old
+  controllers held (192.168.0.101 public / 192.168.0.100 private, wired via
+  `gateway_ips` in `stacks/core` from tfvars `network_ingress.*_ip`).
+- **Each app owns its exposure** in its own module
+  (`modules/<mod>/listener.tf` or `route.tf`): a `ListenerSet` (its HTTPS
+  listener on the public/private/media gateway) annotated with the cert-manager
+  issuer so the `cert-<host>` secret is auto-provisioned (private CA or
+  letsencrypt), plus an `HTTPRoute` (host -> service). Charts that support it
+  configure the route via helm values (`route.main`, e.g. sonarr/radarr);
+  others use `kubernetes_manifest` (the qbittorrent/threadfin pattern). The
+  `listener_set` submodule auto-creates the cross-namespace `ReferenceGrant`
+  when the gateway lives in another namespace. Certs and secrets live with the
+  services that use them. Rebuild-from-scratch is fully `tofu`-driven.

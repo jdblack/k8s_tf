@@ -10,6 +10,12 @@ variable "name" {
   description = "Gateway instance name (namespaced). Also names the cluster-scoped GatewayClass and derives the controller name (gateway.nginx.org/<name>-controller). Every NGF installation must pass a unique value."
 }
 
+variable "release_name" {
+  type        = string
+  default     = "ngf"
+  description = "Helm release name for this NGF control plane. Must be unique per namespace so multiple gateway instances can share a namespace (e.g. ngf-public / ngf-private in kube-network)."
+}
+
 variable "watch_namespaces" {
   type        = list(string)
   default     = []

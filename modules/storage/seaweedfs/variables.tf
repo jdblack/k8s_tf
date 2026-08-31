@@ -14,3 +14,6 @@ variable "volume_replicas" { default = 6 }
 variable "worker_replicas" { default = 3 }
 variable "host_path_prefix" { default = "/ssd" }
 variable "helm_version" { default = "4.40.0" }
+
+variable "gateway_name" { default = "private" }
+variable "gateway_namespace" { default = "kube-network" }
