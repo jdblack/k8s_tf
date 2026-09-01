@@ -1,6 +1,6 @@
 locals {
   plex_host_internal = "${var.plex_name}.${var.domain}"
-  plex_helm_values = {
+  helm_values = {
     extraEnv = {
       PLEX_CLAIM = var.plex_claim
       PLEX_UID   = 1000

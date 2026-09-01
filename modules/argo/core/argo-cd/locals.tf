@@ -1,6 +1,6 @@
 locals {
   fqdn = "${var.name}.${var.domain}"
-  config = {
+  helm_values = {
     global = { domain = local.fqdn }
     configs = {
       rbac = {
@@ -28,8 +28,8 @@ locals {
       # at the gateway; the backend is plain HTTP (server.insecure is set via
       # configs.params above, so the chart targets servicePortHttp).
       httproute = {
-        enabled    = true
-        hostnames  = [local.fqdn]
+        enabled   = true
+        hostnames = [local.fqdn]
         parentRefs = [{
           name        = var.name
           namespace   = var.namespace

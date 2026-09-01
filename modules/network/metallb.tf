@@ -32,21 +32,7 @@ resource "helm_release" "metal" {
   repository = local.charts.metal.url
   chart      = local.charts.metal.chart
   version    = "0.16.1" # bumped from 0.15.3 on 2026-08-29
-  # BGP backend: NATIVE mode (frr disabled, frrk8s disabled). This cluster is
-  # L2-only (single IPAddressPool, no BGPPeers), so native is the smallest
-  # correct footprint: single-container speaker, no idle FRR sidecars, no
-  # frr-k8s controller/CRDs. 0.16.0 deprecated FRR mode in favor of frr-k8s;
-  # if BGP is ever needed, switch to frrk8s.enabled = true (the chart default).
-  values = [yamlencode({
-    speaker = {
-      frr = {
-        enabled = false
-      }
-    }
-    frrk8s = {
-      enabled = false
-    }
-  })]
+  values     = [yamlencode(local.helm_values.metallb)]
   # Note: no loadBalancerClass is set here. MetalLB serves ALL LoadBalancer
   # services, which is the desired behavior for this cluster (MetalLB is the
   # only LB implementation). The previous `set { name = "spec.loadBalancerClass" }`

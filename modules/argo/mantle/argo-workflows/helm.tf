@@ -5,5 +5,5 @@ resource "helm_release" "argocd" {
   namespace       = var.namespace
   upgrade_install = true
 
-  values = [yamlencode(local.config)]
+  values = [yamlencode(local.helm_values)]
 }

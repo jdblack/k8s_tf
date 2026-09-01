@@ -11,38 +11,7 @@ resource "helm_release" "release" {
   repository = "https://charts.jetstack.io"
   chart      = "cert-manager"
 
-  set = [
-    {
-      name  = "installCRDs"
-      value = true
-    },
-    {
-      # Enable cert-manager's gateway-shim so it auto-provisions per-listener
-      # Certificates for annotated Gateways and ListenerSets.
-      name  = "config.enableGatewayAPI"
-      value = true
-    },
-    {
-      name  = "config.enableGatewayAPIListenerSet"
-      value = true
-    },
-    {
-      name  = "config.gatewayAPI.enabled"
-      value = true
-    },
-    {
-      name  = "config.gatewayAPI.enableListenerSet"
-      value = true
-    },
-    {
-      # Enable cert-manager's `listenerset` controller (Alpha feature gate,
-      # v1.21) so it auto-provisions per-listener Certificates for annotated
-      # ListenerSets in ANY namespace -- including cross-namespace attachments
-      # to the shared public/private gateways in kube-network.
-      name  = "featureGates"
-      value = "ListenerSets=true"
-    }
-  ]
+  values     = [yamlencode(local.helm_values)]
   depends_on = [kubernetes_secret_v1.ca-key]
 }
 

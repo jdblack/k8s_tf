@@ -4,7 +4,7 @@ resource "helm_release" "snapshot_controller" {
   repository = "https://piraeus.io/helm-charts/"
   chart      = "snapshot-controller"
   namespace  = var.namespace
-  values     = [yamlencode({})]
+  values     = [yamlencode(local.helm_values.snapshot_controller)]
 }
 
 resource "kubernetes_manifest" "longhorn_snapshot" {

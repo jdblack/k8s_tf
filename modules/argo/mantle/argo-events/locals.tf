@@ -1,4 +1,4 @@
 locals {
-  config = {
+  helm_values = {
   }
 }

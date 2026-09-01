@@ -1,7 +1,7 @@
 locals {
   sso_secret = "${var.name}-sso-creds"
   fqdn       = "${var.name}.${var.domain}"
-  config = {
+  helm_values = {
     server = {
       volumes = [
         {

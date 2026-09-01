@@ -4,6 +4,6 @@ resource "helm_release" "smartctl" {
   namespace  = var.namespace
   repository = "oci://ghcr.io/prometheus-community/charts"
   chart      = "prometheus-smartctl-exporter"
-  values     = [yamlencode(local.smartctl)]
+  values     = [yamlencode(local.helm_values)]
 }
 

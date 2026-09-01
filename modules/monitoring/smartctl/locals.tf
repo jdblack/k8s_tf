@@ -1,5 +1,5 @@
 locals {
-  smartctl = {
+  helm_values = {
     serviceMonitor = {
       enabled = true
     }

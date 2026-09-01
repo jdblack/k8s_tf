@@ -5,6 +5,10 @@ variable "chart" { default = "external-secrets" }
 variable "namespace" { default = "kube-secrets" }
 variable "namespace_create" { default = true }
 
+locals {
+  helm_values = {}
+}
+
 resource "kubernetes_namespace" "namespace" {
   metadata {
     name = var.namespace
@@ -18,6 +22,7 @@ resource "helm_release" "release" {
   repository = var.helm_repo
   chart      = var.chart
   namespace  = var.namespace
+  values     = [yamlencode(local.helm_values)]
   depends_on = [kubernetes_namespace.namespace]
 }
 
