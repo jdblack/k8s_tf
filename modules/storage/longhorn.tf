@@ -6,6 +6,9 @@ locals {
     # a local name to be declared only once per module); each release references
     # its own key.
     longhorn = {
+      defaultSettings = {
+        concurrentAutomaticEngineUpgradePerNodeLimit = 3
+      }
       persistence = {
         defaultDataLocality      = "best-effort"
         defaultClassReplicaCount = 2
@@ -36,7 +39,7 @@ resource "helm_release" "longhorn" {
   chart         = var.helm_longhorn_chart
   depends_on    = [kubernetes_namespace_v1.longhorn]
   wait_for_jobs = true
-  version       = "1.10.1"
+  version       = "1.12.1"
   wait          = true
   values        = [yamlencode(local.helm_values.longhorn)]
   provisioner "local-exec" {
