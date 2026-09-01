@@ -103,9 +103,6 @@ resource "kubernetes_manifest" "http_route_s3" {
       namespace = var.namespace
       annotations = {
         "external-dns.alpha.kubernetes.io/hostname" = local.s3_host
-        # Preserve the previous unlimited upload size (was the nginx
-        # proxy-body-size annotation on the old ingress).
-        "nginx.org/client-max-body-size" = "0"
       }
     }
     spec = {

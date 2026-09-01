@@ -33,3 +33,10 @@ variable "routes_namespace" {
   default     = null
   description = "Namespace allowed to attach ListenerSets to this Gateway; null allows any namespace"
 }
+
+variable "client_max_body_size" {
+  type        = string
+  default     = "0"
+  description = "Max client request body size for all routes on this Gateway (ClientSettingsPolicy body.maxSize). 0 = unlimited (nginx otherwise defaults to 1m, which 413s large uploads); set e.g. \"100m\" to cap a public-facing gateway."
+}
+
