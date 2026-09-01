@@ -1,5 +1,5 @@
 locals {
-  fqdn      = "${var.name}.${var.domain}"
+  fqdn = "${var.name}.${var.domain}"
 
   helm_values = {
     volumes = [
@@ -30,6 +30,7 @@ locals {
         hostnames = [local.fqdn]
         parentRefs = [
           {
+            group       = "gateway.networking.k8s.io"
             kind        = "ListenerSet"
             name        = var.name
             namespace   = var.namespace

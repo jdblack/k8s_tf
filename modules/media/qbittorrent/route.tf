@@ -8,35 +8,14 @@ module "listener_set" {
   gateway_namespace = var.gateway_namespace
 }
 
-
 # App HTTPRoute: routes HTTPS host traffic from the ListenerSet to the backend Service.
-resource "kubernetes_manifest" "http_route" {
-  manifest = {
-    apiVersion = "gateway.networking.k8s.io/v1"
-    kind       = "HTTPRoute"
-    metadata = {
-      name      = var.name
-      namespace = var.namespace
-      annotations = {
-        "external-dns.alpha.kubernetes.io/hostname" = local.fqdn
-      }
-    }
-    spec = {
-      parentRefs = [{
-        kind        = "ListenerSet"
-        name        = var.name
-        namespace   = var.namespace
-        sectionName = var.name
-      }]
-      hostnames = [local.fqdn]
-      rules = [{
-        backendRefs = [{
-          name = var.name
-          port = tonumber(var.web_port)
-        }]
-      }]
-    }
-  }
+module "http_route" {
+  source       = "../../network/gateway/http_route"
+  name         = var.name
+  namespace    = var.namespace
+  domain       = var.domain
+  backend_name = var.name
+  backend_port = tonumber(var.web_port)
 }
 
 

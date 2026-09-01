@@ -36,89 +36,32 @@ module "listener_set_s3" {
   gateway_namespace = var.gateway_namespace
 }
 
-resource "kubernetes_manifest" "http_route_admin" {
-  manifest = {
-    apiVersion = "gateway.networking.k8s.io/v1"
-    kind       = "HTTPRoute"
-    metadata = {
-      name      = "seaweedfs-admin"
-      namespace = var.namespace
-      annotations = {
-        "external-dns.alpha.kubernetes.io/hostname" = local.admin_host
-      }
-    }
-    spec = {
-      parentRefs = [{
-        kind        = "ListenerSet"
-        name        = "seaweedfs-admin"
-        namespace   = var.namespace
-        sectionName = "seaweedfs-admin"
-      }]
-      hostnames = [local.admin_host]
-      rules = [{
-        backendRefs = [{
-          name = "seaweedfs-admin"
-          port = 23646
-        }]
-      }]
-    }
-  }
+module "http_route_admin" {
+  source       = "../../network/gateway/http_route"
+  name         = "seaweedfs-admin"
+  namespace    = var.namespace
+  domain       = var.domains[var.visibility]
+  hostname     = local.admin_host
+  backend_name = "seaweedfs-admin"
+  backend_port = 23646
 }
 
-resource "kubernetes_manifest" "http_route_master" {
-  manifest = {
-    apiVersion = "gateway.networking.k8s.io/v1"
-    kind       = "HTTPRoute"
-    metadata = {
-      name      = "seaweedfs-master"
-      namespace = var.namespace
-      annotations = {
-        "external-dns.alpha.kubernetes.io/hostname" = local.master_host
-      }
-    }
-    spec = {
-      parentRefs = [{
-        kind        = "ListenerSet"
-        name        = "seaweedfs-master"
-        namespace   = var.namespace
-        sectionName = "seaweedfs-master"
-      }]
-      hostnames = [local.master_host]
-      rules = [{
-        backendRefs = [{
-          name = "seaweedfs-master"
-          port = 9333
-        }]
-      }]
-    }
-  }
+module "http_route_master" {
+  source       = "../../network/gateway/http_route"
+  name         = "seaweedfs-master"
+  namespace    = var.namespace
+  domain       = var.domains[var.visibility]
+  hostname     = local.master_host
+  backend_name = "seaweedfs-master"
+  backend_port = 9333
 }
 
-resource "kubernetes_manifest" "http_route_s3" {
-  manifest = {
-    apiVersion = "gateway.networking.k8s.io/v1"
-    kind       = "HTTPRoute"
-    metadata = {
-      name      = "seaweedfs-s3"
-      namespace = var.namespace
-      annotations = {
-        "external-dns.alpha.kubernetes.io/hostname" = local.s3_host
-      }
-    }
-    spec = {
-      parentRefs = [{
-        kind        = "ListenerSet"
-        name        = "seaweedfs-s3"
-        namespace   = var.namespace
-        sectionName = "seaweedfs-s3"
-      }]
-      hostnames = [local.s3_host]
-      rules = [{
-        backendRefs = [{
-          name = "seaweedfs-s3"
-          port = 8333
-        }]
-      }]
-    }
-  }
+module "http_route_s3" {
+  source       = "../../network/gateway/http_route"
+  name         = "seaweedfs-s3"
+  namespace    = var.namespace
+  domain       = var.domains[var.visibility]
+  hostname     = local.s3_host
+  backend_name = "seaweedfs-s3"
+  backend_port = 8333
 }

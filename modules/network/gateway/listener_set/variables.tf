@@ -11,8 +11,8 @@ variable "domain" {
 }
 
 variable "cert_issuer" {
-  type    = string
-  default = ""
+  type        = string
+  default     = ""
   description = "ClusterIssuer name for cert-manager gateway-shim to provision cert-<hostname> (HTTPS listeners only). Ignored for HTTP listeners."
 }
 
@@ -24,12 +24,12 @@ variable "hostname" {
 
 variable "gateway_name" {
   type    = string
-  default = "media-private"
+  default = "private"
 }
 
 variable "gateway_namespace" {
   type    = string
-  default = "media"
+  default = "kube-network"
 }
 
 variable "port" {

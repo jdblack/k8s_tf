@@ -1,5 +1,10 @@
 locals {
   fqdn = coalesce(var.fqdn, "${var.name}.${var.domain}")
+  # The ListenerSet name (and chart route parentRef) is "auth" -- the purpose
+  # of authentik is auth, so keep the short name even though var.name is the
+  # chart/app name. Derived via local so listener.tf and the chart route can't
+  # drift apart.
+  listener_name = "auth"
   helm_values = {
     global = {
       volumeMounts = [
@@ -41,14 +46,14 @@ locals {
       # gateway; the backend is plain HTTP (servicePortHttp).
       route = {
         main = {
-          enabled    = true
-          hostnames  = [local.fqdn]
+          enabled   = true
+          hostnames = [local.fqdn]
           parentRefs = [{
-            name        = "auth"
+            name        = local.listener_name
             namespace   = var.namespace
             group       = "gateway.networking.k8s.io"
             kind        = "ListenerSet"
-            sectionName = "auth"
+            sectionName = local.listener_name
           }]
           annotations = {
             "external-dns.alpha.kubernetes.io/hostname" = local.fqdn

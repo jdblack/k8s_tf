@@ -11,7 +11,7 @@ variable "gateway_name" { default = "media-private" }
 variable "gateway_namespace" { default = "media" }
 
 locals {
-  fqdn      = "${var.name}.${var.domain}"
+  fqdn = "${var.name}.${var.domain}"
 
   helm_values = {
     ingress = {
@@ -23,6 +23,7 @@ locals {
         hostnames = [local.fqdn]
         parentRefs = [
           {
+            group       = "gateway.networking.k8s.io"
             kind        = "ListenerSet"
             name        = var.name
             namespace   = var.namespace
