@@ -9,6 +9,12 @@ locals {
       defaultSettings = {
         concurrentAutomaticEngineUpgradePerNodeLimit = 3
       }
+      csi = {
+        attacherReplicaCount    = 1
+        provisionerReplicaCount = 1
+        resizerReplicaCount     = 1
+        snapshotterReplicaCount = 1
+      }
       persistence = {
         defaultDataLocality      = "best-effort"
         defaultClassReplicaCount = 2
@@ -22,7 +28,6 @@ locals {
         replicas = 0
       }
     }
-    snapshot_controller = {}
   }
 }
 

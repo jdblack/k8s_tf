@@ -1,0 +1,10 @@
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshot
+metadata:
+  name: sonarr-config-snap
+  namespace: media
+spec:
+  volumeSnapshotClassName: longhorn-snapshot
+  source:
+    persistentVolumeClaimName: sonarr-config
+
