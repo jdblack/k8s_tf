@@ -29,7 +29,7 @@ stacks/
 Each stack uses a Kubernetes secret backend with a distinct `secret_suffix`
 (`core`, `mantle`, `deployment`) to keep state separate.
 
-### Authentik in front of the media apps (sonarr / radarr / prowlarr)
+### Authentik in front of the media apps (sonarr / radarr / prowlarr / bazarr)
 
 The *arr apps don't speak OIDC, so authentik fronts them as a **proxy outpost**
 (`modules/auth/authentik/proxy_app` + `modules/auth/authentik/outpost`), not

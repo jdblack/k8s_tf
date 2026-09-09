@@ -1,4 +1,5 @@
-# Authentik proxy outpost in front of the *arr apps (sonarr/radarr/prowlarr).
+# Authentik proxy outpost in front of the media apps (sonarr/radarr/prowlarr/
+# bazarr).
 # This lives in the media module, not the auth stack, because it protects media
 # apps and runs in this namespace. (authentik chart 2025.10.x no longer embeds
 # proxy outposts, so Terraform owns the outpost's Kubernetes deployment.)
@@ -13,7 +14,7 @@ locals {
   # is the public URL (what the gateway serves); internal_host is the app's
   # in-cluster Service. Keep in sync with the modules in arr_stack.tf.
   auth_apps = {
-    for app in ["sonarr", "radarr", "prowlarr"] :
+    for app in ["sonarr", "radarr", "prowlarr", "bazarr"] :
     app => {
       external_host = "https://${app}.${var.domain}"
       internal_host = "http://${app}.${var.namespace}.svc.cluster.local:80"

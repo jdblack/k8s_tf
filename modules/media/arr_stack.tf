@@ -43,7 +43,6 @@ module "prowlarr" {
 }
 
 module "bazarr" {
-  count             = 0
   source            = "./bazarr"
   namespace         = var.namespace
   domain            = var.domain
@@ -51,6 +50,7 @@ module "bazarr" {
   cert_issuer       = local.private_issuer
   gateway_name      = var.gateway_name
   gateway_namespace = var.namespace
+  auth_backend      = local.auth_outpost_service
 }
 
 module "qbittorrent" {

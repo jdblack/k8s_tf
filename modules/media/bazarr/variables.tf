@@ -13,51 +13,6 @@ variable "cert_issuer" { type = string }
 variable "gateway_name" { default = "media-private" }
 variable "gateway_namespace" { default = "media" }
 
-locals {
-  fqdn = "${var.name}.${var.domain}"
-  helm_values = {
-    image = {
-      pullPolicy = "Always"
-    }
-    volumes = [
-      {
-        name = "media"
-        persistentVolumeClaim = {
-          claimName = var.movies_pvc
-        }
-      }
-    ]
-    volumeMounts = [
-      {
-        name      = "media"
-        mountPath = "/media"
-      }
-    ]
-    config = {
-      persistence = {
-        size = var.config_size
-      }
-    }
-    securityContext = {
-      runAsUser = 1000
-    }
-    route = {
-      main = {
-        enabled   = true
-        hostnames = [local.fqdn]
-        parentRefs = [
-          {
-            group       = "gateway.networking.k8s.io"
-            kind        = "ListenerSet"
-            name        = var.name
-            namespace   = var.namespace
-            sectionName = var.name
-          }
-        ]
-        annotations = {
-          "external-dns.alpha.kubernetes.io/hostname" = local.fqdn
-        }
-      }
-    }
-  }
-}
+# The authentik outpost Service (same namespace) this app is always fronted
+# by; the gateway HTTPRoute in route.tf points here.
+variable "auth_backend" { type = string }
