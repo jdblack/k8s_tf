@@ -2,6 +2,15 @@ locals {
   sso_secret = "${var.name}-sso-creds"
   fqdn       = "${var.name}.${var.domain}"
   helm_values = {
+    controller = {
+      # Run workflow pods under the dedicated workflow-runner SA (bound to the
+      # controller's ClusterRole) instead of the namespace default SA.
+      workflowDefaults = {
+        spec = {
+          serviceAccountName = kubernetes_service_account_v1.argo_wf_workflow_runner.metadata[0].name
+        }
+      }
+    }
     server = {
       volumes = [
         {

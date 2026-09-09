@@ -10,6 +10,11 @@ locals {
     global = {
       enableReplication    = true
       replicationPlacement = "001"
+#      seaweedfs = {
+#        image = {
+#          name = "chrislusf/seaweedfs-enterprise"
+#        }
+#      }
     }
     admin = {
       enabled       = true
