@@ -16,6 +16,6 @@ module "http_route" {
   name         = var.name
   namespace    = var.namespace
   domain       = var.domain
-  backend_name = "${var.name}-argo-workflows-server"
+  backend_name = local.server_service
   backend_port = 2746
 }
