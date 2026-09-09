@@ -1,4 +1,10 @@
 variable "namespace" { type = string }
+
+# The NetworkPolicy name within the namespace. NetworkPolicies are namespaced,
+# so this only needs to differ when multiple firewall modules target the same
+# namespace (e.g. a namespace-wide egress policy plus a pod-scoped one).
+variable "policy_name" { default = "namespace-firewall" }
+
 variable "network_namespace" { default = "kube-network" }
 variable "system_namespace" { default = "kube-system" }
 variable "allow_internet" { default = true }

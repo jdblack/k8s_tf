@@ -56,6 +56,13 @@ locals {
         {
           protocol = "UDP"
           port     = 53
+        },
+        # CoreDNS also answers over TCP when responses are truncated for UDP
+        # (large TXT/SRV/any records). Allow it or occasional DNS lookups fail
+        # once a namespace is put behind this firewall.
+        {
+          protocol = "TCP"
+          port     = 53
         }
       ]
     }
