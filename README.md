@@ -29,6 +29,35 @@ stacks/
 Each stack uses a Kubernetes secret backend with a distinct `secret_suffix`
 (`core`, `mantle`, `deployment`) to keep state separate.
 
+### Authentik in front of the media apps (sonarr / radarr / prowlarr)
+
+The *arr apps don't speak OIDC, so authentik fronts them as a **proxy outpost**
+(`modules/auth/authentik/proxy_app` + `modules/auth/authentik/outpost`), not
+SSO. Traffic flow:
+
+```
+browser -> sonarr.vn.linuxguru.net (media-private gateway, TLS)
+         -> authentik outpost (media namespace, :9000)   <- no session = 302 to auth.vn.linuxguru.net
+         -> sonarr:80 (X-authentik-* headers injected)
+```
+
+- `modules/media/auth.tf` wires it up: per-app authentik proxy providers +
+  applications + the shared `media-proxy` outpost, all bound to the **`media`**
+  group. The apps' chart-generated HTTPRoutes are disabled and each app module
+  renders its own route to the outpost (`route.tf`, `auth_backend` variable).
+- **Access control** = membership in the `media` group in authentik, managed by
+  hand in the UI (TF never touches users — same as harbor/argo). Nobody can see
+  the apps until you add them.
+- Adding another protected app: add it to the `auth_apps` map in
+  `modules/media/auth.tf` and instantiate its module (with `auth_backend`) in
+  `modules/media/arr_stack.tf`.
+- **One-time per-app setup:** sonarr/radarr/prowlarr run with
+  `AuthenticationMethod = External` (config.xml, set once through their own API)
+  so there's no second login prompt. On a from-scratch rebuild the app config
+  PVCs start fresh and this must be redone:
+  `kubectl -n media exec deploy/<app> -- sh -c 'KEY=$(grep -o "<ApiKey>[^<]*" /config/config.xml | sed "s/<ApiKey>//" | head -1); CFG=$(curl -s -H "X-Api-Key: $KEY" http://localhost:<port>/api/v3/config/host); curl -s -X PUT -H "X-Api-Key: $KEY" -H "Content-Type: application/json" -d "$(echo "$CFG" | jq ".authenticationMethod=\"external\"")" http://localhost:<port>/api/v3/config/host'`
+  (ports: sonarr 8989, radarr 7878, prowlarr 9696/`api/v1`).
+
 ### Gateway API (NGINX Gateway Fabric)
 
 - `stacks/core` installs the **Gateway API CRDs** (`gateway.networking.k8s.io/*`)
@@ -59,8 +88,10 @@ Each stack uses a Kubernetes secret backend with a distinct `secret_suffix`
   listener on the public/private/media gateway) annotated with the cert-manager
   issuer so the `cert-<host>` secret is auto-provisioned (private CA or
   letsencrypt), plus an `HTTPRoute` (host -> service). Charts that support it
-  configure the route via helm values (`route.main`, e.g. sonarr/radarr);
-  others use `kubernetes_manifest` (the qbittorrent/threadfin pattern). The
+  configure the route via helm values (`route.main`); others use
+  `kubernetes_manifest` (the qbittorrent/threadfin pattern). Apps behind the
+  authentik outpost (sonarr/radarr/prowlarr) disable the chart route and render
+  their own route to the outpost service instead (see above). The
   `listener_set` submodule auto-creates the cross-namespace `ReferenceGrant`
   when the gateway lives in another namespace. Certs and secrets live with the
   services that use them. Rebuild-from-scratch is fully `tofu`-driven.

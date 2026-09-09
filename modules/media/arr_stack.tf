@@ -10,6 +10,7 @@ module "radarr" {
   cert_issuer       = local.private_issuer
   gateway_name      = var.gateway_name
   gateway_namespace = var.namespace
+  auth_backend      = local.auth_outpost_service
 }
 
 module "tdarr" {
@@ -28,6 +29,7 @@ module "sonarr" {
   cert_issuer       = local.private_issuer
   gateway_name      = var.gateway_name
   gateway_namespace = var.namespace
+  auth_backend      = local.auth_outpost_service
 }
 
 module "prowlarr" {
@@ -37,6 +39,7 @@ module "prowlarr" {
   cert_issuer       = local.private_issuer
   gateway_name      = var.gateway_name
   gateway_namespace = var.namespace
+  auth_backend      = local.auth_outpost_service
 }
 
 module "bazarr" {

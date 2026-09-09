@@ -9,3 +9,8 @@ variable "domains" { type = map(any) }
 # The media gateway runs in the same namespace as the apps (var.namespace), so
 # there is no separate gateway_namespace -- routes/listeners use var.namespace.
 variable "gateway_name" { default = "media-private" }
+
+# Namespace authentik core runs in. The proxy outpost (auth.tf) reaches its API
+# there; everything else about the outpost is internal to this module.
+variable "auth_namespace" { default = "kube-auth" }
+

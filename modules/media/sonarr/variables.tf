@@ -12,3 +12,8 @@ variable "movies_pvc" { type = string }
 variable "cert_issuer" { type = string }
 variable "gateway_name" { default = "media-private" }
 variable "gateway_namespace" { default = "media" }
+
+# The authentik outpost Service (same namespace) this app is always fronted
+# by; the gateway HTTPRoute in route.tf points here.
+variable "auth_backend" { type = string }
+

@@ -6,5 +6,8 @@ terraform {
     kubernetes = {
       source = "hashicorp/kubernetes"
     }
+    authentik = {
+      source = "goauthentik/authentik"
+    }
   }
 }
