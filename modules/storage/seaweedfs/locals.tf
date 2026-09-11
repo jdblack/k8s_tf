@@ -10,17 +10,51 @@ locals {
     global = {
       enableReplication    = true
       replicationPlacement = "001"
-#      seaweedfs = {
-#        image = {
-#          name = "chrislusf/seaweedfs-enterprise"
-#        }
-#      }
+      seaweedfs = {
+        image = {
+          # Registry/name only. The tag lives at the top-level `image` block
+          # below: the chart's `seaweedfs.image` helper reads
+          # `default .Chart.AppVersion .Values.image.tag`, so a tag placed here
+          # is silently ignored and the chart falls back to .Chart.AppVersion.
+          name = "ghcr.io/jdblack/jblack-seaweedfs"
+        }
+      }
+    }
+
+    # Top-level image overrides. `tag` is read from here (not from
+    # global.seaweedfs.image); registry/repository would also go here.
+    image = {
+      tag = "4.46-gad0032071"
     }
     admin = {
-      enabled       = true
-      adminUser     = "admin"
-      grpcPort      = "33646"
-      adminpassword = var.admin_password
+      enabled  = true
+      grpcPort = "33646"
+      # The chart reads admin credentials from admin.secret.* (userKey/pwKey
+      # for an existingSecret, adminUser/adminPassword for a chart-made one).
+      # The old top-level adminUser/adminpassword keys are silently ignored,
+      # which left the admin API unauthenticated. Putting them under `secret`
+      # makes the chart render WEED_ADMIN_USER/WEED_ADMIN_PASSWORD.
+      secret = {
+        adminUser     = "admin"
+        adminPassword = var.admin_password
+      }
+      # Admin state (maintenance task configs, plugin/job history, task logs,
+      # session key) is written under `weed admin -dataDir`. The chart defaults
+      # admin.data.type to "emptyDir", which is wiped on every pod restart -- so
+      # without this block the admin silently reverts to defaults on restart
+      # (maintenance settings and task configs reset). Pin it to a PVC, exactly
+      # like master/filer below, so the configuration survives restarts.
+      data = {
+        type         = "persistentVolumeClaim"
+        size         = "2Gi"
+        storageClass = ""
+      }
+      # The custom 4.46 image added `weed admin -ip`, which defaults to
+      # 127.0.0.1 (loopback only) and refuses a non-loopback bind unless an
+      # admin password (or https.admin mTLS) is set. The chart exposes no
+      # admin ipBind (even 4.41.0), so pass it through extraArgs. This only
+      # works together with `secret` above -- hence that fix is mandatory.
+      extraArgs = ["-ip=0.0.0.0"]
       ingress = {
         # Ingress is handled by the shared private gateway (listeners.tf).
         enabled = false
