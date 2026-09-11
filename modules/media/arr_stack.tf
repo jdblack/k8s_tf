@@ -62,20 +62,3 @@ module "qbittorrent" {
   gateway_name      = var.gateway_name
   gateway_namespace = var.namespace
 }
-
-module "threadfin" {
-  count             = 0
-  source            = "./threadfin"
-  namespace         = var.namespace
-  domain            = var.domain
-  cert_issuer       = local.private_issuer
-  gateway_name      = var.gateway_name
-  gateway_namespace = var.namespace
-}
-
-module "dispatcharr" {
-  count     = 0
-  source    = "./dispatcharr"
-  namespace = var.namespace
-  domain    = var.domain
-}

@@ -17,11 +17,12 @@ module "smartctl" {
 }
 
 module "prometheus" {
-  source                 = "../../modules/monitoring/prometheus"
-  namespace              = "monitoring"
-  depends_on             = [module.network]
-  domain                 = var.deployment.common.domain
-  cert_issuer            = var.deployment.cert.cert_issuer
-  grafana_admin_password = var.deployment.monitoring.grafana_admin_password
+  source    = "../../modules/monitoring/prometheus"
+  namespace = "monitoring"
+  # cert_man owns the private CA ConfigMap the module mirrors into `monitoring`
+  # for Grafana's OIDC client; the data source needs it applied first.
+  depends_on  = [module.network, module.cert_man]
+  domain      = var.deployment.common.domain
+  cert_issuer = var.deployment.cert.cert_issuer
 }
 

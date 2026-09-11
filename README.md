@@ -89,7 +89,7 @@ browser -> sonarr.vn.linuxguru.net (media-private gateway, TLS)
   issuer so the `cert-<host>` secret is auto-provisioned (private CA or
   letsencrypt), plus an `HTTPRoute` (host -> service). Charts that support it
   configure the route via helm values (`route.main`); others use
-  `kubernetes_manifest` (the qbittorrent/threadfin pattern). Apps behind the
+  `kubernetes_manifest` (the qbittorrent pattern). Apps behind the
   authentik outpost (sonarr/radarr/prowlarr) disable the chart route and render
   their own route to the outpost service instead (see above). The
   `listener_set` submodule auto-creates the cross-namespace `ReferenceGrant`

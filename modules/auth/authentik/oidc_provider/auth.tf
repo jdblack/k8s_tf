@@ -23,6 +23,24 @@ data "authentik_property_mapping_provider_scope" "openid" {
   scope_name = "openid"
 }
 
+# Groups claim. authentik does not ship a 'groups' scope mapping in this
+# instance (the provider scope mappings present are only openid/email/profile/
+# offline_access/entitlements/ak_proxy/goauthentik.io/api), so create one.
+#
+# Each client gets its own mapping object (same scope_name, unique name). A
+# provider only ever references its own, so the emitted token still carries
+# exactly one groups claim -- the duplication is cosmetic, in authentik's UI.
+resource "authentik_property_mapping_provider_scope" "groups" {
+  name        = "OpenID 'groups' (${var.name})"
+  scope_name  = "groups"
+  description = "Groups claim for ${var.name}"
+  expression  = <<-EOT
+    return {
+        "groups": [group.name for group in request.user.ak_groups.all()],
+    }
+  EOT
+}
+
 
 resource "authentik_provider_oauth2" "oauth2" {
   name               = var.name
@@ -34,6 +52,7 @@ resource "authentik_provider_oauth2" "oauth2" {
     data.authentik_property_mapping_provider_scope.email.id,
     data.authentik_property_mapping_provider_scope.openid.id,
     data.authentik_property_mapping_provider_scope.profile.id,
+    authentik_property_mapping_provider_scope.groups.id,
   ]
 
   allowed_redirect_uris = [
