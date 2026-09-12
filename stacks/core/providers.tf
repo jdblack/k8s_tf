@@ -11,6 +11,10 @@ terraform {
     helm = {
       source = "hashicorp/helm"
     }
+    htpasswd = {
+      source  = "loafoe/htpasswd"
+      version = "2.1.0"
+    }
     random = {
       source = "hashicorp/random"
     }

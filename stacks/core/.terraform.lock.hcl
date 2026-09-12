@@ -73,3 +73,23 @@ provider "registry.opentofu.org/hashicorp/random" {
     "zh:fe3359f733f3ab518c6f85f3a9cd89322a7143463263f30321de0973a52d4ad8",
   ]
 }
+
+provider "registry.opentofu.org/loafoe/htpasswd" {
+  version     = "2.1.0"
+  constraints = "2.1.0"
+  hashes = [
+    "h1:RXoXZqKQJpYt82pDmowiOqtguOJh+Db3lja2Xx1Zfbo=",
+    "zh:032177e6d768d46861ce364c85b28b5c227ed528e3a2baa247202ece50ccb53d",
+    "zh:0588248e932eddc05f92a6cb12ea38f817d906510588a04dac370a812619fc78",
+    "zh:09223413eb6e394d5cb2a3c59f7fff204873d9eb993769622469f85b85ca5517",
+    "zh:0f22e1fd314a4709f89ca7f38d8a3bdad4bc99c6d22335898ac08f1eddee9aa9",
+    "zh:212010a73694394f443866a6be285fad7d1198acfa46f7bf000d40daefc24cf2",
+    "zh:48d0d72fbad0dc2e4a666b3a044d353aea487ecc4e2834b0cb1ad0f72e54f487",
+    "zh:8fd3cd4eec3580ca9ee7072575789c7887cb5a6ce69cb62b0998e60f6e41a1c5",
+    "zh:a0644b07146e525f22fe54801aa05879f967df3d2af51faed392a22405e14a27",
+    "zh:d28ebebfffe1c78200977769793d42393faba7355adee88b769f4d8b5fbb8879",
+    "zh:dffdf51d5880a82f8d1a68e3ca65dd502e6c97e62ecf01622901a370aaf9ceee",
+    "zh:ec1815ca94b182cb06cb1afbd7768ab9ec987762cf7a78f3bfc4f3a61db493da",
+    "zh:ff6dd35cfabffd88061f5fa586add718415e2c186595ce161786b0e33eaa32a1",
+  ]
+}

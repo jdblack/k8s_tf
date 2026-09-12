@@ -1,5 +1,7 @@
 locals {
-  helm_values = {
+  # Grafana + Prometheus values. Split from helm_values because the ntfy
+  # receiver below is merged in conditionally.
+  base_helm_values = {
     grafana = {
       enabled = true
       "grafana.ini" = {
@@ -74,5 +76,166 @@ locals {
         serviceMonitorSelectorNilUsesHelmValues = false
       }
     }
+
+    # The control plane is deliberately NOT scraped. kubeadm binds these four
+    # sets of metrics to loopback, so each target is a permanent
+    # connection-refused, not an intermittent failure:
+    #
+    #   kube-scheduler          --bind-address=127.0.0.1                 :10259
+    #   kube-controller-manager --bind-address=127.0.0.1                 :10257
+    #   etcd                    --listen-metrics-urls=http://127.0.0.1:2381
+    #   kube-proxy              metricsBindAddress unset -> default
+    #                           127.0.0.1:10249, on every node
+    #
+    # The first three are kubeadm's hardcoded defaults (controlplane/manifests.go
+    # `defaultArguments`); kube-proxy's loopback default has held since at least
+    # k8s 1.27. Prometheus scrapes the node IP, so it can never connect. Nothing
+    # is broken -- the cluster is healthy -- but the alerts this produces are
+    # pure noise, and etcdInsufficientMembers phrases it as a CRITICAL quorum
+    # loss, a false alarm that devalues the ones that are real. Exposing the
+    # metrics instead is a kubeadm/node-side change (and a LAN-exposure
+    # decision), not something this chart can do.
+    #
+    # Disabling the SCRAPERS is what actually clears it. TargetDown lives in the
+    # `general` rules group alongside Watchdog, and rule groups cannot be
+    # partially disabled, so silencing rules cannot cover it -- only removing
+    # the targets can.
+    #
+    # The matching rule groups MUST go too: KubeSchedulerDown / KubeProxyDown /
+    # KubeControllerManagerDown are `absent(up{job=...})`, so the instant the
+    # targets vanish they fire in place of the *InstanceUnreachable alerts and
+    # we would trade one alert for another. Both levers, always.
+    #
+    # etcd is the one component whose metrics are worth having -- the capacity
+    # warnings (quota, fsync, DB growth) give real lead time, whereas the
+    # availability ones are redundant on a single-member control plane. If it is
+    # ever switched on, do it via kubeadm extraArgs/patches so it survives
+    # `kubeadm upgrade`, and re-enable defaultRules.rules.etcd with it.
+    kubeEtcd              = { enabled = false }
+    kubeScheduler         = { enabled = false }
+    kubeControllerManager = { enabled = false }
+    kubeProxy             = { enabled = false }
+
+    # Only the four groups named above are overridden; helm deep-merges these
+    # onto the chart defaults, so `general` (TargetDown/Watchdog), `kubernetesApps`,
+    # `node`, etc. all stay enabled.
+    defaultRules = {
+      rules = {
+        etcd                  = false
+        kubeSchedulerAlerting = false
+        kubeControllerManager = false
+        kubeProxy             = false
+      }
+    }
+
+    # The `.monitoring.coreos.com` CRDs had fallen nine operator releases behind
+    # the operator that serves them.
+    #
+    # Helm NEVER upgrades or deletes CRDs that live in a chart's `crds/`
+    # directory -- it only creates them when they are absent. So these 10 CRDs
+    # were frozen at operator v0.84.1 while this release rode chart 82 -> 88 ->
+    # 90 (operator v0.93.1): a new operator speaking a schema its own CRDs did
+    # not define. Nothing in Terraform could see it, because `helm upgrade`
+    # never looks.
+    #
+    # Backfilled by hand on 2026-09-13 after verifying the change was safe: no
+    # served version dropped (all nine v1 + one v1alpha1 intact), and zero
+    # removed schema paths at ANY depth across all 10 CRDs -- purely additive,
+    # so nothing could be pruned off the 35 PrometheusRules / 17
+    # ServiceMonitors / 1 Prometheus / 1 Alertmanager in use. All 10 now report
+    # operator.prometheus.io/version: 0.93.1.
+    #
+    # This job is the chart's own answer to the problem: a pre-install /
+    # pre-upgrade helm hook that server-side-applies the bundled CRDs with
+    # --force-conflicts (taking field ownership from whoever installed them)
+    # before the operator rolls. It is what makes the fix stick -- without it,
+    # every future chart bump silently re-creates the same mismatch. Upstream
+    # labels it preview; it is also the only mechanism that keeps the CRDs in
+    # lockstep with the release. `forceConflicts` already defaults to true.
+    crds = {
+      upgradeJob = {
+        enabled = true
+      }
+    }
   }
+
+  # Alertmanager -> ntfy. Empty when the caller does not wire ntfy in, so the
+  # module stays usable on its own (Alertmanager then keeps the chart's stock
+  # `null` receiver).
+  #
+  # No relay service in between: Alertmanager POSTs to a *topic path*
+  # (http://ntfy/<topic>), and ntfy only routes POST "/" through its JSON body
+  # parser -- a topic-path POST is taken as a plain message publish. So the
+  # alert JSON simply becomes the message body.
+  ntfy_alertmanager = var.ntfy == null ? {} : {
+    alertmanager = {
+      config = {
+        global = {
+          resolve_timeout = "5m"
+        }
+
+        route = {
+          group_by        = ["alertname", "namespace"]
+          group_wait      = "30s"
+          group_interval  = "5m"
+          repeat_interval = "12h"
+          receiver        = "ntfy"
+          routes = [{
+            # Always-firing liveness alert; keep it off the phone.
+            matchers = ["alertname = \"Watchdog\""]
+            receiver = "null"
+          }]
+        }
+
+        receivers = [
+          {
+            name = "ntfy"
+            webhook_configs = [{
+              url           = var.ntfy.url
+              send_resolved = true
+              http_config = {
+                authorization = {
+                  type = "Bearer"
+                  # A file rather than an inline credential: the token stays out
+                  # of Terraform state and out of the rendered helm values (the
+                  # same trick the Grafana OIDC credentials use above).
+                  #
+                  # Note Alertmanager resolves this at config-load time, so
+                  # rotating the token needs an Alertmanager reload/restart, not
+                  # just the file changing on disk.
+                  credentials_file = "/etc/alertmanager/ntfy/${var.ntfy.token_secret_key}"
+                }
+              }
+              # There is deliberately no `max_alerts` here -- Alertmanager's
+              # webhook_configs does not support one. Payload size is handled on
+              # the ntfy side by raising its message-size-limit; without that, an
+              # over-limit body 400s as "attachments not allowed" instead of
+              # being truncated.
+            }]
+          },
+          # Kept so the base route above has a destination for suppressed alerts.
+          { name = "null" }
+        ]
+      }
+
+      # Mount the publish token. A subdirectory of /etc/alertmanager on purpose:
+      # the config secret is mounted at /etc/alertmanager/config, and mounting
+      # over /etc/alertmanager itself would clobber it.
+      alertmanagerSpec = {
+        volumes = [{
+          name = "ntfy-token"
+          secret = {
+            secretName = var.ntfy.token_secret_name
+          }
+        }]
+        volumeMounts = [{
+          name      = "ntfy-token"
+          mountPath = "/etc/alertmanager/ntfy"
+          readOnly  = true
+        }]
+      }
+    }
+  }
+
+  helm_values = merge(local.base_helm_values, local.ntfy_alertmanager)
 }
