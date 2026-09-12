@@ -38,6 +38,7 @@ resource "authentik_application" "app" {
   slug              = each.key
   protocol_provider = authentik_provider_proxy.app[each.key].id
   meta_launch_url   = each.value.external_host
+  meta_icon         = each.value.icon
   open_in_new_tab   = true
 }
 

@@ -24,7 +24,7 @@ locals {
     # Top-level image overrides. `tag` is read from here (not from
     # global.seaweedfs.image); registry/repository would also go here.
     image = {
-      tag = "4.46-gad0032071"
+      tag = "4.46-g9bfe72033"
     }
     admin = {
       enabled  = true

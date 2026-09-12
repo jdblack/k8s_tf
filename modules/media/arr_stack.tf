@@ -61,4 +61,6 @@ module "qbittorrent" {
   cert_issuer       = local.private_issuer
   gateway_name      = var.gateway_name
   gateway_namespace = var.namespace
+  auth_backend      = local.auth_outpost_service
+  torrent_lb_ip     = var.qbittorrent_torrent_lb_ip
 }

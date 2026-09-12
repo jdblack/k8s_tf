@@ -10,6 +10,11 @@ module "auth" {
   source       = "../../auth/authentik/oidc_provider"
   name         = var.name
   redirect_uri = "https://${var.name}.${var.domain}/login/generic_oauth"
+
+  # Bookmark tile (dashboard-icons via jsDelivr -- versionless, doesn't depend on
+  # Grafana's own build-hashed asset path) + open in a new tab.
+  meta_icon       = "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/grafana.svg"
+  open_in_new_tab = true
 }
 
 # The Secret OBJECT is created by the core stack (see

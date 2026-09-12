@@ -3,6 +3,10 @@ module "oauth2" {
   name         = var.name
   redirect_uri = "https://${local.fqdn}/c/oidc/callback"
   source       = "../../auth/authentik/oidc_provider"
+
+  # Bookmark tile (dashboard-icons via jsDelivr) + open in a new tab.
+  meta_icon       = "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/harbor.svg"
+  open_in_new_tab = true
 }
 
 

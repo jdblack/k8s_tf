@@ -10,14 +10,32 @@ locals {
   # each app module) and the outpost module below must agree on this name.
   auth_outpost_service = "authentik-outpost"
 
+  # Bookmark-tile icons come from the dashboard-icons set via jsDelivr: stable,
+  # versionless CDN URLs that don't depend on each app's own web assets (the *arr
+  # ones were hand-set app-hosted paths that move between releases) or on the app
+  # being reachable. Icon file is "<slug>.svg" (all five match their slug).
+  icon_cdn = "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg"
+
   # Proxy applications created in authentik for the media apps. external_host
   # is the public URL (what the gateway serves); internal_host is the app's
-  # in-cluster Service. Keep in sync with the modules in arr_stack.tf.
+  # in-cluster Service. The port varies: the *arr charts serve on :80, the
+  # hand-rolled qbittorrent web UI on :8080 (modules/media/qbittorrent,
+  # var.web_port). Keep in sync with the modules in arr_stack.tf.
+  #
+  # qbittorrent's torrent port (21010) is NOT here -- peer traffic stays direct
+  # on its own LoadBalancer Service, never behind the outpost.
   auth_apps = {
-    for app in ["sonarr", "radarr", "prowlarr", "bazarr"] :
+    for app, port in {
+      sonarr      = 80
+      radarr      = 80
+      prowlarr    = 80
+      bazarr      = 80
+      qbittorrent = 8080
+    } :
     app => {
       external_host = "https://${app}.${var.domain}"
-      internal_host = "http://${app}.${var.namespace}.svc.cluster.local:80"
+      internal_host = "http://${app}.${var.namespace}.svc.cluster.local:${port}"
+      icon          = "${local.icon_cdn}/${app}.svg"
     }
   }
 }

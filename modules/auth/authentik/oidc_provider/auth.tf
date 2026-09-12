@@ -76,5 +76,7 @@ resource "authentik_application" "app" {
   name              = var.name
   slug              = var.name
   protocol_provider = authentik_provider_oauth2.oauth2.id
+  meta_icon         = var.meta_icon
+  open_in_new_tab   = var.open_in_new_tab
 }
 
