@@ -71,14 +71,6 @@ variable "icon" {
   description = "Bookmark-tile icon URL for the authentik app; null = no icon (there is no upstream calico/whisker icon)."
 }
 
-# LAN / node CIDRs (kept for parity with the other network submodules; not
-# used by the ingress policies here -- see main.tf for why goldmane cannot be
-# tightened).
-variable "lan_cidrs" {
-  type    = list(string)
-  default = []
-}
-
 variable "system_namespace" {
   type    = string
   default = "kube-system"

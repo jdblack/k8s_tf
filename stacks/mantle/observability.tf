@@ -14,8 +14,4 @@ module "whisker" {
 
   # Add members to this group in the authentik UI to grant access.
   group_name = "platform"
-
-  # Node CIDR: Felix is hostNetwork, so Goldmane's flow stream arrives from a
-  # node IP, and it keeps kubectl port-forward working through the netpols.
-  lan_cidrs = [var.deployment.metal.local_lan]
 }

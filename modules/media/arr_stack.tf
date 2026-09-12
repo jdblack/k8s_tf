@@ -13,14 +13,6 @@ module "radarr" {
   auth_backend      = local.auth_outpost_service
 }
 
-module "tdarr" {
-  count      = 0
-  source     = "./tdarr"
-  namespace  = var.namespace
-  domain     = var.domain
-  movies_pvc = var.movies_pvc
-}
-
 module "sonarr" {
   source            = "./sonarr"
   namespace         = var.namespace

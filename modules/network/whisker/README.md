@@ -40,9 +40,6 @@ So this module adds only what the operator's rules don't:
   such policy (a namespace-wide egress default-deny there would break Calico's
   own control plane). So we open exactly what the outpost needs: DNS + whisker.
 
-`lan_cidrs` is accepted for parity with the other network submodules but is not
-used — see the goldmane note above.
-
 ## Notes
 
 - The outpost is co-located in `calico-system`, so the outpost → whisker hop is

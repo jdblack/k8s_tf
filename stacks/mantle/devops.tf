@@ -3,7 +3,6 @@ module "harbor_setup" {
   source        = "../../modules/harbor/mantle"
   projects      = var.deployment.harbor.projects
   domain        = var.deployment.common.domain
-  cert_issuer   = var.deployment.cert.cert_issuer
   oauth2_server = "auth.${var.deployment.common.domain}"
 }
 

@@ -23,9 +23,3 @@ variable "gateway_ips" {
   })
   description = "MetalLB IPs to pin the public/private gateway data-plane Services to (the IPs the old ingress-nginx controllers held, so DNS / NAT / firewall rules keep working)."
 }
-
-variable "internal_ingress_class" {
-  type    = string
-  default = "internal"
-}
-

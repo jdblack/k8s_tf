@@ -30,7 +30,6 @@ submodules from their own namespaces.
 | [`gateway/listener_set/`](gateway/listener_set/README.md) | App-owned HTTPS listener on a Gateway + auto cert + ReferenceGrants (used by `expose`) |
 | [`gateway/http_route/`](gateway/http_route/README.md) | App-owned hostname → Service route with external-dns annotation (used by `expose`) |
 | [`wireguard/`](wireguard/README.md) | VPN operator + peers (own namespace `kube-network-vpn`) |
-| [`dyndns/`](dyndns/README.md) | Route53 dynamic-DNS updater |
 
 ## Why the firewalls care about this module
 
