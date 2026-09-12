@@ -1,12 +1,10 @@
-## Resources (debug)
+## Resources
+Very Terse list of key tools available
+ - Tools:  authentik, grafana, cert-man, prometheus, api-gateway
+ - Storage:  longhorn, seaweedfs
+ - tofu: stacks/(core|mantle)
 
-Instructions
- - Keep a list of key tools and debugging 
- - As terse as possible.
-
-- Present:  calico, authentik,  cert-man, api-gateway
-- Storage:  longhorn and seaweedfs
-- Monitoring:  Grafana, Calico flow logs, Goldmane gRPC
-- TF stacks:  stacks/(core|mantle)
-- Varibles file:  ~/.tfenvs/k8s.tfenv
-
+## Extended_Instructions are stored in .clinedocs/
+Load them only when necessary!
+ - Calico Whisker flows :  flow-logs.md
+ - Calico netpol invariants :  calico-netpols.md
