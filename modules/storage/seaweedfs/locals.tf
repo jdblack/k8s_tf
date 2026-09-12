@@ -3,8 +3,11 @@ locals {
 
   fqdn        = "${var.name}.${var.domains[var.visibility]}"
   master_host = "master.${local.fqdn}"
-  admin_host  = "admin.${local.fqdn}"
   s3_host     = "s3.${var.domains[var.visibility]}"
+
+  # admin.${local.fqdn} is not published here: the admin UI sits behind an
+  # authentik proxy outpost owned by modules/storage/seaweedfs_admin (mantle
+  # stack -- only mantle has the authentik provider).
 
   helm_values = {
     global = {
@@ -29,15 +32,11 @@ locals {
     admin = {
       enabled  = true
       grpcPort = "33646"
-      # The chart reads admin credentials from admin.secret.* (userKey/pwKey
-      # for an existingSecret, adminUser/adminPassword for a chart-made one).
-      # The old top-level adminUser/adminpassword keys are silently ignored,
-      # which left the admin API unauthenticated. Putting them under `secret`
-      # makes the chart render WEED_ADMIN_USER/WEED_ADMIN_PASSWORD.
-      secret = {
-        adminUser     = "admin"
-        adminPassword = var.admin_password
-      }
+      # No app-level admin credentials on purpose: leaving admin.secret unset
+      # makes the chart omit WEED_ADMIN_USER/WEED_ADMIN_PASSWORD (and skip the
+      # admin Secret), so the admin UI/API is itself unauthenticated. Access is
+      # gated entirely by the authentik proxy outpost in front of it
+      # (modules/storage/seaweedfs_admin).
       # Admin state (maintenance task configs, plugin/job history, task logs,
       # session key) is written under `weed admin -dataDir`. The chart defaults
       # admin.data.type to "emptyDir", which is wiped on every pod restart -- so
@@ -51,10 +50,16 @@ locals {
       }
       # The custom 4.46 image added `weed admin -ip`, which defaults to
       # 127.0.0.1 (loopback only) and refuses a non-loopback bind unless an
-      # admin password (or https.admin mTLS) is set. The chart exposes no
-      # admin ipBind (even 4.41.0), so pass it through extraArgs. This only
-      # works together with `secret` above -- hence that fix is mandatory.
-      extraArgs = ["-ip=0.0.0.0"]
+      # admin password or https.admin mTLS is set. With the credentials removed
+      # above, -allowInsecureBind is what accepts -ip=0.0.0.0 -- WITHOUT it the
+      # admin refuses to bind and the outpost has nothing to proxy to. Both go
+      # through extraArgs because the chart exposes no ipBind/bind knobs.
+      #
+      # -allowInsecureBind = an unauthenticated admin API to anything that can
+      # reach the pod on 23646. The namespace ingress firewall admits
+      # kube-storage (self), kube-network and monitoring, so pods in those
+      # namespaces can reach it directly (only the gateway path is SSO-gated).
+      extraArgs = ["-ip=0.0.0.0", "-allowInsecureBind"]
       ingress = {
         # Ingress is handled by the shared private gateway (listeners.tf).
         enabled = false

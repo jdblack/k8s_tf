@@ -1,7 +1,7 @@
 # Reverse-proxy ("single application") providers for apps that don't speak
-# OIDC/SAML natively (the *arr stack). The outpost authenticates the user and
-# then proxies to the app's internal service, so the media gateway routes the
-# public hostname to the outpost instead of the app.
+# OIDC/SAML natively (the *arr stack, whisker, the SeaweedFS admin UI). The
+# outpost authenticates the user and then proxies to the app's internal service,
+# so the gateway routes the public hostname to the outpost instead of the app.
 #
 # Access control: each application is bound to a single group (var.group_name)
 # via authentik_policy_binding. No bindings, no access -- group membership is
@@ -44,6 +44,15 @@ resource "authentik_application" "app" {
 
 resource "authentik_group" "access" {
   name = var.group_name
+}
+
+# The group resource briefly carried a `count`; move the indexed instances back
+# to the plain address so media/whisker keep their existing groups instead of
+# destroy/recreating them (which would drop the memberships managed by hand in
+# the UI).
+moved {
+  from = authentik_group.access[0]
+  to   = authentik_group.access
 }
 
 resource "authentik_policy_binding" "app" {

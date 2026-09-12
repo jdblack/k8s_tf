@@ -90,6 +90,43 @@ browser -> sonarr.vn.linuxguru.net (media-private gateway, TLS)
   host-header validation doesn't block the proxy.) Because the web UI Service is
   ClusterIP-only, this whitelist doesn't weaken external exposure.
 
+### Authentik in front of the SeaweedFS admin UI
+
+The `weed admin` UI (`admin.seaweedfs.vn.linuxguru.net`) gets the same treatment
+— it speaks no OIDC either, so it is a proxy outpost too:
+
+```
+browser -> admin.seaweedfs.vn.linuxguru.net (private gateway, TLS)
+         -> authentik outpost (kube-storage, :9000)  <- no session = 302 to auth.vn.linuxguru.net
+         -> seaweedfs-admin:23646
+```
+
+- `modules/storage/seaweedfs_admin` (instantiated by `stacks/mantle/storage.tf`)
+  owns it: the authentik proxy provider + application (bound to the **`storage`**
+  group), a dedicated `seaweedfs-admin-proxy` outpost, an HTTPS listener +
+  HTTPRoute on the shared `private` gateway, and the outpost's egress policy.
+- It has to live in **mantle**: authentik is created *by* core, so core cannot
+  use the authentik provider in the same apply. The SeaweedFS release and its
+  Services stay in core (`stacks/core/storage.tf`); core no longer publishes the
+  admin host — its old direct `ListenerSet`/route/grants are dropped and mantle
+  re-creates the same-named ones pointing at the outpost. **Apply core before
+  mantle** (an apply against an existing cluster: core first, or the ListenerSet
+  name collides).
+- The outpost runs in `kube-storage` (same namespace as the admin Service), so
+  the outpost → admin hop is same-namespace and the namespace's ingress firewall
+  already admits both `kube-network` (the gateway) and itself.
+- **No app-level admin credentials**: `admin.secret` is unset in the chart values
+  (`modules/storage/seaweedfs/locals.tf`), so `weed admin` runs with auth disabled
+  and the UI/API is unauthenticated. It binds `0.0.0.0` under
+  `-allowInsecureBind` (the image refuses a non-loopback bind without a password
+  or mTLS). Then **anything that can reach the pod on 23646 gets admin without a
+  login** — kube-storage, kube-network and monitoring are in the namespace
+  ingress firewall, so those namespaces can bypass the outpost; only the
+  gateway path is SSO-gated. Accepted here (cluster-internal namespaces), but
+  worth knowing.
+- `master.seaweedfs.<domain>` (master status UI) and `s3.<domain>` are unchanged;
+  only the admin UI is gated.
+
 ### Gateway API (NGINX Gateway Fabric)
 
 - `stacks/core` installs the **Gateway API CRDs** (`gateway.networking.k8s.io/*`)
@@ -124,7 +161,8 @@ browser -> sonarr.vn.linuxguru.net (media-private gateway, TLS)
   (harbor/authentik/argo-cd) omit `backend_name` and get the listener only.
   Apps behind the authentik outpost (sonarr/radarr/prowlarr/bazarr, plus the
   qbittorrent web UI) point the route at the outpost service instead
-  (`route_name = "<app>-auth"`; see above). `expose` auto-creates the
+  (`route_name = "<app>-auth"`; see above); the SeaweedFS admin UI does the same
+  from `modules/storage/seaweedfs_admin`. `expose` auto-creates the
   cross-namespace `ReferenceGrant` when the gateway lives in another namespace.
   Certs and secrets live with the services that use them. Rebuild-from-scratch
   is fully `tofu`-driven.

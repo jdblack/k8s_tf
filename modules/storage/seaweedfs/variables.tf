@@ -6,10 +6,6 @@ variable "chart" { default = "seaweedfs" }
 variable "visibility" { default = "private" }
 variable "domains" { type = map(any) }
 variable "data_center" { type = string }
-variable "admin_password" {
-  type      = string
-  sensitive = true
-}
 variable "volume_replicas" { default = 6 }
 variable "worker_replicas" { default = 3 }
 variable "host_path_prefix" { default = "/ssd" }
