@@ -87,10 +87,13 @@ variable "group_name" {
   description = "authentik group bound to the app; add members in the UI."
 }
 
+# Bookmark-tile icon for the authentik application. dashboard-icons (the set the
+# media apps use) has no seaweedfs entry, so this comes from the selfh.st icon
+# set via jsDelivr instead -- same versionless-CDN idiom, just a different repo.
 variable "icon" {
   type        = string
-  default     = null
-  description = "Bookmark-tile icon URL for the authentik app; null = no icon (dashboard-icons has no seaweedfs icon)."
+  default     = "https://cdn.jsdelivr.net/gh/selfhst/icons/svg/seaweedfs.svg"
+  description = "Bookmark-tile icon URL for the authentik app; null = no icon."
 }
 
 variable "system_namespace" {

@@ -47,4 +47,7 @@ So this module adds only what the operator's rules don't:
 - Whisker's UI pulls flows as a live stream; if the proxy layer buffers it the
   page will load but the flow list will stay empty (that's the proxy, not
   whisker). Test after applying.
-- There is no upstream calico/whisker tile icon, so `icon` defaults to null.
+- There is no whisker-specific tile icon in any icon set (the Calico repo ships
+  only a React component, not an SVG), so `icon` defaults to the **Calico** brand
+  mark from the selfh.st icon set via jsDelivr (Whisker is a Calico component).
+  Override `var.icon` to change it; `null` leaves the tile iconless.

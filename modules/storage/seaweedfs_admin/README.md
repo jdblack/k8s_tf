@@ -40,4 +40,6 @@ the ListenerSet isn't double-owned.
 - **Access is the `storage` group**: this module creates it (via `proxy_app`) and
   binds the app to it — there is no shared-group lookup. Add people in the
   authentik UI; any future storage app joins this same group.
-- **No icon**: dashboard-icons has no seaweedfs tile, so `icon` defaults to null.
+- **Icon**: dashboard-icons (the set the media apps use) has no seaweedfs tile, so
+  `icon` defaults to the **SeaweedFS** mark from the selfh.st icon set via
+  jsDelivr. Override `var.icon` to change it; `null` leaves the tile iconless.
