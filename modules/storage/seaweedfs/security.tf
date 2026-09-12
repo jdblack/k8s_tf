@@ -7,7 +7,7 @@
 # access to seaweed services; workloads that need seaweed storage reach it via
 # the CSI driver, which runs inside this namespace.
 module "firewall" {
-  source = "../../network/firewalls/allow_ingress"
+  source = "../../network/firewalls/limited_ingress"
 
   namespace = var.namespace
 

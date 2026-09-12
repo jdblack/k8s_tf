@@ -18,3 +18,10 @@ variable "pod_selector" {
 variable "allow_dns" { default = true }
 
 variable "system_namespace" { default = "kube-system" }
+
+# The cluster's service CIDR; the `kubernetes.default` ClusterIP is its first
+# host (10.96.0.1 by default) -- derived via cidrhost rather than hardcoded.
+variable "service_cidr" {
+  type    = string
+  default = "10.96.0.0/12"
+}

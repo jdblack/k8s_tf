@@ -115,16 +115,16 @@ browser -> sonarr.vn.linuxguru.net (media-private gateway, TLS)
   namespace, and their data-plane Services are pinned to the IPs the old
   controllers held (192.168.0.101 public / 192.168.0.100 private, wired via
   `gateway_ips` in `stacks/core` from tfvars `network_ingress.*_ip`).
-- **Each app owns its exposure** in its own module
-  (`modules/<mod>/listener.tf` or `route.tf`): a `ListenerSet` (its HTTPS
-  listener on the public/private/media gateway) annotated with the cert-manager
-  issuer so the `cert-<host>` secret is auto-provisioned (private CA or
-  letsencrypt), plus an `HTTPRoute` (host -> service). Charts that support it
-  configure the route via helm values (`route.main`); others use
-  `kubernetes_manifest` (the qbittorrent pattern). Apps behind the
-  authentik outpost (sonarr/radarr/prowlarr/bazarr, plus the qbittorrent web
-  UI) disable the chart route and render their own route to the outpost service
-  instead (see above). The
-  `listener_set` submodule auto-creates the cross-namespace `ReferenceGrant`
-  when the gateway lives in another namespace. Certs and secrets live with the
-  services that use them. Rebuild-from-scratch is fully `tofu`-driven.
+- **Each app owns its exposure** in its own module (`modules/<mod>/listener.tf`)
+  via the [`gateway/expose`](modules/network/gateway/expose/README.md)
+  submodule: one call renders the app's `ListenerSet` (its HTTPS listener on the
+  public/private/media gateway) annotated with the cert-manager issuer so the
+  `cert-<host>` secret is auto-provisioned (private CA or letsencrypt), plus an
+  `HTTPRoute` (host -> service). Charts that render their own route
+  (harbor/authentik/argo-cd) omit `backend_name` and get the listener only.
+  Apps behind the authentik outpost (sonarr/radarr/prowlarr/bazarr, plus the
+  qbittorrent web UI) point the route at the outpost service instead
+  (`route_name = "<app>-auth"`; see above). `expose` auto-creates the
+  cross-namespace `ReferenceGrant` when the gateway lives in another namespace.
+  Certs and secrets live with the services that use them. Rebuild-from-scratch
+  is fully `tofu`-driven.

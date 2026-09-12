@@ -1,22 +1,27 @@
 # Firewalls
 
-Reusable NetworkPolicy helpers. Every module here renders a typed
+Reusable NetworkPolicy helpers. Every module here ultimately renders a typed
 `kubernetes_network_policy_v1` resource (NOT `kubectl_manifest`) so that
 `tofu plan` diffs against live state and flags out-of-band drift — a
 kubectl-managed NetPol whose spec was edited behind tofu's back was previously
 invisible to planning (this actually happened to the seaweedfs policy).
+
+The presets below build explicit **rule objects** and hand them to
+[`policy/`](policy/README.md), which is the single renderer — so the
+rule → resource translation (and its drift-visibility) lives in one place.
 
 ## Decision table
 
 | Module | Direction | Scope | What it allows | Key variables |
 |---|---|---|---|---|
 | [`basic_internet`](basic_internet/README.md) | **Egress** | whole namespace | internet + DNS + same-namespace, plus opt-in carve-outs (kube-network services, k8s API, ipBlocks) | `allow_internet`, `allow_dns`, `allow_to_ns`, `allow_to_services`, `allow_to_k8sapi`, `egress_allow_ip_blocks` |
-| [`allow_ingress`](allow_ingress/README.md) | **Ingress** | whole namespace | connections from a configured list of namespaces; everything else denied | `allowed_ingress_namespaces` |
+| [`limited_ingress`](limited_ingress/README.md) | **Ingress** | whole namespace (or a `pod_selector` subset) | connections from a configured list of namespaces + source CIDRs (LAN/LB clients, or `0.0.0.0/0` minus the cluster ranges); everything else denied | `allowed_ingress_namespaces`, `allowed_ingress_cidrs`, `pod_selector` |
 | [`allow_api`](allow_api/README.md) | **Egress** | **pod subset** (label selector) | only the selected pods may egress to the k8s API server (+DNS) | `pod_selector` |
 
-All three are namespace-*selecting* (`podSelector: {}` targets every pod in the
-namespace) **except** `allow_api`, which narrows to the pods matching its
-`pod_selector`.
+All three target `podSelector: {}` (the whole namespace) **except** `allow_api`,
+which narrows to its `pod_selector`; `limited_ingress` also takes an optional
+`pod_selector` so a namespace-wide call can be supplemented by a pod-scoped one
+(see [its README](limited_ingress/README.md#pod_selector--pod-scoped-supplement)).
 
 ## Similar-feature cross-references
 
@@ -42,7 +47,7 @@ legitimately calls the API.
 NetworkPolicies in Kubernetes are **additive (union)**, so this library is
 meant to be combined, not picked one-per-namespace:
 
-- `allow_ingress` + `basic_internet` = full posture for a gateway-fronted app
+- `limited_ingress` + `basic_internet` = full posture for a gateway-fronted app
   (who may reach me + where I may go).
 - `basic_internet` (API off) + `allow_api` = namespace lockdown with a single
   pod-scoped API exception.
@@ -54,7 +59,17 @@ namespace*, so give each policy in the same namespace a distinct name.
 ## `namespace_only` (removed)
 
 An earlier module rendered "same-namespace ingress only". It was deleted once
-`allow_ingress` arrived: same-namespace-only is just
-`allow_ingress` with `allowed_ingress_namespaces = [<self>]`. `allow_ingress` is
-the same idea with a guest list, and it uses the typed resource instead of
+`limited_ingress` arrived: same-namespace-only is just
+`limited_ingress` with `allowed_ingress_namespaces = [<self>]`. `limited_ingress`
+is the same idea with a guest list, and it uses the typed resource instead of
 `kubectl_manifest`.
+
+## `allow_ingress` renamed to `limited_ingress` (2026-09)
+
+The ingress module was renamed `allow_ingress` → `limited_ingress` because the
+old name read like a blanket "allow ingress" when it is actually a lockdown with
+a guest list. The rename is **docs/paths only** (module call name, resource
+label, and default `policy_name` unchanged), so it causes no NetworkPolicy
+create/destroy. `allowed_ingress_cidrs` was added at the same time so namespaces
+with a LoadBalancer (reached from the LAN, where the source is not a pod) can
+keep the LB open while denying the rest of the cluster.

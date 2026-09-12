@@ -6,7 +6,7 @@ public internet, cluster DNS, and its own namespace. Everything else is denied
 module used for media, cert-manager, authentik, and harbor.
 
 > **Direction:** Egress only. It never touches ingress — pair it with
-> [`allow_ingress`](../allow_ingress/README.md) when a namespace should also
+> [`limited_ingress`](../limited_ingress/README.md) when a namespace should also
 > restrict who may reach it.
 
 ## Rules it renders (`policyTypes: ["Egress"]`, whole namespace)

@@ -40,6 +40,6 @@ covered in [`modules/network/README.md`](../README.md) and the
 [firewall docs](../firewalls/README.md):
 
 - app namespaces served through a gateway must allow ingress from
-  `kube-network` (`allow_ingress`),
+  `kube-network` (`limited_ingress`),
 - apps that call gateway-hosted URLs (SSO) need egress to kube-network pods
   (`basic_internet` → `allow_to_services`).

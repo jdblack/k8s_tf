@@ -24,10 +24,11 @@ submodules from their own namespaces.
 
 | Path | What it is |
 |---|---|
-| [`firewalls/`](firewalls/README.md) | NetworkPolicy helper library — `basic_internet`, `allow_ingress`, `allow_api` |
+| [`firewalls/`](firewalls/README.md) | NetworkPolicy helper library — `basic_internet`, `limited_ingress`, `allow_api` over the shared [`policy`](firewalls/policy/README.md) renderer |
 | [`gateway/`](gateway/README.md) | One NGINX Gateway Fabric instance per Gateway (control plane + Gateway resource) |
-| [`gateway/listener_set/`](gateway/listener_set/README.md) | App-owned HTTPS listener on a Gateway + auto cert + ReferenceGrants |
-| [`gateway/http_route/`](gateway/http_route/README.md) | App-owned hostname → Service route with external-dns annotation |
+| [`gateway/expose/`](gateway/expose/README.md) | One call to publish an app: HTTPS ListenerSet (+ cert/grants) and optional HTTPRoute |
+| [`gateway/listener_set/`](gateway/listener_set/README.md) | App-owned HTTPS listener on a Gateway + auto cert + ReferenceGrants (used by `expose`) |
+| [`gateway/http_route/`](gateway/http_route/README.md) | App-owned hostname → Service route with external-dns annotation (used by `expose`) |
 | [`wireguard/`](wireguard/README.md) | VPN operator + peers (own namespace `kube-network-vpn`) |
 | [`dyndns/`](dyndns/README.md) | Route53 dynamic-DNS updater |
 
@@ -38,7 +39,7 @@ proxy cross-namespace into every app namespace. Two consequences that drive the
 design of the firewall library:
 
 - **Ingress**: any gateway-fronted namespace must allow `kube-network` in its
-  ingress policy or its routes break (see `firewalls/allow_ingress`).
+  ingress policy or its routes break (see `firewalls/limited_ingress`).
 - **Egress**: an app that talks to a gateway-hosted URL (e.g. SSO against
   `auth.vn.linuxguru.net`) connects to the gateway data plane post-DNAT, so it
   needs the `allow_to_services` knob on `firewalls/basic_internet`.

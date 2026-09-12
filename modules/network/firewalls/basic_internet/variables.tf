@@ -37,3 +37,11 @@ variable "egress_allow_ip_blocks" {
   default     = []
   description = "Specific CIDRs (e.g. 192.168.0.50/32) that pods may egress to despite blocked_egress_cidrs."
 }
+
+# The cluster's service CIDR; the `kubernetes.default` ClusterIP is its first
+# host (10.96.0.1 by default) -- derived via cidrhost rather than hardcoded.
+# Keep in sync with the apiserver's --service-cluster-ip-range.
+variable "service_cidr" {
+  type    = string
+  default = "10.96.0.0/12"
+}

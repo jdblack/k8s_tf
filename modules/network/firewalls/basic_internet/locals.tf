@@ -2,9 +2,9 @@ locals {
 
   egress = {
     to_internet = {
-      to = [
+      peers = [
         {
-          ipBlock = {
+          ip_block = {
             cidr   = "0.0.0.0/0"
             except = var.blocked_egress_cidrs
           }
@@ -13,42 +13,34 @@ locals {
     }
 
     to_kube_network = {
-      to = [
+      peers = [
         {
-          namespaceSelector = {
-            matchLabels = {
-              "kubernetes.io/metadata.name" = var.network_namespace
-            }
+          namespace_selector = {
+            "kubernetes.io/metadata.name" = var.network_namespace
           }
-
-          podSelector = {}
-
         }
       ]
     }
 
     to_namespace = {
-      to = [
+      peers = [
         {
-          namespaceSelector = {
-            matchLabels = { "kubernetes.io/metadata.name" = var.namespace }
+          namespace_selector = {
+            "kubernetes.io/metadata.name" = var.namespace
           }
-          podSelector = {}
         }
       ]
     }
 
 
     to_dns = {
-      to = [
+      peers = [
         {
-          namespaceSelector = {
-            matchLabels = {
-              "kubernetes.io/metadata.name" = var.system_namespace
-            }
+          namespace_selector = {
+            "kubernetes.io/metadata.name" = var.system_namespace
           }
-          podSelector = {
-            matchLabels = { "k8s-app" = "kube-dns" }
+          pod_selector = {
+            "k8s-app" = "kube-dns"
           }
         }
       ]
@@ -68,14 +60,14 @@ locals {
     }
 
     to_k8s_api = {
-      to = concat(
-        # kubernetes.default.svc ClusterIP
-        [{ ipBlock = { cidr = "10.96.0.1/32" } }],
+      peers = concat(
+        # kubernetes.default.svc ClusterIP (first host of the service CIDR)
+        [{ ip_block = { cidr = format("%s/32", cidrhost(var.service_cidr, 1)) } }],
         # the apiserver's actual endpoint IPs (control-plane nodes), post-DNAT
         flatten([
           for s in try(one(data.kubernetes_endpoints_v1.kubernetes).subset, []) : [
             for a in s.address : {
-              ipBlock = { cidr = format("%s/32", a.ip) }
+              ip_block = { cidr = format("%s/32", a.ip) }
             }
           ]
         ]),

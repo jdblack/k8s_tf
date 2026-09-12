@@ -49,15 +49,33 @@ resource "kubernetes_service_v1" "torrent" {
   spec {
     type             = "LoadBalancer"
     load_balancer_ip = var.torrent_lb_ip
+    # externalTrafficPolicy=Local so the torrent LoadBalancer keeps working
+    # under the media ingress firewall: Local preserves the peer's real source
+    # IP (LAN or internet) and routes the VIP only to the node running the
+    # pod. The default (Cluster) SNATs cross-node traffic to a cluster-internal
+    # IP that allowed_ingress_cidrs cannot match, which the firewall drops.
+    external_traffic_policy = "Local"
 
     selector = {
       "app.kubernetes.io/name" = var.name
     }
 
+    # BitTorrent uses the SAME port for TCP (peer connections) and UDP (uTP,
+    # DHT, UDP trackers). The Service must list BOTH protocols: without a UDP
+    # port kube-proxy has no UDP DNAT for the LB VIP, so inbound UDP is dropped
+    # at the node even though the app listens on UDP 21010. (Verified: with TCP
+    # only, an external TCP probe reached the pod and a UDP probe did not.)
     port {
       name        = "torrent"
       port        = var.torrent_port
       target_port = var.torrent_port
+      protocol    = "TCP"
+    }
+    port {
+      name        = "torrent-udp"
+      port        = var.torrent_port
+      target_port = var.torrent_port
+      protocol    = "UDP"
     }
   }
   lifecycle {

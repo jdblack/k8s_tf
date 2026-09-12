@@ -30,4 +30,61 @@ module "allow_api" {
   }
 }
 
+# Ingress lockdown for the whole namespace. Only three classes of source may
+# connect; everything else -- above all, every OTHER pod in the cluster -- is
+# denied, so the arr ClusterIPs can no longer be reached directly (bypassing the
+# authentik outpost). That is the whole point of this policy.
+#
+#   - same-namespace    : gateway <-> outpost <-> apps, NGF control/data plane
+#   - kube-network-vpn  : WireGuard clients reaching the internal hostnames
+#                         land via the wg-server pod (this namespace)
+#   - kube-network      : deliberately NOT listed here -- only plex needs it,
+#                         and it is scoped to the plex pods by the pod-scoped
+#                         supplement below (see module.firewall_ingress_plex)
+#   - non-pod sources   : the LoadBalancers are reached from OUTSIDE the
+#                         cluster, where the client is never a pod, so only
+#                         ipBlocks can match. Media's LBs are WAN-port-forwarded
+#                         (router preserves the source IP) so clients/peers are
+#                         public addresses -- hence 0.0.0.0/0 with the cluster's
+#                         own pod/service CIDRs excluded. var.lan_cidrs is
+#                         listed explicitly too, for clarity.
+#
+# policy_name must differ from module.firewall above: basic_internet already
+# owns the "namespace-firewall" name in this namespace.
+module "firewall_ingress" {
+  source      = "../network/firewalls/limited_ingress"
+  namespace   = var.namespace
+  policy_name = "namespace-ingress"
+
+  allowed_ingress_namespaces = [
+    var.namespace,
+    "kube-network-vpn",
+  ]
+
+  allowed_ingress_cidrs = concat(
+    [for c in var.lan_cidrs : { cidr = c }],
+    [{ cidr = "0.0.0.0/0", except = var.cluster_cidrs }],
+  )
+}
+
+# kube-network's ONLY legitimate ingress into media is the shared public gateway
+# proxying to plex (the sole media app fronted by a kube-network gateway -- see
+# the plex-* ReferenceGrants; every arr app is fronted by the media-private
+# gateway, which lives in THIS namespace). Scope it to the plex pods so a pod in
+# kube-network -- notably an internet-facing gateway data plane -- cannot reach
+# the authentik-protected arr ClusterIPs directly. Same guarantee the
+# namespace-wide policy above gives against every other namespace.
+#
+# Pod-scoped supplement: the namespace-wide policy above still covers plex for
+# the LAN/internet/LB paths (its ipBlock + same-namespace peers); this adds the
+# kube-network peer to plex only.
+module "firewall_ingress_plex" {
+  source       = "../network/firewalls/limited_ingress"
+  namespace    = var.namespace
+  policy_name  = "namespace-ingress-plex"
+  pod_selector = { "app.kubernetes.io/name" = "plex-media-server" }
+
+  allowed_ingress_namespaces = ["kube-network"]
+}
+
 

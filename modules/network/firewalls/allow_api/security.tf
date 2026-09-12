@@ -13,14 +13,10 @@ locals {
 
   egress = {
     to_dns = {
-      to = [
+      peers = [
         {
-          namespaceSelector = {
-            matchLabels = { "kubernetes.io/metadata.name" = var.system_namespace }
-          }
-          podSelector = {
-            matchLabels = { "k8s-app" = "kube-dns" }
-          }
+          namespace_selector = { "kubernetes.io/metadata.name" = var.system_namespace }
+          pod_selector       = { "k8s-app" = "kube-dns" }
         }
       ]
       ports = [
@@ -31,9 +27,9 @@ locals {
     }
 
     to_k8s_api = {
-      to = concat(
-        # kubernetes.default.svc ClusterIP
-        [{ ipBlock = { cidr = "10.96.0.1/32" } }],
+      peers = concat(
+        # kubernetes.default.svc ClusterIP (first host of the service CIDR)
+        [{ ip_block = { cidr = format("%s/32", cidrhost(var.service_cidr, 1)) } }],
         # the apiserver's actual endpoint IPs (control-plane nodes), post-DNAT.
         # NOTE: this data source has no `count`, so it is a single object, NOT a
         # list -- do not wrap it in one() (one(<object>) throws and try() would
@@ -41,7 +37,7 @@ locals {
         flatten([
           for s in try(data.kubernetes_endpoints_v1.kubernetes.subset, []) : [
             for a in s.address : {
-              ipBlock = { cidr = format("%s/32", a.ip) }
+              ip_block = { cidr = format("%s/32", a.ip) }
             }
           ]
         ]),
@@ -53,63 +49,19 @@ locals {
   }
 }
 
-# Rendered with the typed kubernetes_network_policy_v1 resource (see
-# basic_internet/security.tf for why: kubectl_manifest cannot see live drift).
-resource "kubernetes_network_policy_v1" "limit_egresses" {
-  metadata {
-    name      = var.policy_name
-    namespace = var.namespace
-  }
+# Rendering is delegated to the shared `policy` module (see basic_internet for
+# why the typed resource matters). The `moved` block migrates the inline
+# resource into the submodule with no destroy/create.
+module "policy" {
+  source       = "../policy"
+  name         = var.policy_name
+  namespace    = var.namespace
+  pod_selector = var.pod_selector
+  policy_types = ["Egress"]
+  egress_rules = local.egresses
+}
 
-  spec {
-    pod_selector {
-      match_labels = var.pod_selector
-    }
-
-    policy_types = ["Egress"]
-
-    dynamic "egress" {
-      for_each = local.egresses
-
-      content {
-        dynamic "to" {
-          for_each = egress.value.to
-
-          content {
-            dynamic "ip_block" {
-              for_each = lookup(to.value, "ipBlock", null) != null ? [to.value.ipBlock] : []
-              content {
-                cidr = ip_block.value.cidr
-                # Only set `except` when present; null omits it so the API
-                # doesn't normalize an empty list and cause perpetual diffs.
-                except = try(ip_block.value.except, null)
-              }
-            }
-
-            dynamic "namespace_selector" {
-              for_each = lookup(to.value, "namespaceSelector", null) != null ? [to.value.namespaceSelector] : []
-              content {
-                match_labels = namespace_selector.value.matchLabels
-              }
-            }
-
-            dynamic "pod_selector" {
-              for_each = lookup(to.value, "podSelector", null) != null && length(to.value.podSelector) > 0 ? [to.value.podSelector] : []
-              content {
-                match_labels = pod_selector.value.matchLabels
-              }
-            }
-          }
-        }
-
-        dynamic "ports" {
-          for_each = lookup(egress.value, "ports", null) != null ? egress.value.ports : []
-          content {
-            protocol = ports.value.protocol
-            port     = tostring(ports.value.port)
-          }
-        }
-      }
-    }
-  }
+moved {
+  from = kubernetes_network_policy_v1.limit_egresses
+  to   = module.policy.kubernetes_network_policy_v1.this
 }

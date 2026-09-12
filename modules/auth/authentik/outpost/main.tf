@@ -101,37 +101,25 @@ resource "kubernetes_service_v1" "outpost" {
 # Egress carve-out for the outpost only: reach authentik core (kube-auth
 # server/worker). The service is `authentik-server:80` but Calico evaluates
 # egress post-DNAT, so the allow targets the pod's real HTTP listen port
-# (9000). Additive to the namespace-wide media firewall.
-resource "kubernetes_network_policy_v1" "core_egress" {
-  metadata {
-    name      = "authentik-outpost-core"
-    namespace = var.namespace
-  }
+# (9000). Additive to the namespace-wide media firewall. Rendered via the
+# shared policy module so it matches the rest of the firewall library.
+module "core_egress" {
+  source       = "../../../network/firewalls/policy"
+  name         = "authentik-outpost-core"
+  namespace    = var.namespace
+  pod_selector = local.outpost_labels
+  policy_types = ["Egress"]
 
-  spec {
-    pod_selector {
-      match_labels = local.outpost_labels
-    }
+  egress_rules = [{
+    peers = [{
+      namespace_selector = { "kubernetes.io/metadata.name" = var.core_namespace }
+      pod_selector       = { "app.kubernetes.io/name" = "authentik" }
+    }]
+    ports = [{ protocol = "TCP", port = 9000 }]
+  }]
+}
 
-    policy_types = ["Egress"]
-
-    egress {
-      to {
-        namespace_selector {
-          match_labels = {
-            "kubernetes.io/metadata.name" = var.core_namespace
-          }
-        }
-        pod_selector {
-          match_labels = {
-            "app.kubernetes.io/name" = "authentik"
-          }
-        }
-      }
-      ports {
-        port     = "9000"
-        protocol = "TCP"
-      }
-    }
-  }
+moved {
+  from = kubernetes_network_policy_v1.core_egress
+  to   = module.core_egress.kubernetes_network_policy_v1.this
 }
