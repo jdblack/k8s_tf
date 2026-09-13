@@ -8,7 +8,12 @@ resource "kubernetes_service_account_v1" "argo_wf_ui_admin" {
     namespace = var.namespace
 
     annotations = {
-      "workflows.argoproj.io/rbac-rule"            = "'${var.name}-admin' in groups"
+      # `authentik Admins` is the built-in superuser group.  Treating it as
+      # admin here (and in every other app's group rule) means a global admin
+      # does not have to be hand-added to each app's own group -- which matters
+      # because a group only reaches the claims at login time, so every
+      # membership change costs a re-login.
+      "workflows.argoproj.io/rbac-rule"            = "'${var.name}-admin' in groups || '${var.admin_group}' in groups"
       "workflows.argoproj.io/rbac-rule-precedence" = "1"
     }
   }

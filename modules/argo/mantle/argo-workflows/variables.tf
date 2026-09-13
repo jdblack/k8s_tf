@@ -37,6 +37,15 @@ variable "oauth2_server" {
   type = string
 }
 
+# Global-admin group, matched in addition to the app's own `<name>-admin`
+# group.  This is authentik's built-in superuser group; its name is a literal
+# (authentik ships it), and it must match exactly as it appears in the `groups`
+# claim.
+variable "admin_group" {
+  type    = string
+  default = "authentik Admins"
+}
+
 variable "gateway_name" {
   type    = string
   default = "private"

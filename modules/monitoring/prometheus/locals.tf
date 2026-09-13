@@ -32,10 +32,15 @@ locals {
           token_url            = "https://auth.${var.domain}/application/o/token/"
           api_url              = "https://auth.${var.domain}/application/o/userinfo/"
           signout_redirect_url = "https://auth.${var.domain}/application/o/${var.grafana_name}/end-session/"
-          # Members of the authentik `<name>-admin` group get Grafana Admin,
-          # everyone else Viewer. Non-strict, so a missing groups claim falls
-          # back to the org role instead of denying login.
-          role_attribute_path = "contains(groups[*], '${var.grafana_name}-admin') && 'Admin' || 'Viewer'"
+          # Members of the authentik `<name>-admin` group -- or of the built-in
+          # superuser group `authentik Admins`, which counts as admin
+          # everywhere -- get Grafana Admin, everyone else Viewer. The
+          # expression is parenthesised on purpose: JMESPath binds && tighter
+          # than ||, so an unparenthesised `A || B && 'Admin'` would return the
+          # boolean true for a member of A and Grafana rejects a non-role.
+          # Non-strict, so a missing groups claim falls back to the org role
+          # instead of denying login.
+          role_attribute_path = "(contains(groups[*], '${var.grafana_name}-admin') || contains(groups[*], '${var.admin_group}')) && 'Admin' || 'Viewer'"
         }
       }
       persistence = {
