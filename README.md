@@ -127,6 +127,30 @@ browser -> admin.seaweedfs.vn.linuxguru.net (private gateway, TLS)
 - `master.seaweedfs.<domain>` (master status UI) and `s3.<domain>` are unchanged;
   only the admin UI is gated.
 
+### Vaultwarden (self-hosted Bitwarden) — no authentik, public cert on a private gateway
+
+`vaultwarden.linuxguru.net` (private gateway, LAN + WireGuard only) is the first
+app to pair two existing patterns, and both choices are deliberate:
+
+- **A `letsencrypt` cert behind the *private* gateway.** The issuer's only solver
+  is DNS-01, so issuance needs no inbound reachability, and phones get a
+  publicly-trusted cert with no CA install. Everything else about the exposure is
+  the standard [`gateway/expose`](modules/network/gateway/expose/README.md) call.
+- **The `A` record is Terraform's** (`modules/vaultwarden/dns.tf` →
+  [`modules/network/dns/route53_record`](modules/network/dns/route53_record/README.md)),
+  because external-dns only owns `vn.linuxguru.net` while the `linuxguru.net`
+  wildcard points at the WAN IP. It is authoritative
+  (`allow_overwrite = true`), so console edits get reverted on the next apply.
+- **No authentik outpost.** The clients are not browsers — they POST to
+  `/identity/connect/token`, use bearer tokens on `/api/*`, and hold a
+  `/notifications/hub` websocket, all of which a 302-to-login breaks. `/admin` is
+  disabled instead (`ADMIN_TOKEN` unset), and configuration lives in Terraform.
+- Backups are Longhorn **snapshots** (cluster-local), so the volume and its
+  snapshots die together — see the module README before destroying anything.
+
+See [`modules/vaultwarden/README.md`](modules/vaultwarden/README.md) for the env
+table, offline behaviour, and the drift test.
+
 ### Alerting
 
 `stacks/core` deploys the kube-prometheus-stack (Prometheus, Alertmanager,

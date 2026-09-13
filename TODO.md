@@ -37,6 +37,17 @@ for a probe from `default`, while the traffic still flowed.
 
 ## Follow-ups
 
+- **vaultwarden backups are cluster-local.** Snapshots live with the volume, and
+  the `longhorn` StorageClass is `reclaimPolicy: Delete`, so losing the cluster
+  (or destroying the module) loses them. Next step: point Longhorn's
+  `backupTarget` at the SeaweedFS S3 endpoint and flip the RecurringJob in
+  `modules/vaultwarden/backup.tf` to `task = "backup"`. Until then: export from a
+  client before any destroy.
+- **vaultwarden has no metrics to scrape.** 1.37.3 dropped the metrics build
+  feature — no `/metrics` route, no `PROMETHEUS_ENABLED` (only `GET /alive`), so
+  the module ships no ServiceMonitor. Re-check upstream in a later release; if it
+  returns, add `monitoring.tf` and put `monitoring` in the ingress guest list in
+  `modules/vaultwarden/security.tf`.
 - **Whisker UI**: confirm the flow list populates *through the authentik proxy*
   (the UI pulls flows over gRPC-web; a proxy may buffer it). Fallback:
   `kubectl -n calico-system port-forward svc/whisker 8081:8081`.
@@ -57,3 +68,15 @@ for a probe from `default`, while the traffic still flowed.
 - `modules/network/wireguard/main.tf` points here for "the systemic unpinned-helm
   note" — that note isn't written yet (workload modules pin chart+image versions
   ad hoc; the wireguard one is explicit about it).
+
+## Handoff docs
+
+- [`TODO.vaultwarden.md`](TODO.vaultwarden.md) — design + handoff for the
+  vaultwarden build (private gateway, `vaultwarden.linuxguru.net`). **Implemented,
+  applied and verified 2026-09-14** (`modules/vaultwarden`,
+  `modules/network/dns/route53_record`, `stacks/mantle/vaultwarden.tf` + the AWS
+  provider); acceptance criteria are ticked off in that doc, including the drift
+  test. Five corrections came out of the implementation — the two that matter
+  beyond this app are **`route53:GetHostedZone`** (now granted on the zone: the
+  `aws_route53_record` resource calls it unconditionally, so the key could not
+  manage any record before) and the metrics drop.
