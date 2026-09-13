@@ -4,9 +4,19 @@ locals {
     global = { domain = local.fqdn }
     configs = {
       rbac = {
+        # Group names must match what the oidc_provider module creates in
+        # authentik -- `<app>-admin` / `<app>-user`, i.e. argo-cd-admin, NOT
+        # argocd-admin.  The old `argocd-*` lines matched no group that
+        # authentik ever emits, so with policy.default empty every SSO login
+        # landed with zero permissions.
+        #
+        # `authentik Admins` is the built-in superuser group and is granted
+        # admin here (as in every other app's group rule) so global admins do
+        # not have to be hand-added to each app group.
         "policy.csv" = <<-EOF
-        g, argocd-admin, role:readonly
-        g, argocd-user, role:readonly
+        g, argo-cd-admin, role:admin
+        g, argo-cd-user, role:readonly
+        g, authentik Admins, role:admin
         EOF
       }
       # Serve plain HTTP on 8080 (no TLS redirect): the shared private gateway
