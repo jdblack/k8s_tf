@@ -1,7 +1,6 @@
 locals {
-  # Grafana + Prometheus values. Split from helm_values because the ntfy
-  # receiver below is merged in conditionally.
-  base_helm_values = {
+  # Grafana + Prometheus values.
+  helm_values = {
     grafana = {
       enabled = true
       "grafana.ini" = {
@@ -158,84 +157,4 @@ locals {
       }
     }
   }
-
-  # Alertmanager -> ntfy. Empty when the caller does not wire ntfy in, so the
-  # module stays usable on its own (Alertmanager then keeps the chart's stock
-  # `null` receiver).
-  #
-  # No relay service in between: Alertmanager POSTs to a *topic path*
-  # (http://ntfy/<topic>), and ntfy only routes POST "/" through its JSON body
-  # parser -- a topic-path POST is taken as a plain message publish. So the
-  # alert JSON simply becomes the message body.
-  ntfy_alertmanager = var.ntfy == null ? {} : {
-    alertmanager = {
-      config = {
-        global = {
-          resolve_timeout = "5m"
-        }
-
-        route = {
-          group_by        = ["alertname", "namespace"]
-          group_wait      = "30s"
-          group_interval  = "5m"
-          repeat_interval = "12h"
-          receiver        = "ntfy"
-          routes = [{
-            # Always-firing liveness alert; keep it off the phone.
-            matchers = ["alertname = \"Watchdog\""]
-            receiver = "null"
-          }]
-        }
-
-        receivers = [
-          {
-            name = "ntfy"
-            webhook_configs = [{
-              url           = var.ntfy.url
-              send_resolved = true
-              http_config = {
-                authorization = {
-                  type = "Bearer"
-                  # A file rather than an inline credential: the token stays out
-                  # of Terraform state and out of the rendered helm values (the
-                  # same trick the Grafana OIDC credentials use above).
-                  #
-                  # Note Alertmanager resolves this at config-load time, so
-                  # rotating the token needs an Alertmanager reload/restart, not
-                  # just the file changing on disk.
-                  credentials_file = "/etc/alertmanager/ntfy/${var.ntfy.token_secret_key}"
-                }
-              }
-              # There is deliberately no `max_alerts` here -- Alertmanager's
-              # webhook_configs does not support one. Payload size is handled on
-              # the ntfy side by raising its message-size-limit; without that, an
-              # over-limit body 400s as "attachments not allowed" instead of
-              # being truncated.
-            }]
-          },
-          # Kept so the base route above has a destination for suppressed alerts.
-          { name = "null" }
-        ]
-      }
-
-      # Mount the publish token. A subdirectory of /etc/alertmanager on purpose:
-      # the config secret is mounted at /etc/alertmanager/config, and mounting
-      # over /etc/alertmanager itself would clobber it.
-      alertmanagerSpec = {
-        volumes = [{
-          name = "ntfy-token"
-          secret = {
-            secretName = var.ntfy.token_secret_name
-          }
-        }]
-        volumeMounts = [{
-          name      = "ntfy-token"
-          mountPath = "/etc/alertmanager/ntfy"
-          readOnly  = true
-        }]
-      }
-    }
-  }
-
-  helm_values = merge(local.base_helm_values, local.ntfy_alertmanager)
 }

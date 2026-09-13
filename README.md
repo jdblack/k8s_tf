@@ -127,53 +127,14 @@ browser -> admin.seaweedfs.vn.linuxguru.net (private gateway, TLS)
 - `master.seaweedfs.<domain>` (master status UI) and `s3.<domain>` are unchanged;
   only the admin UI is gated.
 
-### ntfy (alert notifications)
+### Alerting
 
-`modules/monitoring/ntfy` (core) deploys [ntfy](https://ntfy.sh) into
-`monitoring` and exposes it on the **public** gateway as `ntfy.<domain>`; the
-phone subscribes over the public internet. Alertmanager publishes to it through
-a webhook receiver added in `modules/monitoring/prometheus`.
-
-- **Not behind authentik, on purpose.** ntfy has no OIDC/SAML (verified: zero
-  hits in its config), and the web UI, the mobile app and Alertmanager share the
-  same paths — the UI is a SPA at `/app` that then calls `/<topic>/json`,
-  `/<topic>/ws` and `/v1/*`. So there is no way to gate "just the UI" without
-  also catching the API, and any 302 to a login page breaks both the phone and
-  the webhook. It would only have protected an inert shell: `deny-all` already
-  makes the API useless without credentials.
-- **Auth is ntfy's own**: `auth-default-access: deny-all` (its default is
-  `read-write`, i.e. everything public) plus per-topic ACLs and tokens. The
-  module provisions the two *service accounts* — a break-glass `admin` (the web
-  UI cannot create an admin, and the API cannot create the first one) and a
-  write-only `alertmanager` publisher (separate from the admin because ntfy
-  tokens inherit **full account access**).
-- **Humans live in mantle**: `modules/monitoring/ntfy_users` creates them
-  against the running server via `kubectl exec` + the ntfy CLI, from
-  `deployment.ntfy.users` in tfvars. Config provisioning only deletes users it
-  created, so core can never clobber them.
-- **The 4K trap**: ntfy's default `message-size-limit` is 4K, and an over-limit
-  body is *not* truncated — it is routed to the attachment path and rejected
-  with HTTP 400 `"attachments not allowed"`. A multi-alert Alertmanager payload
-  exceeds it, so single alerts would work and incidents would vanish. Hence
-  `NTFY_MESSAGE_SIZE_LIMIT=64K`.
-
-See `modules/monitoring/ntfy/readme.md` and
-`modules/monitoring/ntfy_users/readme.md`.
-
-**Credentials** (all three, and where they're used):
-
-```bash
-# your own account (phone + web UI); every user at once: see the mantle readme
-kubectl -n monitoring get secret ntfy-users \
-  -o go-template='{{index .data "jblack" | base64decode}}'; echo
-
-# break-glass admin for https://ntfy.<domain>/app
-tofu -chdir=stacks/core output -raw ntfy_admin_password
-
-# the Alertmanager publisher token (write-only on the alert topic)
-kubectl -n monitoring get secret ntfy-auth \
-  -o go-template='{{index .data "publisher_token" | base64decode}}'; echo
-```
+`stacks/core` deploys the kube-prometheus-stack (Prometheus, Alertmanager,
+Grafana) into `monitoring`. **Alertmanager has no receiver configured** — it runs
+with the chart's stock `null` receiver, so firing alerts are visible in the
+Alertmanager UI (and in Grafana) but nothing is delivered off-cluster. To wire up
+a destination, add an `alertmanager.config` block to the helm values in
+`modules/monitoring/prometheus/locals.tf`.
 
 ### Gateway API (NGINX Gateway Fabric)
 
