@@ -75,7 +75,14 @@ locals {
       sso = {
         enabled = true
         issuer  = "https://${var.oauth2_server}/application/o/${var.name}/"
-        scopes  = ["openid", "profile", "email", "groups"]
+        # The gateway terminates TLS, so the server itself runs --secure=false
+        # and cannot infer the scheme.  Left empty, the server builds the
+        # redirect_uri from r.Host with proto=http (server/auth/sso/sso.go
+        # getRedirectURL), hands Authentik an http:// URL, and the provider --
+        # which registers this exact URL with matching_mode=strict -- rejects
+        # the authorize request, so the login never completes.  Pin it.
+        redirectUrl = "https://${local.fqdn}/oauth2/callback"
+        scopes      = ["openid", "profile", "email", "groups"]
         clientId = {
           key  = "client_id"
           name = local.sso_secret
