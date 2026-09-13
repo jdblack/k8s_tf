@@ -23,6 +23,17 @@ resource "kubernetes_deployment_v1" "this" {
     template {
       metadata {
         labels = local.labels
+
+        # Roll the pod when the configuration changes. Kubernetes does not
+        # restart pods for a Secret update, so without this a `tofu apply` that
+        # changes, say, SIGNUPS_ALLOWED would appear to do nothing at all (the
+        # container keeps its old env until something restarts it). Hashing the
+        # Secret's contents into the pod template makes that apply a real
+        # rollout -- and since the whole configuration lives in that Secret, this
+        # is the only checksum needed.
+        annotations = {
+          "checksum/config" = sha256(jsonencode(kubernetes_secret_v1.config.data))
+        }
       }
 
       spec {

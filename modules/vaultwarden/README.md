@@ -50,7 +50,10 @@ to a login page and breaks every client. `/admin` is disabled instead
 | `backup.tf` | Longhorn `RecurringJob` (nightly snapshot, retain 7) |
 
 `strategy = Recreate` is required: the PVC is RWO, and a rolling update would
-deadlock waiting for the old pod to release the volume.
+deadlock waiting for the old pod to release the volume. The pod template also
+carries a `checksum/config` annotation derived from the config Secret, so a
+`tofu apply` that changes any setting actually rolls the pod — Kubernetes does not
+restart pods when only a Secret changes.
 
 ## Configuration (env, in `secret.tf`)
 
@@ -60,7 +63,8 @@ deadlock waiting for the old pod to release the volume.
 | `DATA_FOLDER` | `/data` | matches the PVC mount |
 | `ROCKET_PORT` | the module's `port` | keeps app port == Service/container port |
 | `ENABLE_WEBSOCKET` | `true` | live client sync; rides the **same** port on 1.3x |
-| `SIGNUPS_ALLOWED` | `false` | no self-registration |
+| `SIGNUPS_ALLOWED` | `false` (module var `signups_allowed`) | no self-registration — see "First-run bootstrap" |
+
 | `INVITATIONS_ALLOWED` | `false` | no org invites |
 | `SENDS_ALLOWED` | `false` | no Bitwarden "Send" |
 | `PASSWORD_HINTS_ALLOWED` | `false` | unauth endpoint off |
@@ -162,11 +166,22 @@ tofu -chdir=stacks/mantle apply
 
 ## Operational notes
 
-- **`/admin` needs enabling first if you ever want it**: it requires an
-  `ADMIN_TOKEN`, so it is not reachable by accident — with the variable unset,
-  `/admin` only serves a "panel is disabled" notice (200 `text/plain`) and the
-  admin API 404s. Everything configurable there lives in `secret.tf` here — which
-  is why there is no token at all.
+- **First-run bootstrap (there is no CLI user-create).** The first account is
+  made through the web vault's registration form, which needs
+  `SIGNUPS_ALLOWED=true`: set `signups_allowed = true` in
+  `stacks/mantle/vaultwarden.tf`, apply, register at
+  `https://vaultwarden.linuxguru.net/#/register`, then set it back to `false` and
+  apply again. While it is true, anyone who can reach the host can create an
+  account — the host is LAN/WireGuard-only, so that is a small, brief window, but
+  don't leave it on.
+- **Do you ever need the admin panel? No.** Everything it configures — and more —
+  is in `secret.tf` here, and it is the one component that can silently diverge
+  from Terraform: the panel writes `/data/config.json`, and **vaultwarden gives
+  `config.json` precedence over these environment variables**. Enable it only for
+  a one-off (e.g. inviting a second user as an alternative to a signup window,
+  which needs an `ADMIN_TOKEN`), then remove the token again — otherwise a panel
+  edit will look like it "didn't stick" after the next `apply`, or worse, will
+  stick while Terraform still claims ownership.
 - **Rollback caution**: `tofu destroy -target=module.vaultwarden` deletes the
   PVC and, with it, the snapshots (see "Backups"). Export from a client first.
 - The AWS credentials come from `var.deployment.cert` — the least-privilege

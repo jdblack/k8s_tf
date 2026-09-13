@@ -21,4 +21,11 @@ module "vaultwarden" {
 
   # Pinned; there is no CI that resolves ":latest" here.
   image_tag = "1.37.3"
+
+  # TEMPORARY (2026-09-14): first-account bootstrap. vaultwarden cannot create a
+  # user from the CLI, so signups are open just long enough to register in the
+  # web vault. FLIP THIS BACK TO false (or delete the line) once registered --
+  # the host is LAN/WireGuard-only, but while it is true anyone on the LAN can
+  # create an account.
+  signups_allowed = true
 }

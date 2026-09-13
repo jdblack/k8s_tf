@@ -31,3 +31,10 @@ variable "port" { default = 80 }
 
 variable "storage_class" { default = "longhorn" }
 variable "storage_size" { default = "2Gi" }
+
+# Bootstrap only. vaultwarden has no CLI "create user": the first account is
+# created through the web vault's registration form, which requires
+# SIGNUPS_ALLOWED=true. Set this true, register, then set it back to false --
+# while true, anyone who can reach the host (LAN or WireGuard) can create an
+# account.
+variable "signups_allowed" { default = false }

@@ -30,7 +30,12 @@ resource "kubernetes_secret_v1" "config" {
     # are moot; Sends and emergency access are off. Tightening these also
     # removes unauthenticated endpoints that would otherwise be reachable by
     # anyone who can resolve the host.
-    SIGNUPS_ALLOWED          = "false"
+    # No self-service registration by default. `signups_allowed` exists as a
+    # BOOTSTRAP knob: vaultwarden has no CLI user-create, so the very first
+    # account is made by temporarily flipping it on (see the module README,
+    # "First-run bootstrap"), registering in the web vault, then flipping back.
+    SIGNUPS_ALLOWED = tostring(var.signups_allowed)
+
     INVITATIONS_ALLOWED      = "false"
     SENDS_ALLOWED            = "false"
     PASSWORD_HINTS_ALLOWED   = "false"
