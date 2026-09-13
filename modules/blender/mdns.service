@@ -1,0 +1,21 @@
+<?xml version="1.0" standalone='no'?>
+<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+<!-- Rendered by mdns.tf. ${host} is the SMB Service's external-dns name. -->
+<service-group>
+  <name>Blender</name>
+  <!-- What Finder lists. The address is published separately, as a static host
+       in /etc/avahi/hosts, so the SRV target resolves over mDNS as well. -->
+  <service>
+    <type>_smb._tcp</type>
+    <port>445</port>
+    <host-name>${host}</host-name>
+  </service>
+  <!-- Cosmetic: the icon Finder draws. `model=MacSamba` matches fruit:model in
+       smb.conf; without this record the entry still appears, with a generic icon. -->
+  <service>
+    <type>_device-info._tcp</type>
+    <port>0</port>
+    <host-name>${host}</host-name>
+    <txt-record>model=MacSamba</txt-record>
+  </service>
+</service-group>
