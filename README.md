@@ -136,6 +136,21 @@ Alertmanager UI (and in Grafana) but nothing is delivered off-cluster. To wire u
 a destination, add an `alertmanager.config` block to the helm values in
 `modules/monitoring/prometheus/locals.tf`.
 
+### Dashboards
+
+Dashboards are ConfigMaps labelled `grafana_dashboard: "1"`, one `*.json` data
+key each. The chart's `grafana-sc-dashboard` sidecar hot-loads them (its live env
+is `NAMESPACE=ALL`, `RESOURCE=both`), so a dashboard may live in any namespace —
+and to mirror the ServiceMonitors, **each component ships its own dashboard from
+its own module and namespace** (`modules/storage/seaweedfs/dashboards.tf`) rather
+than being pooled into the monitoring module. Grafana keys provisioned dashboards
+off their `uid`, so editing a file updates it in place rather than duplicating it.
+
+The **SeaweedFS** dashboard (`modules/storage/seaweedfs/dashboards/seaweedfs.json`)
+covers cluster health (leader, scrape targets, capacity, under-replicated /
+read-only volumes, disk errors), per-node capacity, traffic and latency, every
+non-2xx and IO error counter, and replication / EC-vacuum / S3-bucket state.
+
 ### Gateway API (NGINX Gateway Fabric)
 
 - `stacks/core` installs the **Gateway API CRDs** (`gateway.networking.k8s.io/*`)
