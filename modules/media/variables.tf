@@ -6,6 +6,15 @@ variable "domain" { type = string }
 variable "cert_authorities" { type = map(any) }
 variable "domains" { type = map(any) }
 
+# Per-app cert issuer override, keyed by app name (sonarr / radarr / prowlarr /
+# bazarr / qbittorrent). Every app defaults to the public issuer (letsencrypt);
+# list one here to put it back on the private CA -- see
+# ../cert_manager/README.md.
+variable "cert_issuers" {
+  type    = map(string)
+  default = {}
+}
+
 # The media gateway runs in the same namespace as the apps (var.namespace), so
 # there is no separate gateway_namespace -- routes/listeners use var.namespace.
 variable "gateway_name" { default = "media-private" }

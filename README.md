@@ -76,23 +76,32 @@ namespace-local gateway (`media-private`, `192.168.0.106`).
 | Hostname | Gateway | Fronted by | Cert |
 |---|---|---|---|
 | `auth.vn.linuxguru.net` | private | — | `linuxguru-ca` |
-| `argo-cd.vn.linuxguru.net` | private | authentik OIDC | `linuxguru-ca` |
+| `argo-cd.vn.linuxguru.net` | private | authentik OIDC | `letsencrypt` |
 | `argo-wf.vn.linuxguru.net` | private | authentik OIDC (Argo Workflows) | `linuxguru-ca` |
 | `harbor.vn.linuxguru.net` | private | authentik OIDC | `linuxguru-ca` |
 | `grafana.vn.linuxguru.net` | private | authentik OIDC | `linuxguru-ca` |
-| `master.seaweedfs.vn.linuxguru.net`, `s3.vn.linuxguru.net` | private | — | `linuxguru-ca` |
-| `admin.seaweedfs.vn.linuxguru.net` | private | authentik outpost (`storage`) | `linuxguru-ca` |
-| `whisker.vn.linuxguru.net` | private | authentik outpost (`platform`) | `linuxguru-ca` |
+| `master.seaweedfs.vn.linuxguru.net`, `s3.vn.linuxguru.net` | private | — | `letsencrypt` |
+| `admin.seaweedfs.vn.linuxguru.net` | private | authentik outpost (`storage`) | `letsencrypt` |
+| `whisker.vn.linuxguru.net` | private | authentik outpost (`platform`) | `letsencrypt` |
 | `ollama.vn.linuxguru.net` ⚠️ | private | **nothing** — unauthenticated, LAN/WireGuard only | `linuxguru-ca` |
 | `vaultwarden.linuxguru.net` | private | — (clients are not browsers) | `letsencrypt` |
 | `plex.linuxguru.net` | public | — | `letsencrypt` |
-| `sonarr` / `radarr` / `prowlarr` / `bazarr` / `qbittorrent`.vn.linuxguru.net | media-private | authentik outpost (`media`) | `linuxguru-ca` |
+| `sonarr` / `radarr` / `prowlarr` / `bazarr` / `qbittorrent`.vn.linuxguru.net | media-private | authentik outpost (`media`) | `letsencrypt` |
 
 ⚠️ `ollama` is the `ai` namespace's model server: an HTTPRoute straight to the
 Service, no authentik in front and no auth of its own. It is not published to
 the internet (private gateway), but anything on the LAN or the VPN can use it.
 Its exposure is created by the external app-of-apps repo, not by anything in this
 repo — gutting it here would not remove it.
+
+**Which cert a host gets** follows its clients, not its gateway. A host that only
+browsers reach — or that nothing in-cluster talks to over TLS — is on
+`letsencrypt` (public roots, no `~/.ssl/ca.crt` for the client). A host whose
+*in-cluster* consumers look the CA up by issuer name stays on `linuxguru-ca`:
+`auth.` itself, `harbor`, `grafana` and `argo-wf` (their Grafana/Workflows
+containers mount the CA bundle), plus `ollama` (manifest owned elsewhere). The
+whole list, the flip recipe and the rate limits live in
+[`modules/cert_manager/README.md`](modules/cert_manager/README.md).
 
 Non-HTTP ingress is separate: plex also listens on its own LoadBalancer, and
 qBittorrent peers connect to `qbittorrent-torrent` on `192.168.0.105:21010` —
@@ -109,7 +118,7 @@ never through authentik.
 | ↳ `network/whisker/` ([README](modules/network/whisker/README.md)) | Calico Whisker flow-log UI, authentik-gated |
 | `storage/` | Longhorn (+ netpols, `VolumeSnapshotClass`es), SeaweedFS (helm, CSI, master/S3 listeners, Grafana dashboard) |
 | ↳ `storage/seaweedfs_admin/` ([README](modules/storage/seaweedfs_admin/README.md)) | SeaweedFS admin UI, authentik-gated (mantle) |
-| `cert_manager/` ([README](modules/cert_manager/README.md)) | cert-manager, the private `linuxguru-ca` ClusterIssuer, the `letsencrypt` ClusterIssuer (Route53 DNS-01) |
+| `cert_manager/` ([README](modules/cert_manager/README.md)) | cert-manager (pinned `v1.21.1`), the private `linuxguru-ca` ClusterIssuer, the `letsencrypt` ClusterIssuer (Route53 DNS-01, zone pinned — `.vn` hosts included) |
 | `auth/authentik/core/` | authentik server + worker + API key + listener |
 | ↳ `auth/authentik/proxy_app/` ([README](modules/auth/authentik/proxy_app/README.md)) | authentik proxy provider/app/group **and** the outpost + its non-expiring token |
 | ↳ `auth/authentik/outpost/` ([README](modules/auth/authentik/outpost/README.md)) | the outpost Deployment/Service in the protected app's namespace + its egress carve-out |
@@ -149,8 +158,8 @@ gateway, no outpost on purpose).
   image digest where the chart leaves the tag floating). Pinned today: MetalLB
   `0.16.1`, NGF `2.6.7`, kube-prometheus-stack `90.1.1`, Longhorn `1.12.1`,
   SeaweedFS `4.40.0` + CSI `0.2.35`, authentik `2025.10.3`, wireguard-operator
-  `0.3.0`, and the media charts. **Still unpinned, so they float
-  on any apply:** cert-manager, Harbor, external-dns, snapshot-controller,
+  `0.3.0`, cert-manager `v1.21.1`, and the media charts. **Still unpinned, so
+  they float on any apply:** Harbor, external-dns, snapshot-controller,
   metrics-server, prometheus-smartctl-exporter, argo-cd and argo-events. This is
   not theoretical — kube-prometheus-stack rode four major versions unreviewed
   that way and left its CRDs nine operator releases behind the operator serving

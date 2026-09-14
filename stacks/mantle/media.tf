@@ -21,4 +21,10 @@ module "media" {
     var.deployment.network.pod_cidr,
     var.deployment.network.service_cidr,
   ]
+
+  # Every media host is signed by the public issuer (letsencrypt, DNS-01) -- the
+  # TXT lands in the Route53 linuxguru.net zone, so it needs no inbound
+  # reachability, and no client needs ~/.ssl/ca.crt. See
+  # modules/cert_manager/README.md; pass `cert_issuers = { <app> = ... }` to put
+  # one host back on linuxguru-ca.
 }

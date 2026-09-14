@@ -16,10 +16,14 @@ module "harbor" {
 }
 
 module "argo" {
-  count       = var.argo_enabled ? 1 : 0
-  source      = "../../modules/argo/core"
-  domain      = var.deployment.common.domain
-  cert_issuer = var.deployment.cert_authorities.private
+  count  = var.argo_enabled ? 1 : 0
+  source = "../../modules/argo/core"
+  domain = var.deployment.common.domain
+  # Leaf cert only: modules/argo/core uses cert_issuer for the listener
+  # annotation and nothing in-cluster validates argo-cd.vn's own cert. Its SSO
+  # CA ConfigMap lookups live in modules/argo/mantle and stay on linuxguru-ca
+  # (they trust auth.vn, which is still signed by the private CA).
+  cert_issuer = var.deployment.cert_authorities.public
 }
 
 
