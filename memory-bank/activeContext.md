@@ -1,9 +1,57 @@
 # Active Context
 
-## Current state (as of 2026-09-15)
+## Current state (as of 2026-09-15, late)
 
-- Branch `main`, **3 unpushed commits** ahead of `origin/main` (baseline
-  `5f0f582`), plus this session's CA-retirement commit as a 4th, also unpushed.
+- Branch `main`, **6 unpushed commits** ahead of `origin/main` (baseline
+  `5f0f582`): the CA migration (3), its memory-bank note, the CA-retirement
+  commit, and the memory-bank update at the end of the session. Nothing pushed.
+- **2026-09-15 (later) — the two dead `ai` apps are alive.** `corsless` is
+  deployed and serving `https://corsless.vn.linuxguru.net`; `llm-embedder` is
+  repointed but its image is still being rebuilt. Three chained bugs, in the
+  order they bit:
+  1. **Build**: `corsless/Dockerfile` built for the builder's platform, so the
+     amd64 image was a qemu-emulated Go build that crashed. Now
+     `FROM --platform=$BUILDPLATFORM` + `GOOS`/`GOARCH` cross-compile — builder
+     runs native arm64, output is amd64.
+  2. **Publish auth**: `helm` had no credentials. On macOS its store is
+     `~/Library/Preferences/helm/registry/config.json`, **not**
+     `~/.config/helm/...` as on Linux, and a fresh machine doesn't have it.
+     Anonymous `helm push` → `401`. Seeded it from podman's auth file with the
+     Harbor `robot$jblack` creds (merged `ghcr.io` back in).
+  3. **Registry split-brain — the real killer**: everything said `linuxguru`
+     (chart `values.yaml`, the ArgoCD repo URL, TF's `harbor_project`), but
+     `AppInfo.txt` pushed to `library`, and `robot$jblack` holds a system-level
+     permission on **`library` only**. Argo was reading a project that contained
+     zero artifacts → `404: repository linuxguru/corsless-helm not found`.
+     **Decision: point the apps at `library`** (the only writable project)
+     instead of widening the robot: both `chart/values.yaml` image repos, both
+     `deployments/ai/*.yaml` `repoURL`s, and the live Argo repo Secret
+     `argo/repo-3272614039` (`url=…/library`, `enableOCI=true`). `library` is
+     **not** TF-managed (Harbor's default project) — import it before adding any
+     `harbor_project` resource, or `apply` 409s.
+  - **Exposure was the next wall, and it was a chart problem**: both
+    Applications exposed themselves with the stock `helm create` `Ingress`
+    (`className: private`), which attaches to nothing — the shared gateways only
+    serve HTTPS through app-declared ListenerSets, so TLS died with
+    `unrecognized name` and Argo sat at `Progressing` (an Ingress never gets an
+    address). Both charts now ship `templates/extraObjects.yaml` (+ an
+    `extraObjects: []` default) and both Applications pass a ListenerSet +
+    ReferenceGrant + HTTPRoute, exactly like the `ollama` Application does with
+    `otwld/ollama-helm`. Certs come from `letsencrypt` (DNS-01), so neither app
+    touches the retired `linuxguru-ca`.
+  - **Also fixed**: `corsless/build` bumped and packaged the chart in `build`
+    but pushed it in `publish`, so publishing shipped a stale `.tgz` silently.
+    It now matches its sibling (bump + package at publish time, from the
+    committed tree).
+  - **`llm-embedder`'s Dockerfile needed a fix too**: the torch install used
+    `--index-url` (exclusive) against the CPU wheel index, which carries no
+    build dependencies. pip rejects PyPI's `typing_extensions` wheel
+    ("inconsistent Name": `typing_extensions` vs the dash-form request), falls
+    back to the sdist, then can't find `flit_core` on that index. Now
+    `--extra-index-url https://pypi.org/simple` plus an explicit
+    `torch==2.8.0+cpu` pin, so PyPI's CUDA build can never win. Note: this Mac's
+    podman VM builds `linux/amd64` under emulation (verified), which is why the
+    python image build takes ~20 minutes.
 - **2026-09-15 (evening) — CA migration FINISHED. All 17 hosts are on Let's
   Encrypt and nothing consumes `linuxguru-ca`.** The last four (`auth.vn`,
   `harbor`, `grafana`, `argo-wf`) flipped in **one apply per stack**, together
@@ -47,7 +95,9 @@
     `harbor.vn.linuxguru.net/linuxguru` had verification on. Going public fixed
     it for free (repo-server ships the public roots). Zero `x509` errors now;
     they report `404: repository linuxguru/corsless-helm not found` — the honest
-    next error, so both remain dead apps for a different reason.
+    next error, so both remain dead apps for a different reason. **Resolved
+    later the same day**: that 404 was the registry split-brain, not a missing
+    push — see the top of this file.
   - **Docs**: `modules/cert_manager/README.md` gained "If a private CA ever comes
     back" — the per-consumer injection checklist with **Argo CD first** (its two
     independent trust stores — `oidc.config.rootCA` on argocd-server vs

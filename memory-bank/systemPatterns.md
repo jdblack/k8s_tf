@@ -47,6 +47,14 @@ Outpost-fronted apps point `route_name = "<app>-auth"` at the outpost service.
   `argo-wf`, `argo-cd`) validate authentik against the container's own public
   roots. Per-consumer injection checklist (Argo CD first) and the
   same-apply rule for bundle-replacing knobs: `modules/cert_manager/README.md`.
+- **Apps deployed from the external `argo-linuxguru` repo (the `ai` project)
+  own their exposure in their own chart values instead** — they aren't TF
+  modules, so `gateway/expose` can't reach them. `extraObjects` in the
+  Application's `valuesObject` carries the ListenerSet + `ReferenceGrant` +
+  `HTTPRoute` (the `otwld/ollama-helm` convention); both local charts
+  (`corsless-helm`, `llm-embedder-chart`) now ship
+  `templates/extraObjects.yaml` to render it. Those charts publish to Harbor
+  project **`library`** (`library/<app>` + `library/<chart>`), not `linuxguru`.
 - `hostname` overrides for sub-subdomains (`admin.seaweedfs.<domain>`).
 
 ## Pattern: firewalls compose (NetworkPolicies UNION)

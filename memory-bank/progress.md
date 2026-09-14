@@ -24,7 +24,9 @@
 - **Firewall library** — `policy` renderer + `basic_internet`,
   `limited_ingress`, `allow_api`. Media namespace locked down (2026-09-12).
   Staged/preview mechanism proven on `argo`.
-- **apps stack** — ArgoCD `AppProject` + app-of-apps `Application` for `ai`.
+- **apps stack** — ArgoCD `AppProject` + app-of-apps `Application` for `ai`
+  (`ollama` and `corsless` live from the external deployments dir;
+  `llm-embedder` repointed and rebuilding).
 
 ## What's left / open
 
@@ -58,6 +60,14 @@
   reasons. Their Helm repos (`linuxguru/corsless-helm`, `linuxguru/llm-embedder-chart`)
   return `404: repository not found` from Harbor, so the charts were never pushed
   or were removed. Only `ollama` is live from that external app-of-apps dir.
+  **RESOLVED 2026-09-15**: it was a registry split-brain — Argo, the values and
+  TF all named Harbor project `linuxguru` while the `build` scripts pushed to
+  `library`, and `robot$jblack` can only push to `library`. Everything is
+  repointed at `library`, helm's credential store is seeded, both charts render
+  `extraObjects`, and `library/corsless-helm:0.0.26` is published. `corsless` is
+  **verified serving** (stock-trust TLS, app answers; cert re-issued from the old
+  CA to `letsencrypt`). `llm-embedder` only needs its image to finish
+  building/publishing — see `activeContext.md` for the full bug chain.
 - ~~Orphan ClusterIssuer `letsencrypt-http`~~ — HTTP-01/ingress-nginx leftover,
   in no `.tf` and referenced by no Certificate. **Deleted 2026-09-15**, along with
   its `letsencrypt-http-key` account key.
