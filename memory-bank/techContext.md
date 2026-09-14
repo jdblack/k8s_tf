@@ -9,7 +9,10 @@
 - **AWS CLI** — only for the manual Route53 drift test / inspection.
 - **`~/.ssl/ca.crt` and `~/.ssl/ca.key` must exist.** `modules/cert_manager`
   reads them with `file()` **at plan time**; a missing/renamed CA fails the plan.
-  They live outside the repo (generator: `~/.ssl/gencert`).
+  They live outside the repo (generator: `~/.ssl/gencert`). Still true only
+  because the module keeps creating the now-unused `linuxguru-ca` issuer —
+  deleting that block is the last step of the CA retirement (see
+  `activeContext.md`).
 - Host: macOS (darwin/arm64), providers in `.terraform.lock.hcl` are
   `darwin_arm64`.
 

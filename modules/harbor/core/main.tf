@@ -12,7 +12,6 @@ locals {
       type = "Recreate"
     }
     harborAdminPassword = random_password.admin_password.result,
-    caBundleSecretName  = local.ca_secret_name
     persistence = {
       persistentVolumeClaim = {
         registry = {

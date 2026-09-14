@@ -14,10 +14,6 @@ locals {
   ui_admin_sa           = "${var.name}-ui-admin"
   ui_admin_token_secret = "${local.ui_admin_sa}.service-account-token"
 
-  # Namespace-local copy of cert_manager's private-CA ConfigMap (ConfigMap
-  # volumes are same-namespace only); oauth2.tf mirrors it here.
-  ca_cert_cm = "${var.name}-ca-cert"
-
   helm_values = {
     controller = {
       # Only create the runner SA + Role/RoleBinding in this namespace. If
@@ -40,26 +36,6 @@ locals {
       }
     }
     server = {
-      # Mount the private CA (mirrored into this namespace by oauth2.tf) so the
-      # server can validate the Authentik issuer's TLS cert. Chart 0.46.x has no
-      # `server.sso.rootCA` knob yet; when moving to chart >= 1.x / app >= v4,
-      # replace this mount with rootCA -- it AUGMENTS the trust store, whereas
-      # this subPath mount REPLACES the container's CA bundle.
-      volumes = [
-        {
-          name = "ca-certs"
-          configMap = {
-            name = kubernetes_config_map_v1.local_ca_mirror.metadata[0].name
-          }
-        }
-      ]
-      volumeMounts = [
-        {
-          name      = "ca-certs"
-          mountPath = "/etc/ssl/certs/ca-certificates.crt"
-          subPath   = "tls.crt"
-        }
-      ]
       service = {
         type = "ClusterIP"
       }

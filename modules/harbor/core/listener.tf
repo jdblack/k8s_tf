@@ -1,8 +1,8 @@
 # HTTPS listener via the shared private gateway (kube-network). The HTTPRoute
 # itself is rendered by the harbor chart (expose.type = "route"), so this
-# module only declares the ListenerSet (which provisions the linuxguru-ca
-# cert); the listener_set submodule creates the cross-namespace ReferenceGrants
-# for both ListenerSet and HTTPRoute attachment.
+# module only declares the ListenerSet (which provisions the harbor.vn cert);
+# the listener_set submodule creates the cross-namespace ReferenceGrants for
+# both ListenerSet and HTTPRoute attachment.
 module "expose" {
   source            = "../../network/gateway/expose"
   name              = var.name

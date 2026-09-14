@@ -75,15 +75,15 @@ namespace-local gateway (`media-private`, `192.168.0.106`).
 
 | Hostname | Gateway | Fronted by | Cert |
 |---|---|---|---|
-| `auth.vn.linuxguru.net` | private | — | `linuxguru-ca` |
+| `auth.vn.linuxguru.net` | private | — | `letsencrypt` |
 | `argo-cd.vn.linuxguru.net` | private | authentik OIDC | `letsencrypt` |
-| `argo-wf.vn.linuxguru.net` | private | authentik OIDC (Argo Workflows) | `linuxguru-ca` |
-| `harbor.vn.linuxguru.net` | private | authentik OIDC | `linuxguru-ca` |
-| `grafana.vn.linuxguru.net` | private | authentik OIDC | `linuxguru-ca` |
+| `argo-wf.vn.linuxguru.net` | private | authentik OIDC (Argo Workflows) | `letsencrypt` |
+| `harbor.vn.linuxguru.net` | private | authentik OIDC | `letsencrypt` |
+| `grafana.vn.linuxguru.net` | private | authentik OIDC | `letsencrypt` |
 | `master.seaweedfs.vn.linuxguru.net`, `s3.vn.linuxguru.net` | private | — | `letsencrypt` |
 | `admin.seaweedfs.vn.linuxguru.net` | private | authentik outpost (`storage`) | `letsencrypt` |
 | `whisker.vn.linuxguru.net` | private | authentik outpost (`platform`) | `letsencrypt` |
-| `ollama.vn.linuxguru.net` ⚠️ | private | **nothing** — unauthenticated, LAN/WireGuard only | `linuxguru-ca` |
+| `ollama.vn.linuxguru.net` ⚠️ | private | **nothing** — unauthenticated, LAN/WireGuard only | `letsencrypt` |
 | `vaultwarden.linuxguru.net` | private | — (clients are not browsers) | `letsencrypt` |
 | `plex.linuxguru.net` | public | — | `letsencrypt` |
 | `sonarr` / `radarr` / `prowlarr` / `bazarr` / `qbittorrent`.vn.linuxguru.net | media-private | authentik outpost (`media`) | `letsencrypt` |
@@ -94,14 +94,14 @@ the internet (private gateway), but anything on the LAN or the VPN can use it.
 Its exposure is created by the external app-of-apps repo, not by anything in this
 repo — gutting it here would not remove it.
 
-**Which cert a host gets** follows its clients, not its gateway. A host that only
-browsers reach — or that nothing in-cluster talks to over TLS — is on
-`letsencrypt` (public roots, no `~/.ssl/ca.crt` for the client). A host whose
-*in-cluster* consumers look the CA up by issuer name stays on `linuxguru-ca`:
-`auth.` itself, `harbor`, `grafana` and `argo-wf` (their Grafana/Workflows
-containers mount the CA bundle), plus `ollama` (manifest owned elsewhere). The
-whole list, the flip recipe and the rate limits live in
-[`modules/cert_manager/README.md`](modules/cert_manager/README.md).
+**Which cert a host gets** is `letsencrypt` everywhere, since 2026-09-15: every
+host either serves only browsers or has in-cluster consumers that trust public
+roots on their own. Nothing in the cluster ships a private CA any more, so
+`~/.ssl/ca.crt` is not needed by any client. The `linuxguru-ca` ClusterIssuer
+still exists but signs nothing — if you ever need it again, the per-consumer
+injection checklist (Argo CD first) lives in
+[`modules/cert_manager/README.md`](modules/cert_manager/README.md), along with
+the flip recipe and the rate limits.
 
 Non-HTTP ingress is separate: plex also listens on its own LoadBalancer, and
 qBittorrent peers connect to `qbittorrent-torrent` on `192.168.0.105:21010` —
@@ -118,7 +118,7 @@ never through authentik.
 | ↳ `network/whisker/` ([README](modules/network/whisker/README.md)) | Calico Whisker flow-log UI, authentik-gated |
 | `storage/` | Longhorn (+ netpols, `VolumeSnapshotClass`es), SeaweedFS (helm, CSI, master/S3 listeners, Grafana dashboard) |
 | ↳ `storage/seaweedfs_admin/` ([README](modules/storage/seaweedfs_admin/README.md)) | SeaweedFS admin UI, authentik-gated (mantle) |
-| `cert_manager/` ([README](modules/cert_manager/README.md)) | cert-manager (pinned `v1.21.1`), the private `linuxguru-ca` ClusterIssuer, the `letsencrypt` ClusterIssuer (Route53 DNS-01, zone pinned — `.vn` hosts included) |
+| `cert_manager/` ([README](modules/cert_manager/README.md)) | cert-manager (pinned `v1.21.1`), the `letsencrypt` ClusterIssuer (Route53 DNS-01, zone pinned — `.vn` hosts included) which signs **all 17 hosts**, and the now-unused private `linuxguru-ca` ClusterIssuer |
 | `auth/authentik/core/` | authentik server + worker + API key + listener |
 | ↳ `auth/authentik/proxy_app/` ([README](modules/auth/authentik/proxy_app/README.md)) | authentik proxy provider/app/group **and** the outpost + its non-expiring token |
 | ↳ `auth/authentik/outpost/` ([README](modules/auth/authentik/outpost/README.md)) | the outpost Deployment/Service in the protected app's namespace + its egress carve-out |

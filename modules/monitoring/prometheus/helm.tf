@@ -10,11 +10,10 @@ resource "helm_release" "prometheus" {
   version    = "90.1.1"
   values     = [yamlencode(local.helm_values)]
 
-  # The Grafana pod mounts both. The configmap is implied by name in
-  # locals.tf; the secret is only a string in the helm values, so make the
-  # order explicit: create the files, then roll the pod that reads them.
+  # Grafana reads the OIDC client credentials from a file at startup, and the
+  # secret is only a string in the helm values, so make the order explicit:
+  # create the credential file, then roll the pod that reads it.
   depends_on = [
-    kubernetes_config_map_v1.grafana_ca,
     kubernetes_secret_v1.grafana_oidc,
   ]
 }

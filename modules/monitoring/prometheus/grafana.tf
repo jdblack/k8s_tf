@@ -1,24 +1,3 @@
-# Grafana's OIDC client validates authentik's TLS cert against the private CA,
-# which cert_manager publishes as a ConfigMap in `default`. ConfigMap volumes
-# are same-namespace only, so mirror it here (locals.tf points Grafana's Go TLS
-# stack at it via SSL_CERT_FILE). Both sides live in the core stack -- no
-# cross-stack reference.
-data "kubernetes_config_map_v1" "local_ca" {
-  metadata {
-    name = var.cert_issuer
-  }
-}
-
-resource "kubernetes_config_map_v1" "grafana_ca" {
-  metadata {
-    name      = "${var.grafana_name}-ca"
-    namespace = var.namespace
-  }
-  data = {
-    "tls.crt" = data.kubernetes_config_map_v1.local_ca.data["tls.crt"]
-  }
-}
-
 # Placeholder Grafana OIDC secret. Grafana's $__file{} expander hard-fails when
 # the referenced file is MISSING (verified on 13.2.1-distroless: the container
 # exits), so the Secret OBJECT must exist before the helm upgrade waits on the

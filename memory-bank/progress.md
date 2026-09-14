@@ -4,8 +4,10 @@
 
 - **Core platform** — Calico (tigera-operator), MetalLB (L2), external-dns
   (rfc2136 → bind9, authoritative for `vn.linuxguru.net` only), Longhorn,
-  SeaweedFS + CSI, cert-manager (pinned `v1.21.1`; `linuxguru-ca` + `letsencrypt`
-  DNS-01 with the zone pinned, so `.vn` hosts work — `sonarr` is the first),
+  SeaweedFS + CSI, cert-manager (pinned `v1.21.1`; **`letsencrypt` DNS-01 with the
+  zone pinned signs all 17 hosts** as of 2026-09-15 — no workload injects a
+  private CA any more, and `~/.ssl/ca.crt` is not needed by any client; the
+  `linuxguru-ca` issuer still exists but signs nothing),
   authentik, kube-prometheus-stack + Grafana SSO, Harbor, Argo CD,
   WireGuard operator, Gateway API CRDs + shared NGF gateways.
 - **Gateway/exposure model** — `gateway/expose` used by every app; certs
@@ -36,15 +38,26 @@
   `modules/vaultwarden/security.tf`.
 - **Longhorn Grafana dashboard** not imported.
 - **external-dns HTTPRoute-annotation publishing** unexplained for `.vn` names.
-- **Let's Encrypt for the remaining `.vn` hosts.** 12 of 17 certs are LE as of
-  2026-09-15 (media namespace entirely, plus `argo-cd`, `s3`/`master.seaweedfs`,
-  `admin.seaweedfs`, `whisker`, vaultwarden, plex). The remaining five are the
-  ones an **in-cluster consumer pins by issuer name**: `auth.vn` itself,
-  `harbor`, `grafana`, `argo-wf` (needs a `ca_name` split in `harbor/core`,
-  `monitoring/prometheus`, `argo/mantle`), and `ollama.vn` (manifest owned by
-  the external app-of-apps repo). Watch the *replacing* mounts when `auth.vn`
-  moves: Grafana `SSL_CERT_FILE` and Argo Workflows' `ca-certificates.crt`
-  subPath mount.
+- ~~**Let's Encrypt for the remaining `.vn` hosts.**~~ **DONE 2026-09-15: all 17
+  hosts are on `letsencrypt`** and every CA injection was deleted in the same
+  apply as the last four flips (`auth.vn`, `harbor`, `grafana`, `argo-wf`). See
+  `activeContext.md` for the verification evidence (SSO hand-offs, in-cluster
+  trust probe, cluster-wide CA sweep).
+- **Retire the CA** (the migration's last step): drop the `linuxguru-ca`
+  ClusterIssuer + the `kube-certificates/linuxguru-ca` Secret + the
+  `default/linuxguru-ca` ConfigMap + the module's `ca_certfile`/`ca_keyfile`
+  `file()` inputs, then `~/.ssl/ca.crt` and the node trust store in
+  `initial_setup.yml` (k8s repo). Nothing is broken while it lingers — but
+  `~/.ssl/ca.*` must keep existing or `tofu plan` fails.
+- **Nothing scrapes cert-manager.** No `ServiceMonitor`, no expiry
+  `PrometheusRule`, so a failed renewal stays invisible until the cert expires
+  (~30 days of slack at 2/3 lifetime). Cheap win: ServiceMonitor on
+  `kube-certificates/cert-manager:9402` + a
+  `certmanager_certificate_expiration_timestamp_seconds < 21d` alert.
+- **`corsless` / `llm-embedder` are still dead apps** — no longer for TLS
+  reasons. Their Helm repos (`linuxguru/corsless-helm`, `linuxguru/llm-embedder-chart`)
+  return `404: repository not found` from Harbor, so the charts were never pushed
+  or were removed. Only `ollama` is live from that external app-of-apps dir.
 - ~~Orphan ClusterIssuer `letsencrypt-http`~~ — HTTP-01/ingress-nginx leftover,
   in no `.tf` and referenced by no Certificate. **Deleted 2026-09-15**, along with
   its `letsencrypt-http-key` account key.
@@ -79,7 +92,13 @@
   2026-09-15 went from one host (`sonarr`) to **12 of 17 certs**, with
   `modules/media`'s default flipped to the public issuer and a 9-host batch
   applied in a single pass — proving the "one host at a time" caution was
-  unnecessarily conservative for leaf-only hosts.
+  unnecessarily conservative for leaf-only hosts. The same day finished the job
+  (17 of 17): the last four flips had to ride in the **same apply** as the
+  deletions of their CA trust material, because the *replacing* knobs (Grafana's
+  `SSL_CERT_FILE`, Workflows' bundle subPath mount) break their app's SSO if
+  separated from the flip in either direction. The `ca_name` split that was
+  planned for that turned out to be unnecessary — deleting the wiring in the same
+  apply is what removes the coupling.
 - The `modules/security/trivy` module was removed 2026-09; the `kube-security`
   namespace lingers in state only.
 - WordPress deployments in `stacks/apps` were disabled when the cluster moved

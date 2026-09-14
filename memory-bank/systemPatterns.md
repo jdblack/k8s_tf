@@ -42,8 +42,11 @@ Outpost-fronted apps point `route_name = "<app>-auth"` at the outpost service.
   Certificate is named after the listener's Secret. `modules/media` now defaults
   *every* app to the public issuer (they are leaf-only) with the override kept
   for exceptions; the other modules take a `cert_issuer` argument from the stack.
-  Any module that consumes the CA *by issuer name* (harbor, grafana,
-  argo-workflows) must be retargeted first — see `modules/cert_manager/README.md`.
+- **No module injects a CA any more (2026-09-15).** All 17 hosts are on
+  `letsencrypt`; the four that used to mount the private CA (`harbor`, `grafana`,
+  `argo-wf`, `argo-cd`) validate authentik against the container's own public
+  roots. Per-consumer injection checklist (Argo CD first) and the
+  same-apply rule for bundle-replacing knobs: `modules/cert_manager/README.md`.
 - `hostname` overrides for sub-subdomains (`admin.seaweedfs.<domain>`).
 
 ## Pattern: firewalls compose (NetworkPolicies UNION)

@@ -28,6 +28,8 @@ variable "domain" {
   type = string
 }
 
+# Issuer for this host's own ListenerSet (argo-wf.vn) -- leaf cert only. The
+# SSO clients validate authentik against the container's public roots.
 variable "cert_issuer" {
   type = string
 }

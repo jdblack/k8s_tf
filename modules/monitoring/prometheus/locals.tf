@@ -42,17 +42,6 @@ locals {
       deploymentStrategy = {
         type = "Recreate"
       }
-      # Trust the private CA that signs authentik's TLS cert (Go reads
-      # SSL_CERT_FILE alongside the system roots).
-      env = {
-        SSL_CERT_FILE = "/etc/grafana/certs/tls.crt"
-      }
-      extraConfigmapMounts = [{
-        name      = "${var.grafana_name}-ca"
-        configMap = kubernetes_config_map_v1.grafana_ca.metadata[0].name
-        mountPath = "/etc/grafana/certs"
-        readOnly  = true
-      }]
       extraSecretMounts = [{
         name       = "${var.grafana_name}-oidc"
         secretName = "${var.grafana_name}-oidc"

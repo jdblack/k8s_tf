@@ -20,15 +20,8 @@ resource "kubernetes_config_map_v1_data" "argo_config" {
       "issuer" : "https://${var.oauth2_server}/application/o/${var.name}/",
       "clientID" : module.auth.client_id,
       "clientSecret" : module.auth.client_secret,
-      "requestedScopes" : ["openid", "profile", "email", "groups"],
-      "rootCA" : data.kubernetes_config_map_v1.local_ca.data["tls.crt"]
+      "requestedScopes" : ["openid", "profile", "email", "groups"]
     })
-  }
-}
-
-data "kubernetes_config_map_v1" "local_ca" {
-  metadata {
-    name = var.cert_issuer
   }
 }
 
