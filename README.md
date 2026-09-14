@@ -84,15 +84,20 @@ namespace-local gateway (`media-private`, `192.168.0.106`).
 | `admin.seaweedfs.vn.linuxguru.net` | private | authentik outpost (`storage`) | `letsencrypt` |
 | `whisker.vn.linuxguru.net` | private | authentik outpost (`platform`) | `letsencrypt` |
 | `ollama.vn.linuxguru.net` ⚠️ | private | **nothing** — unauthenticated, LAN/WireGuard only | `letsencrypt` |
+| `corsless.vn.linuxguru.net` ⚠️ | private | **nothing** — CORS-bypass proxy, LAN/WireGuard only | `letsencrypt` |
+| `llm-embedder.vn.linuxguru.net` ⚠️ | private | **nothing** — unauthenticated, LAN/WireGuard only | `letsencrypt` |
 | `vaultwarden.linuxguru.net` | private | — (clients are not browsers) | `letsencrypt` |
 | `plex.linuxguru.net` | public | — | `letsencrypt` |
 | `sonarr` / `radarr` / `prowlarr` / `bazarr` / `qbittorrent`.vn.linuxguru.net | media-private | authentik outpost (`media`) | `letsencrypt` |
 
-⚠️ `ollama` is the `ai` namespace's model server: an HTTPRoute straight to the
-Service, no authentik in front and no auth of its own. It is not published to
-the internet (private gateway), but anything on the LAN or the VPN can use it.
-Its exposure is created by the external app-of-apps repo, not by anything in this
-repo — gutting it here would not remove it.
+⚠️ The three `ai` hosts — `ollama` (model server), `corsless` (CORS-bypass
+proxy) and `llm-embedder` (embedding server) — are HTTPRoutes straight to their
+Services: no authentik in front, no auth of their own. Nothing there is published
+to the internet (private gateway), but anything on the LAN or the VPN can use it,
+and `corsless` will happily proxy any URL a client names. All three exist because
+of the external app-of-apps repo (`deployments/ai`), not because of anything in
+this repo — each declares its own ListenerSet + `ReferenceGrant` + HTTPRoute in
+its chart values (`extraObjects`). Gutting them here would not remove them.
 
 **Which cert a host gets** is `letsencrypt` everywhere, since 2026-09-15: every
 host either serves only browsers or has in-cluster consumers that trust public
