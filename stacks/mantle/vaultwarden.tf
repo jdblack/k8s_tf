@@ -2,11 +2,11 @@
 # shared PRIVATE gateway (`vaultwarden.linuxguru.net`). See
 # modules/vaultwarden/README.md.
 #
-# Two deliberate deviations from the other private-gateway apps, both explained
-# in that README: the cert issuer is the PUBLIC one (letsencrypt -- DNS-01, so
-# an unreachable host still validates, and phones need no private CA), and the A
-# record is managed here because external-dns owns vn.linuxguru.net only, while
-# the linuxguru.net wildcard points at the WAN IP.
+# Two deliberate deviations from the other private-gateway apps (both explained
+# in that README): cert_issuer is the PUBLIC one (letsencrypt -- DNS-01, so an
+# unreachable host still validates and phones need no private CA), and the A
+# record is managed here because external-dns owns vn.linuxguru.net only while the
+# linuxguru.net wildcard points at the WAN IP.
 module "vaultwarden" {
   source = "../../modules/vaultwarden"
 
@@ -22,10 +22,9 @@ module "vaultwarden" {
   # Pinned; there is no CI that resolves ":latest" here.
   image_tag = "1.37.3"
 
-  # TEMPORARY (2026-09-14): first-account bootstrap. vaultwarden cannot create a
-  # user from the CLI, so signups are open just long enough to register in the
-  # web vault. FLIP THIS BACK TO false (or delete the line) once registered --
-  # the host is LAN/WireGuard-only, but while it is true anyone on the LAN can
-  # create an account.
+  # TEMPORARY (2026-09-14): first-account bootstrap. vaultwarden has no CLI
+  # user-create, so signups stay open just long enough to register in the web
+  # vault. FLIP THIS BACK TO false (or delete the line) once registered -- the
+  # host is LAN/WireGuard-only, but while true anyone on the LAN can sign up.
   signups_allowed = true
 }

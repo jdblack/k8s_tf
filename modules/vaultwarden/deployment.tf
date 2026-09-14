@@ -8,10 +8,8 @@ resource "kubernetes_deployment_v1" "this" {
   spec {
     replicas = 1
 
-    # The data volume is ReadWriteOnce and holds the SQLite DB. A rolling update
-    # would deadlock waiting for the old pod to release the volume, so take the
-    # pod down and back up instead. (Same reason qbittorrent's PVC is RWO and
-    # the app is single-replica.)
+    # RWO volume holding the SQLite DB: a rolling update would deadlock waiting
+    # for the old pod to release it, so take the pod down and back up.
     strategy {
       type = "Recreate"
     }
@@ -24,13 +22,10 @@ resource "kubernetes_deployment_v1" "this" {
       metadata {
         labels = local.labels
 
-        # Roll the pod when the configuration changes. Kubernetes does not
-        # restart pods for a Secret update, so without this a `tofu apply` that
-        # changes, say, SIGNUPS_ALLOWED would appear to do nothing at all (the
-        # container keeps its old env until something restarts it). Hashing the
-        # Secret's contents into the pod template makes that apply a real
-        # rollout -- and since the whole configuration lives in that Secret, this
-        # is the only checksum needed.
+        # Roll the pod when the config changes: k8s does not restart pods for a
+        # Secret update, so a SIGNUPS_ALLOWED flip would otherwise appear to do
+        # nothing. The whole configuration lives in that Secret, so this is the
+        # only checksum needed.
         annotations = {
           "checksum/config" = sha256(jsonencode(kubernetes_secret_v1.config.data))
         }
@@ -73,23 +68,15 @@ resource "kubernetes_deployment_v1" "this" {
 
 # The vault itself: SQLite DB, attachments, RSA keys.
 #
-# Two labels, both required:
-#   - recurring-job.longhorn.io/source: enabled  -- the OPT-IN that makes this
-#     PVC a "recurring job label source" for its volume. Without it Longhorn
-#     keeps the VOLUME's labels as the source of truth and IGNORES the group
-#     label below (verified: the volume came up with only
-#     recurring-job-group.longhorn.io/default, so the RecurringJob in backup.tf
-#     would never have fired).
-#     NOTE the value is "enabled", matching types.LonghornLabelValueEnabled in
-#     longhorn-manager (hasRecurringJobSourceLabel compares against it).
-#     Longhorn's own enhancement doc (20230517-set-recurring-job-to-pvc.md)
-#     says "enable" -- that value is silently ignored (the volume controller
-#     just debug-logs "Ignoring recurring job labels ... missing source label").
-#   - recurring-job-group.longhorn.io/<group>: enabled  -- the group membership,
-#     which Longhorn then syncs onto the volume so the job's spec.groups match.
+# Both labels are required. `recurring-job.longhorn.io/source: enabled` is the
+# opt-in that makes this PVC a "recurring job label source"; without it Longhorn
+# ignores the group label and keeps the VOLUME's labels as truth, so the
+# RecurringJob in backup.tf would never fire. Note the value is "enabled"
+# (types.LonghornLabelValueEnabled in longhorn-manager) -- Longhorn's own
+# enhancement doc says "enable", which is silently ignored.
 #
-# Owning the PVC (rather than letting a chart create it) is one reason this
-# module is hand-rolled.
+# Owning the PVC ourselves (rather than letting a chart create it) is one reason
+# this module is hand-rolled.
 resource "kubernetes_persistent_volume_claim_v1" "data" {
   metadata {
     name      = local.data_pvc_name

@@ -15,12 +15,9 @@ cluster can still reach them:
 | `kube-certificates` | self + **node CIDR** | cert-manager webhook |
 | `blender` | self + **node CIDR** | samba LoadBalancer |
 
-Guest lists above come from real flow data (Goldmane/Whisker), not guesses.
-
-Why the node CIDR: a pod always accepts traffic from its **own** node, but the
-apiserver may call a webhook / aggregation endpoint from a **remote** node —
-which is policy-gated. That is also why media's `etp=Cluster` LBs failed under
-the firewall while `etp=Local` worked.
+Guest lists above come from real flow data (Goldmane/Whisker), not guesses. The
+node-CIDR rule and the staged-policy preview caveat are in
+`.clinedocs/calico-netpols.md` — don't re-derive them.
 
 ### Method (validated 2026-09-12)
 Add a `staged` flag to `firewalls/policy` (+ pass-through on `limited_ingress`)
@@ -30,8 +27,6 @@ Calico then records would-be DENIES in the flow logs (`pendingPolicies`), so eac
 namespace is: stage → watch a few days (trigger the real paths: a login, an argo
 sync, a fresh image pull) → flip `staged = false`.
 
-Caveat: it only previews where the staged policy would be the *deciding* one.
-A namespace that already has a permissive netpol just unions and previews nothing.
 Verified working: staged an allow-list on `argo` and saw `pendingPolicies: Deny`
 for a probe from `default`, while the traffic still flowed.
 
@@ -62,21 +57,41 @@ for a probe from `default`, while the traffic still flowed.
   convention ("TF owns structure, UI owns people") or move members into TF.
 - **Optional**: a `posture` wrapper so a namespace states egress+ingress in one
   call instead of 2-4 module calls (deferred until after the rollout).
+- **Longhorn has no Grafana dashboard.** Longhorn manager metrics are already
+  scraped, but the upstream dashboard
+  (https://grafana.com/grafana/dashboards/22705-longhorn-dashboard/) was never
+  imported. Do it the SeaweedFS way: a `grafana_dashboard: "1"` ConfigMap
+  shipped next to `modules/storage/longhorn.tf`. (This was the stray
+  `modules/storage/TODO` note; that file is gone.)
+- **`ollama.vn.linuxguru.net` has no auth in front of it.** It is on the
+  *private* gateway, so LAN/VPN only — but anything on the LAN can drive the
+  model server. It is created by the external app-of-apps repo, so gating it
+  means an authentik proxy app either there or here.
+- **Leftovers to delete**: the `kube-security` namespace
+  (`stacks/mantle/security.tf`, kept only because it is in state) and the
+  orphaned `tfstate-default-fuckbatz` Secret in `kube-system` (see
+  `stacks/apps/README.md`).
 
-## Owed notes
+## Follow-ups out of the vaultwarden build (shipped + verified 2026-09-14)
 
-- `modules/network/wireguard/main.tf` points here for "the systemic unpinned-helm
-  note" — that note isn't written yet (workload modules pin chart+image versions
-  ad hoc; the wireguard one is explicit about it).
+The 33 KB handoff doc that used to live here is gone — its durable content is in
+`modules/vaultwarden/README.md` (design, env, backups, offline behaviour, drift
+test) and `modules/network/dns/route53_record/README.md` (the `GetHostedZone`
+trap). What it left behind:
 
-## Handoff docs
-
-- [`TODO.vaultwarden.md`](TODO.vaultwarden.md) — design + handoff for the
-  vaultwarden build (private gateway, `vaultwarden.linuxguru.net`). **Implemented,
-  applied and verified 2026-09-14** (`modules/vaultwarden`,
-  `modules/network/dns/route53_record`, `stacks/mantle/vaultwarden.tf` + the AWS
-  provider); acceptance criteria are ticked off in that doc, including the drift
-  test. Five corrections came out of the implementation — the two that matter
-  beyond this app are **`route53:GetHostedZone`** (now granted on the zone: the
-  `aws_route53_record` resource calls it unconditionally, so the key could not
-  manage any record before) and the metrics drop.
+- **`modules/cert_manager/external_cert.tf` writes an invalid route53 solver
+  field.** `zoneid = var.data["R53_ZONEID"]` — cert-manager logs `unknown field
+  "spec.acme.solvers[0].dns01.route53.zoneid"` and prunes it, so the zone was
+  never pinned. The real field is `hostedZoneID`. (The `http01: {}` block in the
+  same file is also a non-field: harmless, but misleading.) See the module
+  README's Traps.
+- **external-dns never published `certtest.vn.linuxguru.net`** from its HTTPRoute
+  annotation (7+ minutes, nothing in bind9). Understand why before relying on
+  automatic `.vn` DNS for a new app.
+- **Idea: retire `linuxguru-ca`** by issuing letsencrypt certs for `.vn` names
+  too. Needs the `hostedZoneID` fix above plus `--dns01-recursive-nameservers`
+  on the solver (the propagation self-check resolves through bind9 for the `vn`
+  subtree). Partially proven: with `hostedZoneID` set, the TXT did reach Route53.
+- **Dead config**: `deployment.dyndns_host` in `k8s.tfenv` (same `lg-route53`
+  key, `FQDN = home.linuxguru.net`) is a defunct dynamic-DNS setup — no `.tf`
+  references it. Safe to delete.

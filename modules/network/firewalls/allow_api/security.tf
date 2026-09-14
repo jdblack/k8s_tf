@@ -1,11 +1,10 @@
 locals {
-  # Two egress rules: DNS (so the pods can resolve kubernetes.default.svc) and
-  # the Kubernetes API server itself. There is deliberately NO same-namespace,
-  # internet or kube-network rule here -- this policy is a *targeted
-  # supplement* to a namespace-wide basic_internet policy that already allows
-  # those. Kubernetes NetworkPolicies combine additively (union), so the pods
-  # matching var.pod_selector get the union of both policies; every other pod
-  # in the namespace only gets the namespace-wide one.
+  # Two egress rules: DNS (so the pods can resolve kubernetes.default.svc) and the
+  # Kubernetes API server itself. Deliberately NO same-namespace, internet or
+  # kube-network rule: this policy is a *targeted supplement* to a namespace-wide
+  # basic_internet policy that already allows those. NetworkPolicies combine
+  # additively, so pods matching var.pod_selector get the union of both; every
+  # other pod in the namespace only gets the namespace-wide one.
   egresses = concat(
     var.allow_dns ? [local.egress.to_dns] : [],
     [local.egress.to_k8s_api],
@@ -33,7 +32,7 @@ locals {
         # the apiserver's actual endpoint IPs (control-plane nodes), post-DNAT.
         # NOTE: this data source has no `count`, so it is a single object, NOT a
         # list -- do not wrap it in one() (one(<object>) throws and try() would
-        # silently swallow the whole endpoint lookup, dropping these rules).
+        # swallow the whole lookup, dropping these rules).
         flatten([
           for s in try(data.kubernetes_endpoints_v1.kubernetes.subset, []) : [
             for a in s.address : {
@@ -49,9 +48,9 @@ locals {
   }
 }
 
-# Rendering is delegated to the shared `policy` module (see basic_internet for
-# why the typed resource matters). The `moved` block migrates the inline
-# resource into the submodule with no destroy/create.
+# Rendering is delegated to the shared `policy` module (basic_internet explains
+# why the typed resource matters). The `moved` block migrates the inline resource
+# into the submodule with no destroy/create.
 module "policy" {
   source       = "../policy"
   name         = var.policy_name

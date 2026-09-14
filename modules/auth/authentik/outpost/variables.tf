@@ -18,8 +18,8 @@ variable "image_tag" { default = "2025.10.3" }
 variable "core_url" { type = string }
 
 # URL used in browser-facing redirects during the OAuth dance (the public
-# authentik URL). If empty the outpost falls back to core_url, which would
-# leak the internal service name into redirects -- so pass the public host.
+# authentik URL). If empty the outpost falls back to core_url, leaking the
+# internal service name into redirects -- so pass the public host.
 variable "browser_url" { type = string }
 
 # API token for the outpost's service account (module proxy_app output).
@@ -29,5 +29,5 @@ variable "token" {
 }
 
 # Namespace authentik core runs in; only egress to its server/worker pods is
-# opened (media's namespace firewall blocks all RFC1918 egress by default).
+# opened (the namespace firewall blocks all RFC1918 egress by default).
 variable "core_namespace" { default = "kube-auth" }

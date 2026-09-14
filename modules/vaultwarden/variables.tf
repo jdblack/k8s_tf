@@ -6,9 +6,8 @@ variable "name" { default = "vaultwarden" }
 variable "domain" { type = string }
 
 # ClusterIssuer for the listener cert. Deliberately the PUBLIC issuer
-# ("letsencrypt") even though the gateway is private: its only solver is DNS-01,
-# so issuance needs no inbound reachability, and clients then need no private-CA
-# install. The same value every public-gateway app uses.
+# ("letsencrypt") even though the gateway is private: its only solver is DNS-01, so
+# issuance needs no inbound reachability and clients need no private-CA install.
 variable "cert_issuer" { type = string }
 
 variable "gateway_name" { default = "private" }
@@ -32,9 +31,8 @@ variable "port" { default = 80 }
 variable "storage_class" { default = "longhorn" }
 variable "storage_size" { default = "2Gi" }
 
-# Bootstrap only. vaultwarden has no CLI "create user": the first account is
-# created through the web vault's registration form, which requires
-# SIGNUPS_ALLOWED=true. Set this true, register, then set it back to false --
-# while true, anyone who can reach the host (LAN or WireGuard) can create an
-# account.
+# Bootstrap only. vaultwarden has no CLI "create user": the first account is made
+# through the web vault's registration form, which requires SIGNUPS_ALLOWED=true.
+# Set it true, register, set it back to false -- while true, anyone who can reach
+# the host (LAN or WireGuard) can create an account.
 variable "signups_allowed" { default = false }

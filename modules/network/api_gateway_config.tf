@@ -1,18 +1,11 @@
-# Gateway API CRDs (gateway.networking.k8s.io/*) are NOT shipped by the NGF
-# chart, so install them here. They are CLUSTER-SCOPED API definitions shared by
-# every Gateway / GatewayClass / HTTPRoute / ListenerSet in the cluster, so they
-# are installed exactly once by this module (run from the core stack) -- never
-# per-gateway. Idempotent (`kubectl apply`), and only re-runs if
-# triggers_replace changes. The NGF chart installs its OWN CRDs
-# (gateway.nginx.org/*) automatically from its crds/ directory, so this only
-# covers the standard Gateway API resources (Gateway, HTTPRoute, ReferenceGrant,
-# etc.).
+# Gateway API CRDs (gateway.networking.k8s.io/*) are not shipped by the NGF
+# chart, so install them here: CLUSTER-SCOPED API definitions, installed exactly
+# once (from the core stack), never per-gateway. Idempotent; re-runs only when
+# triggers_replace changes. NGF's own CRDs (gateway.nginx.org/*) come from its
+# chart's crds/ directory.
 #
-# Bootstrap note: on a brand-new cluster, apply this module (i.e. the core
-# stack) BEFORE any stack that creates Gateway API resources -- `tofu plan` /
-# `apply` requires these CRDs to exist (the Gateway manifest needs their
-# schema). `tofu apply -target=module.network.terraform_data.gateway_api_crds`
-# also works.
+# Fresh cluster: apply core BEFORE any stack that creates Gateway API resources
+# -- plan/apply needs the CRDs' schema to exist.
 resource "terraform_data" "gateway_api_crds" {
   provisioner "local-exec" {
     command = <<-EOT

@@ -1,16 +1,15 @@
 # Reverse-proxy ("single application") providers for apps that don't speak
-# OIDC/SAML natively (the *arr stack, whisker, the SeaweedFS admin UI). The
-# outpost authenticates the user and then proxies to the app's internal service,
-# so the gateway routes the public hostname to the outpost instead of the app.
+# OIDC/SAML natively (the *arr stack, whisker, the SeaweedFS admin UI). The outpost
+# authenticates the user then proxies to the app's internal service, so the gateway
+# routes the public hostname to the outpost instead of the app.
 #
-# Access control: each application is bound to a single group (var.group_name)
-# via authentik_policy_binding. No bindings, no access -- group membership is
-# managed by hand in the authentik UI (matches the rest of this repo: TF owns
-# structure, UI owns people). To grant a future app to this group, add an
-# entry to var.apps and re-apply.
+# Access control: each application is bound to a single group (var.group_name) via
+# authentik_policy_binding. No bindings, no access -- group membership is managed by
+# hand in the authentik UI (TF owns structure, UI owns people). To grant a future
+# app to this group, add an entry to var.apps and re-apply.
 #
-# The outpost service account + token created here are consumed by the
-# companion modules/auth/authentik/outpost Kubernetes deployment.
+# The outpost service account + token created here are consumed by the companion
+# modules/auth/authentik/outpost Kubernetes deployment.
 
 data "authentik_flow" "authorization" {
   slug = "default-provider-authorization-implicit-consent"
@@ -46,10 +45,9 @@ resource "authentik_group" "access" {
   name = var.group_name
 }
 
-# The group resource briefly carried a `count`; move the indexed instances back
-# to the plain address so media/whisker keep their existing groups instead of
-# destroy/recreating them (which would drop the memberships managed by hand in
-# the UI).
+# The group resource briefly carried a `count`; move the indexed instances back to
+# the plain address so media/whisker keep their existing groups instead of
+# destroy/recreating them (which would drop the UI-managed memberships).
 moved {
   from = authentik_group.access[0]
   to   = authentik_group.access

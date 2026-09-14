@@ -1,7 +1,7 @@
-# The library's single NetworkPolicy renderer. The public presets
-# (basic_internet / limited_ingress / allow_api) and any bespoke caller build
-# explicit rule lists and hand them here -- so the "rule object -> typed
-# kubernetes_network_policy_v1" translation exists once, not per preset.
+# The library's single NetworkPolicy renderer: the presets (basic_internet /
+# limited_ingress / allow_api) and any bespoke caller build explicit rule lists
+# and hand them here, so the "rule object -> typed kubernetes_network_policy_v1"
+# translation exists once.
 
 variable "name" {
   type        = string
@@ -32,9 +32,9 @@ variable "policy_types" {
 #     ]
 #     ports = [{ protocol = "TCP", port = 6443 }]   # optional; omitted = any
 #   }
-# Typed `any` (not `list(any)`): rule/peer shapes differ between entries (some
-# ip_block, some namespace_selector; optional ports), and `list(any)` would
-# force every element to the same type.
+# Typed `any` (not `list(any)`): peer shapes differ between entries (some
+# ip_block, some namespace_selector; optional ports), and `list(any)` would force
+# every element to the same type.
 variable "ingress_rules" {
   type    = any
   default = []

@@ -1,18 +1,17 @@
 # SSO gate for the SeaweedFS admin UI (`weed admin`).
 #
 # The admin UI speaks no OIDC, so authentik fronts it as a **proxy outpost** --
-# exactly the media / whisker pattern: an HTTPS listener + HTTPRoute on the
-# shared private gateway that target the outpost, and the outpost proxies to the
-# admin Service once the user has a session.
+# exactly the media / whisker pattern: an HTTPS listener + HTTPRoute on the shared
+# private gateway targeting the outpost, which proxies to the admin Service once
+# the user has a session.
 #
-# This module lives in the MANTLE stack: only mantle has the authentik provider
-# configured (authentik is created BY the core stack, so core cannot talk to its
-# API in the same apply). The SeaweedFS release and its Services stay in core
-# (stacks/core/storage.tf) -- this module only adds the auth layer on top and is
-# what publishes admin.<release>.<domain> now.
+# In the MANTLE stack: only mantle has the authentik provider configured (core
+# creates authentik, so it cannot talk to its API in the same apply). The
+# SeaweedFS release and Services stay in core (stacks/core/storage.tf); this
+# module adds the auth layer and is what publishes admin.<release>.<domain> now.
 #
-# The outpost is co-located in var.namespace (the SeaweedFS namespace) so the
-# outpost -> admin hop is same-namespace and needs no cross-namespace policy.
+# The outpost is co-located in var.namespace so the outpost -> admin hop is
+# same-namespace and needs no cross-namespace policy.
 
 variable "namespace" {
   type        = string
@@ -36,8 +35,7 @@ variable "app_name" {
   description = "SeaweedFS release name; used for the hostname and the admin pod selector."
 }
 
-# Full hostname override; defaults to admin.<app_name>.<domain> (the host the
-# core seaweedfs module's expose_admin used to publish directly).
+# Full hostname override; defaults to admin.<app_name>.<domain>.
 variable "admin_host" {
   type    = string
   default = null
@@ -88,8 +86,8 @@ variable "group_name" {
 }
 
 # Bookmark-tile icon for the authentik application. dashboard-icons (the set the
-# media apps use) has no seaweedfs entry, so this comes from the selfh.st icon
-# set via jsDelivr instead -- same versionless-CDN idiom, just a different repo.
+# media apps use) has no seaweedfs entry, so this comes from the selfh.st set via
+# jsDelivr instead -- same versionless-CDN idiom, different repo.
 variable "icon" {
   type        = string
   default     = "https://cdn.jsdelivr.net/gh/selfhst/icons/svg/seaweedfs.svg"

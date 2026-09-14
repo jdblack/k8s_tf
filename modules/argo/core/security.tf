@@ -1,16 +1,11 @@
 
-# Egress firewall for the Argo namespace (OPT-IN -- see variable below).
+# Egress firewall (OPT-IN -- see the variable). Argo CD needs same-ns + DNS +
+# internet (git/helm remotes) + the k8s API + the kube-network gateways (OIDC
+# discovery against the Authentik issuer).
 #
-# Argo CD (server/application-controller/repo-server) needs: same-namespace
-# traffic, DNS, public internet (git/helm remotes), the Kubernetes API server,
-# and egress to the kube-network gateways (OIDC SSO discovery against the
-# Authentik issuer terminates at the private gateway).
-#
-# CAUTION: Argo Workflows (installed into this namespace by the mantle stack)
-# runs arbitrary user pods. A workflow step that needs to reach a service in
-# another namespace directly -- not via a gateway URL -- will be denied by this
-# policy. Audit the workflows (modules/argo/mantle/argo-workflows) first, then
-# set enable_egress_firewall = true on the module.argo call in the core stack.
+# CAUTION: Argo Workflows runs arbitrary user pods in this namespace. A step
+# that reaches another namespace directly (not via a gateway URL) is denied.
+# Audit the workflows first, then set enable_egress_firewall = true.
 module "firewall" {
   count = var.enable_egress_firewall ? 1 : 0
 

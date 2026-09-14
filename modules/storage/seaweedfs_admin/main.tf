@@ -1,11 +1,11 @@
 locals {
-  # admin.<release>.<domain> -- the same host the core seaweedfs module used to
-  # publish the admin UI on directly (modules/storage/seaweedfs). It now points
-  # at the outpost instead of at the admin Service.
+  # admin.<release>.<domain> -- previously published by the core seaweedfs module
+  # (modules/storage/seaweedfs) and now pointing at the outpost, not the admin
+  # Service.
   host = var.admin_host != null ? var.admin_host : "admin.${var.app_name}.${var.domain}"
 }
 
-# authentik: proxy provider + application for the admin UI, bound to
+# authentik: proxy provider + application for the admin UI bound to
 # var.group_name, plus the outpost + its service-account token
 # (see ../../auth/authentik/proxy_app).
 module "auth" {
@@ -23,9 +23,8 @@ module "auth" {
   group_name   = var.group_name
 }
 
-# The outpost deployment/service in the SeaweedFS namespace (same namespace as
-# the admin service, so the outpost -> admin hop needs no cross-namespace
-# policy).
+# The outpost deployment/service in the SeaweedFS namespace (same namespace as the
+# admin service, so the outpost -> admin hop needs no cross-namespace policy).
 module "outpost" {
   source = "../../auth/authentik/outpost"
 
@@ -37,11 +36,10 @@ module "outpost" {
   token        = module.auth.outpost_token
 }
 
-# HTTPS listener (admin.<app>.<domain>, private CA) on the shared private
-# gateway + HTTPRoute to the OUTPOST -- not to the admin service. Reuses the
-# names the core seaweedfs module's expose_admin used (ListenerSet
-# "seaweedfs-admin", cert cert-admin.<app>.<domain>), so the cert/grants are
-# simply re-owned here.
+# HTTPS listener (admin.<app>.<domain>, private CA) on the shared private gateway
+# + HTTPRoute to the OUTPOST -- not the admin service. Reuses the names the core
+# module's expose_admin used (ListenerSet "seaweedfs-admin", cert
+# cert-admin.<app>.<domain>), so the cert/grants are simply re-owned here.
 module "expose" {
   source = "../../network/gateway/expose"
 

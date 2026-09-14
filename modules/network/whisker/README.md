@@ -3,7 +3,9 @@
 Publishes the Calico **Whisker** flow-log UI at `whisker.<domain>` the same way
 the media apps are published — HTTPS on the shared **private** gateway, fronted
 by an **authentik proxy outpost** so access is SSO-gated by group membership —
-and locks the flow data down in-cluster.
+and locks the flow data down in-cluster as far as Kubernetes NetworkPolicies
+allow (which is not all the way: the operator's own `goldmane` rule wins, see
+below).
 
 ## What it renders
 
@@ -13,7 +15,7 @@ and locks the flow data down in-cluster.
 | outpost Deployment/Service (`<outpost_service>`, :9000) in `namespace` | `auth/authentik/outpost` | authenticates, then proxies to whisker |
 | ListenerSet (HTTPS, cert) + HTTPRoute → the **outpost** | `gateway/expose` | `whisker.<domain>` on the private gateway |
 | pod-scoped ingress policy on the **whisker** pods | `firewalls/limited_ingress` | only the outpost (same ns) may reach `whisker:8081` |
-| pod-scoped ingress policy on the **goldmane** pods | `firewalls/limited_ingress` | same-ns + node CIDR (Felix is hostNetwork) |
+| pod-scoped **egress** policy on the outpost pods | `firewalls/policy` | DNS + `whisker:8081` only — the outpost ships an egress-only, default-deny policy and `calico-system` has no namespace-wide egress posture to lean on |
 
 ## The netpols — and what the operator already does
 

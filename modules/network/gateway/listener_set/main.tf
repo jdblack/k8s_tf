@@ -3,11 +3,10 @@ locals {
   cert_name = "cert-${local.fqdn}"
 }
 
-# App HTTPS listener on this Gateway instance (e.g. media-private). The
-# cert-manager gateway-shim auto-provisions the certificate secret (in THIS
-# namespace, same-namespace as the ListenerSet) based on the annotation.
-# protocol = "HTTP" creates a plain-HTTP listener with no cert (cert_issuer
-# ignored) - only needed if an app must keep serving plain HTTP.
+# App HTTPS listener on this Gateway instance (e.g. media-private). cert-manager's
+# gateway-shim auto-provisions the cert secret (in this namespace, alongside the
+# ListenerSet) from the annotation. protocol = "HTTP" gives a plain-HTTP listener
+# with no cert (cert_issuer ignored).
 resource "kubernetes_manifest" "listener_set" {
   manifest = {
     apiVersion = "gateway.networking.k8s.io/v1"
@@ -30,12 +29,10 @@ resource "kubernetes_manifest" "listener_set" {
           port     = var.port
           protocol = var.protocol
           hostname = local.fqdn
-          # Accept routes from any namespace. Apps that own their exposure with
-          # manifest routes parentRef this ListenerSet (same namespace), but
-          # charts that render routes against the Gateway directly (e.g.
-          # harbor's expose.type = "route") attach cross-namespace via hostname
-          # matching -- the default allowedRoutes (Same) would block those.
-          # Hostname scoping keeps this app-isolated.
+          # Accept routes from ANY namespace: charts that render their own route
+          # against the Gateway (e.g. harbor's expose.type = "route") attach
+          # cross-namespace via hostname matching, which the default
+          # allowedRoutes (Same) would block. Hostname scoping keeps it isolated.
           allowedRoutes = {
             namespaces = {
               from = "All"
@@ -55,10 +52,9 @@ resource "kubernetes_manifest" "listener_set" {
   }
 }
 
-# Cross-namespace ListenerSet -> Gateway attachment (gateway lives in another
-# namespace, e.g. the shared public/private gateways in kube-network) requires
-# a ReferenceGrant in the ListenerSet's namespace. Same-namespace attachments
-# (the media gateway pattern) need no grant, so this is skipped there.
+# Cross-namespace ListenerSet -> Gateway attachment needs a ReferenceGrant in the
+# ListenerSet's namespace. Same-namespace attachment (the media pattern) needs
+# none, so this is skipped there.
 resource "kubernetes_manifest" "reference_grant" {
   count = var.gateway_namespace != var.namespace ? 1 : 0
 
@@ -88,11 +84,9 @@ resource "kubernetes_manifest" "reference_grant" {
   }
 }
 
-# Charts that render their own Gateway API HTTPRoute against the gateway
-# (e.g. harbor's expose.type = "route") reference the Gateway directly, so a
-# cross-namespace attachment needs a SECOND grant for HTTPRoute -> Gateway.
-# Created alongside the ListenerSet grant so any cross-namespace app that uses
-# this submodule is covered either way.
+# Charts that render their own HTTPRoute against the Gateway (harbor's
+# expose.type = "route") reference it directly, so a cross-namespace attachment
+# needs a SECOND grant for HTTPRoute -> Gateway.
 resource "kubernetes_manifest" "reference_grant_httproute" {
   count = var.gateway_namespace != var.namespace ? 1 : 0
 

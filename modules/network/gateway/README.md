@@ -32,14 +32,10 @@ by instantiating these two submodules from its own namespace:
 - `routes_namespace` — restrict which namespaces may attach `ListenerSet`s
   (`null` = any namespace, used by the shared gateways).
 
-## Data-plane traffic is pod-to-pod
+## Firewall implications
 
-The NGINX data plane runs as ordinary pods in the gateway's namespace and
-proxies cross-namespace to app backends. This has two firewall implications,
-covered in [`modules/network/README.md`](../README.md) and the
-[firewall docs](../firewalls/README.md):
-
-- app namespaces served through a gateway must allow ingress from
-  `kube-network` (`limited_ingress`),
-- apps that call gateway-hosted URLs (SSO) need egress to kube-network pods
-  (`basic_internet` → `allow_to_services`).
+The data plane runs as ordinary pods in the gateway namespace and proxies
+cross-namespace: fronted namespaces need ingress from `kube-network`
+(`limited_ingress`), and apps calling gateway-hosted URLs (SSO) need egress to
+kube-network pods (`basic_internet` → `allow_to_services`). Details in
+[`firewalls/README.md`](../firewalls/README.md).

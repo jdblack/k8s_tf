@@ -56,20 +56,15 @@ Every module takes a `policy_name` (default `namespace-firewall` except
 `allow_api`'s `allow-api-egress`); NetworkPolicy names are unique *per
 namespace*, so give each policy in the same namespace a distinct name.
 
-## `namespace_only` (removed)
+## History (names only — nothing is enforced by the old ones)
 
-An earlier module rendered "same-namespace ingress only". It was deleted once
-`limited_ingress` arrived: same-namespace-only is just
-`limited_ingress` with `allowed_ingress_namespaces = [<self>]`. `limited_ingress`
-is the same idea with a guest list, and it uses the typed resource instead of
-`kubectl_manifest`.
-
-## `allow_ingress` renamed to `limited_ingress` (2026-09)
-
-The ingress module was renamed `allow_ingress` → `limited_ingress` because the
-old name read like a blanket "allow ingress" when it is actually a lockdown with
-a guest list. The rename is **docs/paths only** (module call name, resource
-label, and default `policy_name` unchanged), so it causes no NetworkPolicy
-create/destroy. `allowed_ingress_cidrs` was added at the same time so namespaces
-with a LoadBalancer (reached from the LAN, where the source is not a pod) can
-keep the LB open while denying the rest of the cluster.
+- **`namespace_only` is gone**, replaced by `limited_ingress` with
+  `allowed_ingress_namespaces = [var.namespace]` — the same posture with a guest
+  list, and typed instead of `kubectl_manifest`.
+- **`allow_ingress` → `limited_ingress`** (2026-09). The old name read like a
+  blanket "allow ingress" when the module is actually a lockdown with a guest
+  list. Docs/paths only: the module call name, resource label and default
+  `policy_name` did not move, so the rename caused no NetworkPolicy
+  create/destroy. `allowed_ingress_cidrs` arrived at the same time, so a
+  namespace whose LoadBalancer is reached from outside the cluster (where the
+  source is never a pod) can stay open while every cluster pod is denied.

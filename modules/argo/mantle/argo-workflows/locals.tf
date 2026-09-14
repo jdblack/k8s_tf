@@ -2,39 +2,33 @@ locals {
   sso_secret = "${var.name}-sso-creds"
   fqdn       = "${var.name}.${var.domain}"
 
-  # ServiceAccount workflow pods run under.  It is created by the chart from
-  # the `workflow.serviceAccount` block below; the chart also creates the
-  # namespaced Role + RoleBinding (create/patch on workflowtaskresults) that the
-  # emissary executor needs.  We only have to point workflowDefaults at it.
+  # Workflow pods' SA. The chart creates it (plus the namespaced Role/
+  # RoleBinding the emissary executor needs); we only point workflowDefaults at it.
   workflow_sa = "${var.name}-workflow-runner"
 
-  # Resource names the chart renders from the release fullname
-  # (<release>-argo-workflows-*); the HTTPRoute backend, the SSO RBAC target
-  # ClusterRole and the UI-admin SA/token secret below all bind to these.  Keep
-  # them in lockstep with the chart version pin (helm.tf) -- they only move when
-  # the chart changes them.
+  # Chart-rendered resource names (<release>-argo-workflows-*): the HTTPRoute
+  # backend, the SSO ClusterRole and the UI-admin SA/token secret all bind to
+  # these. They only move when the chart pin (helm.tf) does.
   server_service        = "${var.name}-argo-workflows-server"
   admin_cluster_role    = "${var.name}-argo-workflows-admin"
   ui_admin_sa           = "${var.name}-ui-admin"
   ui_admin_token_secret = "${local.ui_admin_sa}.service-account-token"
 
-  # Namespace-local copy of the private-CA ConfigMap that cert_manager keeps in
-  # the `default` namespace (name = cert_issuer); oauth2.tf mirrors it here so
-  # the server pod can mount it (ConfigMap volumes are same-namespace only).
+  # Namespace-local copy of cert_manager's private-CA ConfigMap (ConfigMap
+  # volumes are same-namespace only); oauth2.tf mirrors it here.
   ca_cert_cm = "${var.name}-ca-cert"
 
   helm_values = {
     controller = {
-      # Run workflow pods under the dedicated runner SA instead of the namespace
-      # default SA.
+      # Only create the runner SA + Role/RoleBinding in this namespace. If
+      # workflows should run elsewhere, add those namespaces here.
+      workflowNamespaces = [var.namespace]
+      # Run workflow pods under the runner SA, not the namespace default.
       workflowDefaults = {
         spec = {
           serviceAccountName = local.workflow_sa
         }
       }
-      # Only create the runner SA + Role/RoleBinding in this namespace.  If
-      # workflows should also run in other namespaces, add them here.
-      workflowNamespaces = [var.namespace]
     }
     workflow = {
       serviceAccount = {
@@ -46,13 +40,11 @@ locals {
       }
     }
     server = {
-      # Mount the private CA cert (mirrored into this namespace by oauth2.tf)
-      # so the server can validate the TLS cert of the Authentik SSO issuer.
-      # Chart 0.46.x / app 3.7 has no `server.sso.rootCA` knob yet -- this file
-      # mount is the stand-in.  Replace it with `server.sso.rootCA` when moving
-      # to chart >= 1.x / app >= v4: rootCA *augments* the trust store, whereas
-      # this subPath mount *replaces* the container's CA bundle file (so the
-      # server would lose public roots it might need for other outbound TLS).
+      # Mount the private CA (mirrored into this namespace by oauth2.tf) so the
+      # server can validate the Authentik issuer's TLS cert. Chart 0.46.x has no
+      # `server.sso.rootCA` knob yet; when moving to chart >= 1.x / app >= v4,
+      # replace this mount with rootCA -- it AUGMENTS the trust store, whereas
+      # this subPath mount REPLACES the container's CA bundle.
       volumes = [
         {
           name = "ca-certs"
@@ -75,12 +67,10 @@ locals {
       sso = {
         enabled = true
         issuer  = "https://${var.oauth2_server}/application/o/${var.name}/"
-        # The gateway terminates TLS, so the server itself runs --secure=false
-        # and cannot infer the scheme.  Left empty, the server builds the
-        # redirect_uri from r.Host with proto=http (server/auth/sso/sso.go
-        # getRedirectURL), hands Authentik an http:// URL, and the provider --
-        # which registers this exact URL with matching_mode=strict -- rejects
-        # the authorize request, so the login never completes.  Pin it.
+        # Gate TLS terminates, so the server runs --secure=false and cannot
+        # infer the scheme: left empty it builds redirect_uri with proto=http,
+        # and the provider (matching_mode=strict) rejects the authorize request,
+        # so login never completes. Pin it.
         redirectUrl = "https://${local.fqdn}/oauth2/callback"
         scopes      = ["openid", "profile", "email", "groups"]
         clientId = {
@@ -92,11 +82,10 @@ locals {
           name = local.sso_secret
         }
         rbac = {
-          # The chart grants the server `get` on secrets cluster-wide when SSO
-          # RBAC is on; restrict it to the two secrets it actually reads: the
-          # SSO client credentials (oauth2.tf) and the UI-admin SA token secret
-          # (ui_admin_access.tf).  K8s >= 1.24 needs that token secret created
-          # explicitly, so it also has to be listed here.
+          # SSO RBAC otherwise grants the server cluster-wide `get` on secrets;
+          # restrict it to the two it actually reads -- the SSO client
+          # credentials (oauth2.tf) and the UI-admin SA token (K8s >= 1.24 needs
+          # that token secret created explicitly, hence listing it).
           secretWhitelist = [
             local.sso_secret,
             local.ui_admin_token_secret,

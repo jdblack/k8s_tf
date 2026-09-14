@@ -1,14 +1,14 @@
-# `expose` -- one call to publish an app through a gateway: an HTTPS
-# ListenerSet (+ the cross-namespace ReferenceGrants and cert) and, optionally,
-# an HTTPRoute to its backend.
+# `expose` -- one call to publish an app through a gateway: an HTTPS ListenerSet
+# (+ cross-namespace ReferenceGrants and cert) and, optionally, an HTTPRoute to
+# its backend.
 #
-# This is just the common pairing of ../listener_set + ../http_route (they are
-# always used together) behind a single call. Apps whose CHART renders its own
-# HTTPRoute (harbor / authentik / argo-cd) leave `backend_name` empty and get a
-# listener only -- which still provisions the cert and the grants.
+# Just the common pairing of ../listener_set + ../http_route (always used
+# together) behind a single call. Apps whose CHART renders its own HTTPRoute
+# (harbor / authentik / argo-cd) leave `backend_name` empty and get a listener
+# only -- which still provisions the cert and the grants.
 #
-# It is a thin wrapper (no resources of its own), so migrating a caller is a
-# `moved` block per old module (see the callers) -- no destroy/create.
+# Thin wrapper (no resources of its own), so migrating a caller is a `moved`
+# block per old module -- no destroy/create.
 
 locals {
   # The listener's FQDN; the route must use the SAME host (defaulting off the

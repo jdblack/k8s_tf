@@ -1,21 +1,16 @@
 # NGINX Gateway Fabric control plane for THIS gateway instance. The caller owns
-# the namespace (this module never creates one) and must ensure it exists before
-# apply -- e.g. via `depends_on` on the caller's namespace resource.
+# the namespace and must ensure it exists before apply (depends_on).
 #
-# The chart creates a GatewayClass named var.name (controller
-# gateway.nginx.org/<var.name>-controller). Every NGF instance must have a
-# unique GatewayClass + controller name, so each gateway passes a distinct
-# name (e.g. media-private / private / public). watch_namespaces scopes this
-# controller to the namespaces it serves (its own namespace is always
-# included).
+# The chart creates a GatewayClass named var.name; every NGF instance needs a
+# unique GatewayClass + controller name, so each gateway passes a distinct name
+# (media-private / private / public) and unique release_name (their ClusterRoles
+# are cluster-scoped). watch_namespaces scopes the controller; its own namespace
+# is always included. The data-plane Service is pinned to
+# var.load_balancer_ip when set, else the LoadBalancer provider assigns one.
 #
-# The data plane Service (created per-Gateway) is pinned to var.load_balancer_ip
-# when set; null lets the LoadBalancer provider assign an IP.
-#
-# PREREQUISITE: the standard Gateway API CRDs (gateway.networking.k8s.io/*) are
-# CLUSTER-SCOPED and installed exactly once by
-# modules/network/api_gateway_config.tf (run from the core stack). Apply that
-# before this module on a fresh cluster.
+# PREREQUISITE: the cluster-scoped Gateway API CRDs are installed once by
+# modules/network/api_gateway_config.tf from the core stack -- apply that first
+# on a fresh cluster.
 resource "helm_release" "ngf" {
   # release_name defaults to "ngf" (single-gateway-per-namespace callers like
   # media), but shared gateways in the same namespace (public/private in

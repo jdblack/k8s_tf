@@ -65,11 +65,10 @@ variable "group_name" {
   description = "authentik group bound to the app; add members in the UI."
 }
 
-# Bookmark-tile icon for the authentik application. There is no whisker-specific
-# tile in any icon set (the Calico repo ships only a React component, no SVG), so
-# we use the Calico brand mark -- Whisker is a Calico component. dashboard-icons
-# (the set the media apps use) has no calico entry, so this comes from the
-# selfh.st icon set via jsDelivr instead.
+# Bookmark-tile icon for the authentik application. No whisker-specific tile
+# exists in any icon set (Calico ships only a React component, no SVG), so use the
+# Calico brand mark. dashboard-icons has no calico entry either, hence selfh.st
+# via jsDelivr.
 variable "icon" {
   type        = string
   default     = "https://cdn.jsdelivr.net/gh/selfhst/icons/svg/calico.svg"

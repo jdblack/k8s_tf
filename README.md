@@ -1,157 +1,177 @@
 # Kubernetes Terraform
 
-This deployment is split into three stacks due to certain terraform limitations
-involving providers.  Terraform is unable to create a provider for a service
-that it has just built.  For example, consider Keycloak, which is created with
-the Helm provider, but then configured with the Keycloak provider. The
-Keycloak provider can not exist until after the helm provider has finished.
+Everything in this repo is the cluster's own configuration: network, storage,
+certs, identity, monitoring, the platform services, and the workloads on top of
+them. The OS, kubeadm and Calico's data plane are not managed here.
 
-To deal with this, we have three stack directories, each of which needs
-to be deployed independently with `terraform apply`.
+State lives in Kubernetes Secrets in `kube-system` (one per stack), so there is
+no remote backend to bootstrap and no state infrastructure to keep alive.
+
+## Why three stacks
+
+OpenTofu cannot configure a service in the same apply that creates it, when the
+configuration needs a provider that does not exist until the service is up.
+Harbor is the clean example: the chart is installed with the **helm** provider,
+then its projects and OIDC are managed with the **harbor** provider — which
+cannot even be configured until Harbor is serving. authentik and Argo CD are the
+same shape (their providers need an API token minted from the release the same
+apply just created). So this repo is three root modules, each with its own
+state, applied in order.
 
 ## Layout
 
 ```
 stacks/
-├── core/     # infrastructure foundation (network, storage, certs, platform services)
-├── mantle/   # workload layer (media, harbor/argo config, blender)
-└── apps/     # ArgoCD app-of-apps (ai, websites)
+├── core/     # platform: network, storage, certs, identity, monitoring, harbor, argo-cd, vpn
+├── mantle/   # workloads + config owned by a provider core just created:
+│             # media, blender, vaultwarden, seaweedfs-admin, whisker, grafana/harbor/argo SSO
+└── apps/     # ArgoCD app-of-apps (the `ai` deployment; two wordpress deployments
+              # are parked as *.tf.disabled)
 ```
 
-## Deployment Order
+State Secrets in `kube-system` are `tfstate-default-{core,mantle,deployment}`.
 
-1. **`stacks/core/`** — deploys the base infrastructure: network, storage,
-   cert-manager, auth, and devops platform services (Harbor, ArgoCD).
-2. **`stacks/mantle/`** — deploys workloads on top: media stack, harbor/argo
-   configuration, and blender.
-3. **`stacks/apps/`** — deploys applications via ArgoCD app-of-apps.
+## Deployment order
 
-Each stack uses a Kubernetes secret backend with a distinct `secret_suffix`
-(`core`, `mantle`, `deployment`) to keep state separate.
+1. **`stacks/core/`** — base infrastructure: Calico, MetalLB, the shared NGF
+   gateways, external-dns, WireGuard, Longhorn, SeaweedFS, cert-manager,
+   authentik, Prometheus/Grafana, Harbor, Argo CD, Gateway API CRDs.
+2. **`stacks/mantle/`** — everything that needs a provider pointed at a service
+   core just built: the media stack, blender, vaultwarden, the seaweedfs-admin
+   and whisker authentik outposts, and the Grafana/Harbor/Argo CD SSO config.
+3. **`stacks/apps/`** — ArgoCD `Application`s (app-of-apps) for `ai`.
 
-### Authentik in front of the media apps (sonarr / radarr / prowlarr / bazarr /
-qbittorrent web UI)
+**Order matters on a fresh cluster:** `core` installs the Gateway API CRDs, and
+`mantle`'s HTTPRoutes are `kubernetes_manifest`s that need those CRDs to exist
+at *plan* time.
 
-None of these speak OIDC, so authentik fronts them as a **proxy outpost**
-(`modules/auth/authentik/proxy_app` + `modules/auth/authentik/outpost`), not
-SSO. Traffic flow:
+## Running it
 
-```
-browser -> sonarr.vn.linuxguru.net (media-private gateway, TLS)
-         -> authentik outpost (media namespace, :9000)   <- no session = 302 to auth.vn.linuxguru.net
-         -> sonarr:80 (X-authentik-* headers injected)
-```
-
-- `modules/media/auth.tf` wires it up: per-app authentik proxy providers +
-  applications + the shared `media-proxy` outpost, all bound to the **`media`**
-  group. The *arr apps' chart-generated HTTPRoutes are disabled and each app
-  module renders its own route to the outpost (`route.tf`, `auth_backend`
-  variable); the port differs per app (arr charts `:80`, qbittorrent web UI
-  `:8080`). qbittorrent is hand-rolled (no chart) so it already owned its route
-  — it now uses the same `listener_set` + `http_route` modules and arguments as
-  the arr apps.
-- **Access control** = membership in the `media` group in authentik, managed by
-  hand in the UI (TF never touches users — same as harbor/argo). Nobody can see
-  the apps until you add them.
-- Adding another protected app: add it to the `auth_apps` map in
-  `modules/media/auth.tf` and instantiate its module (with `auth_backend`) in
-  `modules/media/arr_stack.tf`.
-- **qbittorrent is a special case — only the web UI is fronted:**
-  - The **torrent port (21010) is deliberately NOT behind the outpost** — peers
-    can't log in. It lives on its own `qbittorrent-torrent` LoadBalancer Service,
-    **pinned to the MetalLB IP the home router port-forwards** (`192.168.0.105`,
-    via `qbittorrent_torrent_lb_ip` in `stacks/mantle/terraform.tfvars`) so the
-    split from the old combined Service can't reassign it. If the pinned IP ends
-    up `Pending` on apply, re-apply once the old Service releases it.
-  - The **web UI is a ClusterIP Service** (`qbittorrent:8080`), so it is only
-    reachable through the gateway/outpost — no LAN-side IP that bypasses
-    authentik.
-  - The *arr apps must point their qBittorrent **download client at `qbittorrent`
-    port `8080`** (the in-cluster Service). Using the LB IP, or the
-    authenticated `qbittorrent.<domain>` hostname, breaks: the latter hits
-    authentik and gets a login redirect, not the API.
-- **One-time per-app setup:** sonarr/radarr/prowlarr run with
-  `AuthenticationMethod = External` (config.xml, set once through their own API)
-  so there's no second login prompt. On a from-scratch rebuild the app config
-  PVCs start fresh and this must be redone:
-  `kubectl -n media exec deploy/<app> -- sh -c 'KEY=$(grep -o "<ApiKey>[^<]*" /config/config.xml | sed "s/<ApiKey>//" | head -1); CFG=$(curl -s -H "X-Api-Key: $KEY" http://localhost:<port>/api/v3/config/host); curl -s -X PUT -H "X-Api-Key: $KEY" -H "Content-Type: application/json" -d "$(echo "$CFG" | jq ".authenticationMethod=\"external\"")" http://localhost:<port>/api/v3/config/host'`
-  (ports: sonarr 8989, radarr 7878, prowlarr 9696/`api/v1`).
-  qBittorrent has no trusted-header auth, so it can't use `External`. Instead
-  it **bypasses its own login for the pod CIDR** (Calico `10.244.0.0/16`): the
-  outpost proxies from a pod, so there's no second prompt. Set once in
-  `/config/qBittorrent/qBittorrent.conf` under `[Preferences]`:
-  `WebUI\AuthSubnetWhitelistEnabled=true` and
-  `WebUI\AuthSubnetWhitelist=10.244.0.0/16` (or via *WebUI → Bypass
-  authentication for clients in whitelisted IP subnets*). Editing the file while
-  qBittorrent runs is **not** enough — it rewrites the file from memory on a
-  graceful exit — so patch it and then hard-kill the pod so the new one reads
-  the patch: `kubectl -n media delete pod -l app.kubernetes.io/name=qbittorrent
-  --grace-period=0 --force`. (`WebUI\ServerDomains=*` is already set, so
-  host-header validation doesn't block the proxy.) Because the web UI Service is
-  ClusterIP-only, this whitelist doesn't weaken external exposure.
-
-### Authentik in front of the SeaweedFS admin UI
-
-The `weed admin` UI (`admin.seaweedfs.vn.linuxguru.net`) gets the same treatment
-— it speaks no OIDC either, so it is a proxy outpost too:
-
-```
-browser -> admin.seaweedfs.vn.linuxguru.net (private gateway, TLS)
-         -> authentik outpost (kube-storage, :9000)  <- no session = 302 to auth.vn.linuxguru.net
-         -> seaweedfs-admin:23646
+```sh
+tofu -chdir=stacks/core   init && tofu -chdir=stacks/core   apply
+tofu -chdir=stacks/mantle init && tofu -chdir=stacks/mantle apply
+tofu -chdir=stacks/apps   init && tofu -chdir=stacks/apps   apply
 ```
 
-- `modules/storage/seaweedfs_admin` (instantiated by `stacks/mantle/storage.tf`)
-  owns it: the authentik proxy provider + application (bound to the **`storage`**
-  group), a dedicated `seaweedfs-admin-proxy` outpost, an HTTPS listener +
-  HTTPRoute on the shared `private` gateway, and the outpost's egress policy.
-- It has to live in **mantle**: authentik is created *by* core, so core cannot
-  use the authentik provider in the same apply. The SeaweedFS release and its
-  Services stay in core (`stacks/core/storage.tf`); core no longer publishes the
-  admin host — its old direct `ListenerSet`/route/grants are dropped and mantle
-  re-creates the same-named ones pointing at the outpost. **Apply core before
-  mantle** (an apply against an existing cluster: core first, or the ListenerSet
-  name collides).
-- The outpost runs in `kube-storage` (same namespace as the admin Service), so
-  the outpost → admin hop is same-namespace and the namespace's ingress firewall
-  already admits both `kube-network` (the gateway) and itself.
-- **No app-level admin credentials**: `admin.secret` is unset in the chart values
-  (`modules/storage/seaweedfs/locals.tf`), so `weed admin` runs with auth disabled
-  and the UI/API is unauthenticated. It binds `0.0.0.0` under
-  `-allowInsecureBind` (the image refuses a non-loopback bind without a password
-  or mTLS). Then **anything that can reach the pod on 23646 gets admin without a
-  login** — kube-storage, kube-network and monitoring are in the namespace
-  ingress firewall, so those namespaces can bypass the outpost; only the
-  gateway path is SSO-gated. Accepted here (cluster-internal namespaces), but
-  worth knowing.
-- `master.seaweedfs.<domain>` (master status UI) and `s3.<domain>` are unchanged;
-  only the admin UI is gated.
+- **Needs `kubectl` and a kubeconfig.** Every stack's providers point at
+  `~/.kube/config`, and `modules/network/api_gateway_config.tf` shells out to
+  `kubectl` to install the Gateway API CRDs.
+- **Inputs** come from `stacks/<stack>/terraform.tfvars` (`deployment = {...}`,
+  one bucket per concern: `domains`, `cert`, `cert_authorities`, `network`,
+  `network_ingress`, `auth`, `vpn`, `media`, ...). tfvars is the single source of
+  truth for the LAN CIDR, the cluster pod/service CIDRs and the MetalLB IPs that
+  the firewall modules and gateways consume — renumbering the LAN is a one-line
+  change there, not a code edit.
+- **`tofu plan` is the drift check.** NetworkPolicies and most other resources
+  are typed (`kubernetes_*`) rather than `kubectl_manifest` on purpose, so
+  out-of-band edits show up as diffs instead of being silently ignored.
 
-### Vaultwarden (self-hosted Bitwarden) — no authentik, public cert on a private gateway
+## What is exposed where
 
-`vaultwarden.linuxguru.net` (private gateway, LAN + WireGuard only) is the first
-app to pair two existing patterns, and both choices are deliberate:
+Only two ways in: the **public** gateway (`192.168.0.101`, WAN-forwarded) and
+the **private** gateway (`192.168.0.100`, LAN + WireGuard only). Both drop
+plain HTTP — HTTPS is the only way through them. The media apps sit on a third,
+namespace-local gateway (`media-private`, `192.168.0.106`).
 
-- **A `letsencrypt` cert behind the *private* gateway.** The issuer's only solver
-  is DNS-01, so issuance needs no inbound reachability, and phones get a
-  publicly-trusted cert with no CA install. Everything else about the exposure is
-  the standard [`gateway/expose`](modules/network/gateway/expose/README.md) call.
-- **The `A` record is Terraform's** (`modules/vaultwarden/dns.tf` →
-  [`modules/network/dns/route53_record`](modules/network/dns/route53_record/README.md)),
-  because external-dns only owns `vn.linuxguru.net` while the `linuxguru.net`
-  wildcard points at the WAN IP. It is authoritative
-  (`allow_overwrite = true`), so console edits get reverted on the next apply.
-- **No authentik outpost.** The clients are not browsers — they POST to
-  `/identity/connect/token`, use bearer tokens on `/api/*`, and hold a
-  `/notifications/hub` websocket, all of which a 302-to-login breaks. `/admin` is
-  disabled instead (`ADMIN_TOKEN` unset), and configuration lives in Terraform.
-- Backups are Longhorn **snapshots** (cluster-local), so the volume and its
-  snapshots die together — see the module README before destroying anything.
+| Hostname | Gateway | Fronted by | Cert |
+|---|---|---|---|
+| `auth.vn.linuxguru.net` | private | — | `linuxguru-ca` |
+| `argo-cd.vn.linuxguru.net` | private | authentik OIDC | `linuxguru-ca` |
+| `argo-wf.vn.linuxguru.net` | private | authentik OIDC (Argo Workflows) | `linuxguru-ca` |
+| `harbor.vn.linuxguru.net` | private | authentik OIDC | `linuxguru-ca` |
+| `grafana.vn.linuxguru.net` | private | authentik OIDC | `linuxguru-ca` |
+| `master.seaweedfs.vn.linuxguru.net`, `s3.vn.linuxguru.net` | private | — | `linuxguru-ca` |
+| `admin.seaweedfs.vn.linuxguru.net` | private | authentik outpost (`storage`) | `linuxguru-ca` |
+| `whisker.vn.linuxguru.net` | private | authentik outpost (`platform`) | `linuxguru-ca` |
+| `ollama.vn.linuxguru.net` ⚠️ | private | **nothing** — unauthenticated, LAN/WireGuard only | `linuxguru-ca` |
+| `vaultwarden.linuxguru.net` | private | — (clients are not browsers) | `letsencrypt` |
+| `plex.linuxguru.net` | public | — | `letsencrypt` |
+| `sonarr` / `radarr` / `prowlarr` / `bazarr` / `qbittorrent`.vn.linuxguru.net | media-private | authentik outpost (`media`) | `linuxguru-ca` |
 
-See [`modules/vaultwarden/README.md`](modules/vaultwarden/README.md) for the env
-table, offline behaviour, and the drift test.
+⚠️ `ollama` is the `ai` namespace's model server: an HTTPRoute straight to the
+Service, no authentik in front and no auth of its own. It is not published to
+the internet (private gateway), but anything on the LAN or the VPN can use it.
+Its exposure is created by the external app-of-apps repo, not by anything in this
+repo — gutting it here would not remove it.
 
-### Alerting
+Non-HTTP ingress is separate: plex also listens on its own LoadBalancer, and
+qBittorrent peers connect to `qbittorrent-torrent` on `192.168.0.105:21010` —
+never through authentik.
+
+## Module index
+
+| Module | What it is |
+|---|---|
+| `network/` ([README](modules/network/README.md)) | Calico, MetalLB, external-dns (RFC2136 → bind9), the shared `public`/`private` NGF gateways, Gateway API CRD bootstrap, WireGuard |
+| ↳ `network/firewalls/` ([README](modules/network/firewalls/README.md)) | NetworkPolicy library — `basic_internet` (egress), `limited_ingress` (ingress), `allow_api` (pod-scoped API egress) over one `policy` renderer |
+| ↳ `network/gateway/` ([README](modules/network/gateway/README.md)) | one NGF control plane + `Gateway` per call; `expose` = `listener_set` + `http_route` in one call |
+| ↳ `network/dns/route53_record/` ([README](modules/network/dns/route53_record/README.md)) | Terraform-authoritative Route53 record, for hosts external-dns cannot publish |
+| ↳ `network/whisker/` ([README](modules/network/whisker/README.md)) | Calico Whisker flow-log UI, authentik-gated |
+| `storage/` | Longhorn (+ netpols, `VolumeSnapshotClass`es), SeaweedFS (helm, CSI, master/S3 listeners, Grafana dashboard) |
+| ↳ `storage/seaweedfs_admin/` ([README](modules/storage/seaweedfs_admin/README.md)) | SeaweedFS admin UI, authentik-gated (mantle) |
+| `cert_manager/` ([README](modules/cert_manager/README.md)) | cert-manager, the private `linuxguru-ca` ClusterIssuer, the `letsencrypt` ClusterIssuer (Route53 DNS-01) |
+| `auth/authentik/core/` | authentik server + worker + API key + listener |
+| ↳ `auth/authentik/proxy_app/` ([README](modules/auth/authentik/proxy_app/README.md)) | authentik proxy provider/app/group **and** the outpost + its non-expiring token |
+| ↳ `auth/authentik/outpost/` ([README](modules/auth/authentik/outpost/README.md)) | the outpost Deployment/Service in the protected app's namespace + its egress carve-out |
+| ↳ `auth/authentik/oidc_provider/` | generic OIDC client for apps that speak OIDC (grafana, harbor, argo) |
+| `monitoring/prometheus/` ([README](modules/monitoring/prometheus/README.md)) | kube-prometheus-stack (pinned), Grafana SSO, dashboards |
+| `monitoring/grafana_oidc/` ([README](modules/monitoring/grafana_oidc/README.md)) | Grafana's authentik OIDC client + credentials (mantle) |
+| `monitoring/metrics_server/`, `monitoring/smartctl/` | metrics-server; prometheus-smartctl-exporter for disk SMART |
+| `harbor/core/`, `harbor/mantle/` | Harbor release + listener (core); projects + OIDC auth (mantle) |
+| `argo/core/`, `argo/mantle/` | Argo CD release (core); its SSO/deploy key + argo-workflows + argo-events (mantle) |
+| `argo/aoa_deployment/` | app-of-apps `Application` generator (apps stack) |
+| `media/` ([README](modules/media/README.md)) | the `media` namespace: sonarr/radarr/prowlarr/bazarr/plex/qbittorrent, the `media-private` gateway, the authentik outpost, and the namespace netpols |
+| `blender/` ([README](modules/blender/README.md)) | Samba share on the LAN + the mDNS advertiser macOS Finder needs |
+| `vaultwarden/` ([README](modules/vaultwarden/README.md)) | Bitwarden-compatible server on the private gateway + its Route53 record |
+
+## Access patterns
+
+Three shapes. Which one an app gets is decided by what its clients are — not by
+preference:
+
+| Pattern | Used by | Why that shape |
+|---|---|---|
+| **authentik proxy outpost** — the gateway routes the public hostname to an outpost, which authenticates then reverse-proxies to the app | sonarr/radarr/prowlarr/bazarr, the qbittorrent web UI, the SeaweedFS admin UI, whisker | the app speaks no OIDC, and its clients are browsers |
+| **authentik OIDC** — the app is its own OIDC client and enforces its own groups/roles | Grafana, Harbor, Argo CD, Argo Workflows | the app speaks OIDC natively |
+| **no auth in front** | `auth.` itself, SeaweedFS master/S3, plex, vaultwarden | the clients are not browsers (Bitwarden clients, the S3 API) or the service *is* the identity provider |
+
+The cases that look wrong until you read why live in their own module docs:
+[`media`](modules/media/README.md) (outpost wiring, the qbittorrent split, the
+one-time per-app API config),
+[`seaweedfs_admin`](modules/storage/seaweedfs_admin/README.md) (unauthenticated
+`weed admin` behind SSO),
+[`vaultwarden`](modules/vaultwarden/README.md) (public cert on a private
+gateway, no outpost on purpose).
+
+## Conventions
+
+- **Version pinning.** Any Helm release you touch should pin its chart (and its
+  image digest where the chart leaves the tag floating). Pinned today: MetalLB
+  `0.16.1`, NGF `2.6.7`, kube-prometheus-stack `90.1.1`, Longhorn `1.12.1`,
+  SeaweedFS `4.40.0` + CSI `0.2.35`, authentik `2025.10.3`, wireguard-operator
+  `0.3.0`, and the media charts. **Still unpinned, so they float
+  on any apply:** cert-manager, Harbor, external-dns, snapshot-controller,
+  metrics-server, prometheus-smartctl-exporter, argo-cd and argo-events. This is
+  not theoretical — kube-prometheus-stack rode four major versions unreviewed
+  that way and left its CRDs nine operator releases behind the operator serving
+  them. Pin on contact, and bump one version at a time.
+- **Digest-pinned images with no version tag** (`flungo/avahi` in
+  `modules/blender`) are deliberate: upstream publishes only `latest`/`main`, so
+  a tag would be neither reproducible nor reviewable. Bump the digest by hand.
+- **Terraform owns structure, the UI owns people.** Groups, applications and
+  bindings are created here — `platform`, `media` and `storage` for the outpost
+  apps, and `<app>-admin` / `<app>-user` for every OIDC client — but group
+  *membership* is managed by hand in the authentik UI, so a from-scratch rebuild
+  needs the members re-added (see `TODO.md`).
+- **Secrets in tfvars, on purpose (and it is a compromise).**
+  `terraform.tfvars` is in `.gitignore`, but `stacks/core` and `stacks/mantle`'s
+  copies are tracked anyway — they carry the Route53 key, the bind9 TSIG secret
+  and the Argo deploy key, and the stacks cannot plan without them. Treat those
+  files as secrets; the AWS identity in them is deliberately least-privilege
+  (one hosted zone). `stacks/apps` has no tfvars at all — create one before
+  planning it.
+
+## Alerting
 
 `stacks/core` deploys the kube-prometheus-stack (Prometheus, Alertmanager,
 Grafana) into `monitoring`. **Alertmanager has no receiver configured** — it runs
@@ -160,46 +180,38 @@ Alertmanager UI (and in Grafana) but nothing is delivered off-cluster. To wire u
 a destination, add an `alertmanager.config` block to the helm values in
 `modules/monitoring/prometheus/locals.tf`.
 
-### Dashboards
+## Dashboards
 
 Dashboards are ConfigMaps labelled `grafana_dashboard: "1"`, one `*.json` data
 key each. The chart's `grafana-sc-dashboard` sidecar hot-loads them (its live env
 is `NAMESPACE=ALL`, `RESOURCE=both`), so a dashboard may live in any namespace —
 and to mirror the ServiceMonitors, **each component ships its own dashboard from
-its own module and namespace** (`modules/storage/seaweedfs/dashboards.tf`) rather
-than being pooled into the monitoring module. Grafana keys provisioned dashboards
-off their `uid`, so editing a file updates it in place rather than duplicating it.
+its own module and namespace** (`modules/storage/seaweedfs/dashboards.tf`)
+rather than being pooled into the monitoring module. Grafana keys provisioned
+dashboards off their `uid`, so editing a file updates it in place rather than
+duplicating it.
 
-The **SeaweedFS** dashboard (`modules/storage/seaweedfs/dashboards/seaweedfs.json`)
-covers cluster health (leader, scrape targets, capacity, under-replicated /
-read-only volumes, disk errors), per-node capacity, traffic and latency, every
-non-2xx and IO error counter, and replication / EC-vacuum / S3-bucket state.
-
-### Gateway API (NGINX Gateway Fabric)
+## Gateway API (NGINX Gateway Fabric)
 
 - `stacks/core` installs the **Gateway API CRDs** (`gateway.networking.k8s.io/*`)
   via a `terraform_data` bootstrap step in `modules/network/api_gateway_config.tf`
   (runs `kubectl`, idempotent, requires `kubectl` on the machine running tofu).
   The NGF Helm chart installs its own CRDs (`gateway.nginx.org/*`) automatically
   from its `crds/` directory — no manual step needed for those.
-- **Rebuild order matters:** `stacks/core` must be applied before
-  `stacks/mantle`, because the media module's HTTPRoutes
-  (`kubernetes_manifest`) need the HTTPRoute CRD to exist at plan time. On a
-  brand-new cluster, apply `stacks/core` first (or run
-  `tofu apply -target=module.network.terraform_data.gateway_api_crds` once) so
-  the CRDs exist before any stack plans Gateway API resources.
-- **The gateway module is generic shared infrastructure** (`modules/network/gateway`):
-  an NGF control plane + GatewayClass, plus a Gateway whose only built-in
-  listener is `:80` HTTP — plain-HTTP requests are dropped (404), never
-  redirected or served; HTTPS is the only way in via app-declared
-  `ListenerSet`s. It knows nothing about individual apps. Callers instantiate
-  it per namespace (the media module creates the `media-private` instance).
-- **Shared `public` / `private` gateways** replace the old ingress-nginx
-  controllers (`modules/network/gateways.tf`, removed `ingress.tf`). They live
-  in `kube-network`, watch all namespaces, allow ListenerSets from any
-  namespace, and their data-plane Services are pinned to the IPs the old
-  controllers held (192.168.0.101 public / 192.168.0.100 private, wired via
-  `gateway_ips` in `stacks/core` from tfvars `network_ingress.*_ip`).
+- **Rebuild order matters:** apply `stacks/core` before planning `stacks/mantle`,
+  because the media module's HTTPRoutes (`kubernetes_manifest`) need the
+  HTTPRoute CRD to exist at plan time.
+- **The gateway module is generic shared infrastructure**
+  ([`modules/network/gateway`](modules/network/gateway/README.md)): an NGF
+  control plane + GatewayClass, plus a Gateway whose only built-in listener is
+  `:80` HTTP — plain-HTTP requests are dropped (404), never redirected or served;
+  HTTPS is the only way in, via app-declared `ListenerSet`s.
+- **Shared `public` / `private` gateways** live in `kube-network`
+  (`modules/network/gateways.tf`), watch all namespaces, allow ListenerSets from
+  any namespace, and their data-plane Services are pinned to fixed MetalLB IPs
+  (192.168.0.101 public / 192.168.0.100 private, wired via `gateway_ips` in
+  `stacks/core` from tfvars `network_ingress.*_ip`) so DNS, NAT and firewall
+  rules never have to move.
 - **Each app owns its exposure** in its own module (`modules/<mod>/listener.tf`)
   via the [`gateway/expose`](modules/network/gateway/expose/README.md)
   submodule: one call renders the app's `ListenerSet` (its HTTPS listener on the
@@ -207,10 +219,10 @@ non-2xx and IO error counter, and replication / EC-vacuum / S3-bucket state.
   `cert-<host>` secret is auto-provisioned (private CA or letsencrypt), plus an
   `HTTPRoute` (host -> service). Charts that render their own route
   (harbor/authentik/argo-cd) omit `backend_name` and get the listener only.
-  Apps behind the authentik outpost (sonarr/radarr/prowlarr/bazarr, plus the
-  qbittorrent web UI) point the route at the outpost service instead
-  (`route_name = "<app>-auth"`; see above); the SeaweedFS admin UI does the same
-  from `modules/storage/seaweedfs_admin`. `expose` auto-creates the
-  cross-namespace `ReferenceGrant` when the gateway lives in another namespace.
-  Certs and secrets live with the services that use them. Rebuild-from-scratch
-  is fully `tofu`-driven.
+  Apps behind the authentik outpost (the arr apps, the qbittorrent web UI, the
+  SeaweedFS admin UI, whisker) point the route at the outpost service instead
+  (`route_name = "<app>-auth"`). `expose` auto-creates the cross-namespace
+  `ReferenceGrant` when the gateway lives in another namespace. Certs and secrets
+  live with the services that use them; rebuild-from-scratch is fully
+  `tofu`-driven.
+

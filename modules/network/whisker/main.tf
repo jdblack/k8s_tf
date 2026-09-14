@@ -44,16 +44,13 @@ module "expose" {
 }
 
 # --- in-cluster protection -------------------------------------------------
-# NOTE: the tigera-operator ALREADY ships pod-scoped netpols for these pods:
-#   - `whisker` : podSelector=whisker, policyTypes [Ingress,Egress] with NO
-#                 ingress rules -> deny-all POD ingress (port-forward still
-#                 works because that's host traffic).
-#   - `goldmane`: podSelector=goldmane, ingress = one rule with ports 7443 and
-#                 NO `from` -> allows ANY source on 7443 (Felix runs on every
-#                 node). Kubernetes NetworkPolicies only UNION, so that cannot
-#                 be tightened from here: goldmane:7443 stays cluster-readable.
-# So the only thing we add is an allowance for the outpost, plus the outpost's
-# own egress (its policy is Egress-only and default-deny).
+# NOTE the tigera-operator ALREADY ships pod-scoped netpols for these pods:
+#   - `whisker` : deny-all POD ingress (port-forward still works -- host traffic)
+#   - `goldmane`: one ingress rule with ports 7443 and NO `from` -> ANY source on
+#                 7443 (Felix runs on every node). NetworkPolicies only UNION, so
+#                 that cannot be tightened from here.
+# So the only thing we add is an allowance for the outpost, plus the outpost's own
+# egress (its policy is Egress-only and default-deny).
 module "firewall_whisker" {
   source = "../firewalls/limited_ingress"
 
@@ -68,9 +65,9 @@ module "firewall_whisker" {
 
 # The outpost module ships an Egress-only, default-deny policy (kube-auth:9000).
 # In media the namespace-wide basic_internet posture supplies same-ns + DNS; in
-# calico-system there is (deliberately) no such policy -- a namespace-wide
-# egress default-deny there would break Calico's control plane. So open exactly
-# what the outpost needs: DNS, and whisker itself.
+# calico-system there is deliberately no such policy -- a namespace-wide egress
+# default-deny there would break Calico's control plane. So open exactly what the
+# outpost needs: DNS, and whisker itself.
 module "outpost_egress" {
   source = "../firewalls/policy"
 

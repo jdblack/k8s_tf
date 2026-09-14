@@ -1,19 +1,14 @@
-# Longhorn snapshot schedule for the vault volume.
-#
-# Snapshots are CLUSTER-LOCAL: they belong to the volume, so losing the cluster
-# (or its disks) loses them too, and `tofu destroy` of this module takes the PVC
-# -- and therefore the snapshots -- with it (the longhorn StorageClass is
-# reclaimPolicy: Delete). That is the accepted v1 posture; making destruction
-# survivable means pointing Longhorn's backupTarget at an offsite S3 endpoint
-# and switching task to "backup". See the module README ("Backups") and the
-# follow-up in TODO.md.
+# Longhorn snapshot schedule for the vault volume. Snapshots are CLUSTER-LOCAL
+# (they belong to the volume), and the longhorn StorageClass is
+# reclaimPolicy: Delete -- so losing the cluster or destroying this module takes
+# them too. Accepted v1 posture; see the module README and TODO.md.
 #
 # kubectl_manifest, not kubernetes_manifest: longhorn.io's CRD is installed by
-# core's Longhorn release, and kubectl_manifest plans fine regardless (same
-# reason as modules/storage/snapshots.tf).
+# core's Longhorn release, and kubectl_manifest plans fine regardless (same as
+# modules/storage/snapshots.tf).
 #
-# The join to the volume is by GROUP, and the group has to be declared on the
-# PVC (deployment.tf), not here: the job names the group, the PVC claims it.
+# The join to the volume is by GROUP, declared on the PVC (deployment.tf): the
+# job names the group, the PVC claims it.
 resource "kubectl_manifest" "snapshot" {
   yaml_body = yamlencode({
     apiVersion = "longhorn.io/v1beta2"

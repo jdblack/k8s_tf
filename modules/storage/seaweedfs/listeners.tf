@@ -1,10 +1,9 @@
 # Exposure via the shared private gateway (kube-network): HTTPS listeners for
-# master/s3 + HTTPRoutes to the chart's ClusterIP services. TLS is terminated
-# at the gateway with linuxguru-ca certs (previously these were plain HTTP
-# through the private ingress-nginx, so the scheme changes to https://).
+# master/s3 + HTTPRoutes to the chart's ClusterIP services. TLS terminates at the
+# gateway with linuxguru-ca certs.
 #
 # The ADMIN UI is deliberately NOT published here: it is fronted by an authentik
-# proxy outpost, which has to live in the mantle stack (only mantle has the
+# proxy outpost, which must live in the mantle stack (only mantle has the
 # authentik provider -- see modules/storage/seaweedfs_admin).
 module "expose_master" {
   source            = "../../network/gateway/expose"
@@ -32,11 +31,11 @@ module "expose_s3" {
   backend_port      = 8333
 }
 
-# Migrate the previous listener_set + http_route pairs into the combined
-# `expose` module -- pure moves, no destroy/create. The old admin pair's moves
-# went away with expose_admin: the admin host is now owned by
-# modules/storage/seaweedfs_admin (mantle), so core destroys its ListenerSet /
-# route / grants and mantle re-creates them behind the authentik outpost.
+# Migrate the previous listener_set + http_route pairs into the combined `expose`
+# module -- pure moves, no destroy/create. The old admin pair is gone with
+# expose_admin: the admin host is now owned by modules/storage/seaweedfs_admin
+# (mantle), so core destroys its ListenerSet / route / grants and mantle
+# re-creates them behind the authentik outpost.
 moved {
   from = module.listener_set_master
   to   = module.expose_master.module.listener_set
