@@ -14,16 +14,26 @@ locals {
     }
     spec = {
       acme = {
-        email = var.acme_email
-        http01 : {}
+        email  = var.acme_email
         server = "https://acme-v02.api.letsencrypt.org/directory"
         solvers = [
           {
             dns01 = {
               route53 = {
                 accessKeyID = var.data["AWS_ACCESS_KEY_ID"]
-                zoneid      = var.data["R53_ZONEID"]
-                region      = var.data["AWS_REGION"]
+                # `hostedZoneID` is the real API field (`zoneid` never existed:
+                # the server pruned it, which left the solver to derive the zone
+                # from SOA lookups against the pod's resolver). For a .vn host
+                # that derivation answers `vn.linuxguru.net` -- the LAN bind9
+                # zone, which has no Route53 counterpart -- and the challenge
+                # died with "zone vn.linuxguru.net not found in Route 53".
+                # Pinning the zone skips discovery entirely: the TXT goes into
+                # the linuxguru.net zone, which is what the public resolvers
+                # Let's Encrypt uses actually serve for *.vn.linuxguru.net
+                # (there is no NS delegation -- see
+                # ../network/dns/route53_record/README.md).
+                hostedZoneID = var.data["R53_ZONEID"]
+                region       = var.data["AWS_REGION"]
                 secretAccessKeySecretRef = {
                   name = "certman-route53-${var.external_issuer_name}"
                   key  = "AWS_SECRET_ACCESS_KEY"
