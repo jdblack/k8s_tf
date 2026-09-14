@@ -4,7 +4,8 @@
 
 - **Core platform** — Calico (tigera-operator), MetalLB (L2), external-dns
   (rfc2136 → bind9, authoritative for `vn.linuxguru.net` only), Longhorn,
-  SeaweedFS + CSI, cert-manager (`linuxguru-ca` + `letsencrypt` DNS-01),
+  SeaweedFS + CSI, cert-manager (pinned `v1.21.1`; `linuxguru-ca` + `letsencrypt`
+  DNS-01 with the zone pinned, so `.vn` hosts work — `sonarr` is the first),
   authentik, kube-prometheus-stack + Grafana SSO, Harbor, Argo CD,
   WireGuard operator, Gateway API CRDs + shared NGF gateways.
 - **Gateway/exposure model** — `gateway/expose` used by every app; certs
@@ -35,7 +36,18 @@
   `modules/vaultwarden/security.tf`.
 - **Longhorn Grafana dashboard** not imported.
 - **external-dns HTTPRoute-annotation publishing** unexplained for `.vn` names.
-- **`route53.zoneid` → `hostedZoneID` fix** in `modules/cert_manager`.
+- **Let's Encrypt for the remaining `.vn` hosts.** 12 of 17 certs are LE as of
+  2026-09-15 (media namespace entirely, plus `argo-cd`, `s3`/`master.seaweedfs`,
+  `admin.seaweedfs`, `whisker`, vaultwarden, plex). The remaining five are the
+  ones an **in-cluster consumer pins by issuer name**: `auth.vn` itself,
+  `harbor`, `grafana`, `argo-wf` (needs a `ca_name` split in `harbor/core`,
+  `monitoring/prometheus`, `argo/mantle`), and `ollama.vn` (manifest owned by
+  the external app-of-apps repo). Watch the *replacing* mounts when `auth.vn`
+  moves: Grafana `SSL_CERT_FILE` and Argo Workflows' `ca-certificates.crt`
+  subPath mount.
+- ~~Orphan ClusterIssuer `letsencrypt-http`~~ — HTTP-01/ingress-nginx leftover,
+  in no `.tf` and referenced by no Certificate. **Deleted 2026-09-15**, along with
+  its `letsencrypt-http-key` account key.
 - **Whisker UI through the proxy** — unconfirmed.
 - **authentik group membership** is hand-managed → a from-scratch rebuild needs
   members re-added by hand.
@@ -43,7 +55,7 @@
   arr apps `AuthenticationMethod = External`; qBittorrent pod-CIDR WebUI
   whitelist + hard pod kill; vaultwarden first-account bootstrap
   (`signups_allowed = true` → register → back to `false`).
-- **Chart pinning debt** — cert-manager, Harbor, external-dns,
+- **Chart pinning debt** — Harbor, external-dns,
   snapshot-controller, metrics-server, prometheus-smartctl-exporter, argo-cd,
   argo-events all float today.
 - **Optional**: a `posture` wrapper so a namespace states egress+ingress in one
@@ -61,6 +73,13 @@
   guest list, typed instead of `kubectl_manifest`.
 - ntfy alerting was added and then removed (2026-09); Alertmanager runs stock
   `null`.
+- `.vn` hosts move to Let's Encrypt on demand via a per-app `cert_issuers`
+  override (`modules/media`) or the module's `cert_issuer`/`cert_issuers`
+  argument: DNS-01 needs no inbound reachability and no new Route53 zone.
+  2026-09-15 went from one host (`sonarr`) to **12 of 17 certs**, with
+  `modules/media`'s default flipped to the public issuer and a 9-host batch
+  applied in a single pass — proving the "one host at a time" caution was
+  unnecessarily conservative for leaf-only hosts.
 - The `modules/security/trivy` module was removed 2026-09; the `kube-security`
   namespace lingers in state only.
 - WordPress deployments in `stacks/apps` were disabled when the cluster moved

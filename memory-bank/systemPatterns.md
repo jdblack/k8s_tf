@@ -37,6 +37,13 @@ Outpost-fronted apps point `route_name = "<app>-auth"` at the outpost service.
 
 - Certs and secrets live with the services that use them; no hand-written
   `Certificate` anywhere.
+- One host can move to `letsencrypt` without moving its namespace (per-app
+  `cert_issuers`, `modules/media`): the shim re-issues in place because the
+  Certificate is named after the listener's Secret. `modules/media` now defaults
+  *every* app to the public issuer (they are leaf-only) with the override kept
+  for exceptions; the other modules take a `cert_issuer` argument from the stack.
+  Any module that consumes the CA *by issuer name* (harbor, grafana,
+  argo-workflows) must be retargeted first — see `modules/cert_manager/README.md`.
 - `hostname` overrides for sub-subdomains (`admin.seaweedfs.<domain>`).
 
 ## Pattern: firewalls compose (NetworkPolicies UNION)
@@ -81,8 +88,8 @@ Outpost-fronted apps point `route_name = "<app>-auth"` at the outpost service.
   Rebuild needs group members re-added by hand.
 - **Pin charts.** Pinned: MetalLB 0.16.1, NGF 2.6.7, kube-prometheus-stack
   90.1.1, Longhorn 1.12.1, SeaweedFS 4.40.0 + CSI 0.2.35, authentik 2025.10.3,
-  wireguard-operator 0.3.0, media charts. **Unpinned/float:** cert-manager,
-  Harbor, external-dns, snapshot-controller, metrics-server,
+  wireguard-operator 0.3.0, cert-manager v1.21.1, media charts.
+  **Unpinned/float:** Harbor, external-dns, snapshot-controller, metrics-server,
   prometheus-smartctl-exporter, argo-cd, argo-events. Bump one at a time.
 - **Dashboards ship from the owning module** as `grafana_dashboard: "1"`
   ConfigMaps (mirrors ServiceMonitors); Grafana keys them by `uid`.
