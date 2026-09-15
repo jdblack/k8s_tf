@@ -14,16 +14,3 @@ module "expose" {
   backend_port = 9000
   route_name   = "${var.name}-auth"
 }
-
-moved {
-  from = module.listener_set
-  to   = module.expose.module.listener_set
-}
-
-moved {
-  from = module.http_route
-  to   = module.expose.module.http_route[0]
-}
-
-
-

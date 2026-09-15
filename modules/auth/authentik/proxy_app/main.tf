@@ -41,16 +41,10 @@ resource "authentik_application" "app" {
   open_in_new_tab   = true
 }
 
+# No `count` here, and the address must not change: this group's members are
+# managed by hand in the authentik UI, so destroy/recreate would drop them.
 resource "authentik_group" "access" {
   name = var.group_name
-}
-
-# The group resource briefly carried a `count`; move the indexed instances back to
-# the plain address so media/whisker keep their existing groups instead of
-# destroy/recreating them (which would drop the UI-managed memberships).
-moved {
-  from = authentik_group.access[0]
-  to   = authentik_group.access
 }
 
 resource "authentik_policy_binding" "app" {

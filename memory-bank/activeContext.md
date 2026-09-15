@@ -5,6 +5,21 @@
 - Branch `main`, ahead of `origin/main` (baseline `5f0f582` → `7c24e81` →
   `92469da` → `226ba04` → `bbe94f4`), plus the 2026-09-15 orphan/dead-config
   sweep below. **Not pushed as of this writing.**
+- **2026-09-16 (early) — every `moved` block in the repo was deleted: all 28 were
+  spent.** 17 files carried them (media ×6, seaweedfs ×4, prometheus ×2,
+  argo-wf ×2, argo-cd/harbor/authentik-core ×1 each, authentik-outpost ×1,
+  proxy_app ×1, firewalls ×3) from three refactors — `expose` (2026-09-12),
+  `firewalls/policy` folding the inline netpols in, and the authentik group's
+  brief `count`. Proof they were spent: `state list` for core/mantle/apps holds
+  only the *destination* addresses (e.g.
+  `module.media.module.plex.module.expose.module.listener_set…`,
+  `module.media.module.auth.authentik_group.access`, `…module.policy.kubernetes_network_policy_v1.this`)
+  and no source address anywhere, and both stacks still plan **No changes**
+  after deletion (`apps` can't plan without its `deployment` var; it has no
+  `moved` blocks and none of its 4 resources are affected). Rule adopted: a
+  `moved` block dies in the same change that applies it, or as soon as its
+  source address is provably absent from state. The shape to re-add (with the
+  rationale) is kept in `modules/network/gateway/expose/README.md`.
 - **2026-09-16 (early) — Longhorn snapshots became one cluster-wide, TF-owned
   scheme, and the restore path was verified end to end.** The per-app job in
   `modules/vaultwarden/backup.tf` (retain 7, group `vaultwarden`, the

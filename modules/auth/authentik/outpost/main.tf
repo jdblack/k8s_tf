@@ -115,8 +115,3 @@ module "core_egress" {
     ports = [{ protocol = "TCP", port = 9000 }]
   }]
 }
-
-moved {
-  from = kubernetes_network_policy_v1.core_egress
-  to   = module.core_egress.kubernetes_network_policy_v1.this
-}

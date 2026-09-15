@@ -19,7 +19,3 @@ module "expose" {
 
 # The HTTPRoute is rendered by the authentik chart (server.route.main), so no
 # backend_* here -- the listener is all this module declares.
-moved {
-  from = module.listener_set
-  to   = module.expose.module.listener_set
-}

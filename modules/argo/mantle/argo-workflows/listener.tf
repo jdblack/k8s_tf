@@ -13,16 +13,6 @@ module "expose" {
   backend_port      = 2746
 }
 
-moved {
-  from = module.listener_set
-  to   = module.expose.module.listener_set
-}
-
-moved {
-  from = module.http_route
-  to   = module.expose.module.http_route[0]
-}
-
 # The bare host intentionally serves the UI's own login page -- same call as
 # Argo CD (see ../core/argo-cd/listener.tf): the IdP-first redirect was a
 # `redirect_route` facade rather than a feature of either app, and it isn't

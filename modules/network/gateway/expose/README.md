@@ -42,3 +42,9 @@ moved { from = module.http_route,   to = module.expose.module.http_route[0] }
 ```
 
 (one `moved` for listener-only callers). No destroy/create.
+
+The 2026-09-12 migration of all 14 call sites is long applied, so **no `moved`
+block survives anywhere in this repo** — a spent one is dead weight (it can only
+fire again if the old address is reintroduced, and then it would fire wrongly).
+Delete yours once `plan` is empty after the move; this is the shape to re-add if
+a third module ever gets folded in.

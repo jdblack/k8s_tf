@@ -273,6 +273,17 @@
   `tofu` client (an interrupted `plan` holds it with `OperationTypePlan` and has
   written no state).
 
+- **No `moved` blocks left anywhere (2026-09-16)** — the 28 accumulated by the
+  `expose` migration (2026-09-12), the `firewalls/policy` extraction and the
+  authentik group's `count` were all spent: state held only destination
+  addresses, so deleting them left `core` and `mantle` planning **No changes**.
+  A `moved` block is a one-shot: keep it while it still has state to rewrite,
+  delete it immediately after the apply that consumed it (`tofu state list` is
+  how you tell). Leaving one behind is dead weight, and worse, it re-arms the
+  old address: reintroduce `module.listener_set` anywhere and the block fires
+  again against the new object. Re-add shape + rationale:
+  `modules/network/gateway/expose/README.md`.
+
 ## How to tell you're still on track
 
 `tofu -chdir=stacks/<stack> plan` should be **empty** against a healthy cluster.

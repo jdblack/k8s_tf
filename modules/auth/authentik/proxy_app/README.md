@@ -52,5 +52,7 @@ for anyone. Terraform owns the group; people are added by hand in the authentik
 UI (the repo-wide convention). A from-scratch rebuild therefore needs the
 members re-added.
 
-The group resource once carried a `count`; there is a `moved` block keeping the
-existing indexed instances (and their hand-managed memberships) intact.
+The group resource once carried a `count`; it does not any more, and its address
+must never be re-indexed — changing it destroys and recreates the group, which
+drops the members added by hand in the UI.
+

@@ -56,8 +56,7 @@ locals {
 }
 
 # Rendering is delegated to the shared `policy` module (basic_internet explains
-# why the typed resource matters). The `moved` block migrates the inline resource
-# into the submodule with no destroy/create.
+# why the typed resource matters).
 module "policy" {
   source       = "../policy"
   name         = var.policy_name
@@ -65,9 +64,4 @@ module "policy" {
   pod_selector = var.pod_selector
   policy_types = ["Egress"]
   egress_rules = local.egresses
-}
-
-moved {
-  from = kubernetes_network_policy_v1.limit_egresses
-  to   = module.policy.kubernetes_network_policy_v1.this
 }

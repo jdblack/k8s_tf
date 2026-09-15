@@ -14,13 +14,3 @@ module "expose" {
   backend_name      = "${var.plex_name}-plex-media-server"
   backend_port      = 32400
 }
-
-moved {
-  from = module.listener_set
-  to   = module.expose.module.listener_set
-}
-
-moved {
-  from = module.http_route
-  to   = module.expose.module.http_route[0]
-}

@@ -7,8 +7,7 @@
 # directly from outside the cluster (LAN clients, peers hitting a LoadBalancer,
 # traffic SNAT'd to a node IP) are never pods, so they go in the CIDR list.
 #
-# Rendering is delegated to the shared `policy` module (see ../policy); the
-# `moved` block migrates the old inline resource with no destroy/create.
+# Rendering is delegated to the shared `policy` module (see ../policy).
 locals {
   # One ingress rule with the namespace + CIDR peers. Emitted only when at
   # least one guest is configured: an ingress rule with NO peers means "allow
@@ -35,9 +34,4 @@ module "policy" {
   pod_selector  = var.pod_selector
   policy_types  = ["Ingress"]
   ingress_rules = local.ingresses
-}
-
-moved {
-  from = kubernetes_network_policy_v1.limit_ingresses
-  to   = module.policy.kubernetes_network_policy_v1.this
 }

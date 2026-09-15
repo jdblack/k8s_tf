@@ -8,7 +8,8 @@
 # only -- which still provisions the cert and the grants.
 #
 # Thin wrapper (no resources of its own), so migrating a caller is a `moved`
-# block per old module -- no destroy/create.
+# block per old module -- no destroy/create. Migration is a one-time step: once
+# applied, the block is spent and belongs in the bin (see README "Migration").
 
 locals {
   # The listener's FQDN; the route must use the SAME host (defaulting off the

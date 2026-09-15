@@ -16,7 +16,3 @@ module "expose" {
 # The HTTPRoute is rendered by the harbor chart (expose.type = "route"), so no
 # backend_* here -- the listener (and its cert + ReferenceGrants) is all this
 # module declares.
-moved {
-  from = module.listener_set
-  to   = module.expose.module.listener_set
-}

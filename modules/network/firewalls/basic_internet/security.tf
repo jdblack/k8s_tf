@@ -13,9 +13,7 @@ locals {
 
 
 # Rendering is delegated to the shared `policy` module so the rule-object ->
-# typed-resource translation lives in exactly one place (see ../policy). The
-# `moved` block migrates the resource that used to be inline here into the
-# submodule with no destroy/create.
+# typed-resource translation lives in exactly one place (see ../policy).
 module "policy" {
   source       = "../policy"
   name         = var.policy_name
@@ -23,9 +21,3 @@ module "policy" {
   policy_types = ["Egress"]
   egress_rules = local.egresses
 }
-
-moved {
-  from = kubernetes_network_policy_v1.limit_egresses
-  to   = module.policy.kubernetes_network_policy_v1.this
-}
-

@@ -12,13 +12,3 @@ module "expose" {
   backend_name      = "prometheus-grafana"
   backend_port      = 80
 }
-
-moved {
-  from = module.listener_set
-  to   = module.expose.module.listener_set
-}
-
-moved {
-  from = module.http_route
-  to   = module.expose.module.http_route[0]
-}

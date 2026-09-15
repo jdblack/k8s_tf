@@ -13,13 +13,6 @@ module "expose" {
   gateway_namespace = var.gateway_namespace
 }
 
-# The HTTPRoute is rendered by the argo-cd chart (server.httproute), so no
-# backend_* here -- the listener is all this module declares.
-moved {
-  from = module.listener_set
-  to   = module.expose.module.listener_set
-}
-
 # The bare host intentionally serves the chart's own login page. A
 # `redirect_route` hijacking `Exact /` into /auth/login was tried and removed:
 # argocd-server's OIDC callback falls back to the base href (`/`) when no
