@@ -1,8 +1,9 @@
 # `vaultwarden` — self-hosted Bitwarden server on the private gateway
 
-Hand-rolled, no chart: the workload is a Deployment + PVC + Service + Secret +
-Longhorn RecurringJob, and a chart-owned PVC could not carry the
-recurring-job-group label.
+Hand-rolled, no chart: the workload is a Deployment + PVC + Service + Secret, so
+this module owns the `Recreate` strategy, the config Secret and the deliberately
+absent admin panel. Snapshotting is *not* decided here — it is cluster policy in
+[`../storage/longhorn_jobs.tf`](../storage/longhorn_jobs.tf).
 
 ```
 https://vaultwarden.linuxguru.net   ->  private gateway (192.168.0.100)
@@ -49,7 +50,7 @@ unset — see `secret.tf`), and config lives in Terraform.
 | `listener.tf` | `expose`: ListenerSet on the `private` gateway + HTTPRoute to the Service |
 | `dns.tf` | the authoritative Route53 A record |
 | `security.tf` | egress `basic_internet`; ingress `limited_ingress` = self + `kube-network`, no CIDRs |
-| `backup.tf` | Longhorn `RecurringJob` (nightly snapshot, retain 7) |
+| `disaster_recovery.md` | what a restore costs here; the mechanics are in [`../storage/disaster_recovery.md`](../storage/disaster_recovery.md) |
 
 `strategy = Recreate` is required: the PVC is RWO and a rolling update would
 deadlock waiting for the old pod to release the volume. The pod template carries a
@@ -78,23 +79,25 @@ build feature was dropped upstream); the only health route is `GET /alive`, henc
 no ServiceMonitor. Re-check upstream before adding one — and then also add
 `monitoring` to the ingress guest list in `security.tf`.
 
-## Backups
+## Snapshots
 
-The `RecurringJob` snapshots the volume nightly and keeps 7. The join is by
-**group**, and it takes two labels on the PVC (Longhorn ignores PVC group labels
-unless the PVC is explicitly opted in as the label source — see
-[`20230517-set-recurring-job-to-pvc.md`](https://github.com/longhorn/longhorn/blob/master/enhancements/20230517-set-recurring-job-to-pvc.md)):
+Snapshotting is cluster policy, not app config: `vaultwarden-data` is enrolled in
+`daily` + `weekly` + `monthly` (retain 2 each) by
+[`../storage/longhorn_jobs.tf`](../storage/longhorn_jobs.tf), and labelled by
+[`../storage/snapshot_labeler.tf`](../storage/snapshot_labeler.tf), which writes
+the group label onto the Longhorn **Volume CR** — never onto this PVC. A PVC
+carrying `recurring-job.longhorn.io/*` *replaces* its volume's whole group set
+instead of merging into it, which silently de-enrols that volume from every tier;
+this module did exactly that until 2026-09-16 (a per-app `backup.tf` job with
+retain 7, a group named after the app, plus the `source: enabled` PVC label the
+enhancement doc requires). Retired deliberately: uniform tiers beat per-app
+sentiment, and every Bitwarden client already holds a full copy of the vault.
 
-| PVC label | Why |
-|---|---|
-| `recurring-job.longhorn.io/source: enabled` | opts the PVC in as the recurring-job label source for its volume. **Without it the group label is ignored** and the volume keeps its own `default` group, so the job never fires. The value must be `enabled`: longhorn-manager compares against `types.LonghornLabelValueEnabled`, and the enhancement doc's `enable` is silently ignored (the volume controller only debug-logs *"Ignoring recurring job labels … due to missing source label"*). |
-| `recurring-job-group.longhorn.io/vaultwarden: enabled` | group membership; Longhorn syncs it onto the volume, where the job's `spec.groups = ["vaultwarden"]` matches it. |
-
-Because the PVC label source *overrides* the volume's own labels, the CSI-added
-`recurring-job-group.longhorn.io/default` label is dropped once the source label
-lands — the volume ends up in the `vaultwarden` group only. Verify with
-`kubectl -n longhorn-system get volumes.longhorn.io <vol> -o jsonpath='{.metadata.labels}'`:
-the group label must appear on the **volume**, not just the PVC.
+Restore mechanics and their preconditions (the revert needs maintenance mode, and
+the manager API is in-cluster only) are in
+[`../storage/disaster_recovery.md`](../storage/disaster_recovery.md); what a
+vaultwarden restore specifically costs is in
+[`disaster_recovery.md`](disaster_recovery.md).
 
 **Snapshots are cluster-local** — they belong to the volume, so losing the cluster
 (or its disks) loses them, and destroying this module deletes the PVC while the
@@ -132,7 +135,10 @@ curl -s -o /dev/null -w '%{http_code}\n' \
      https://vaultwarden.linuxguru.net/admin/diagnostics   # 404 - no admin API
 
 kubectl -n vaultwarden get listenerset,certificate,pvc,pod
-kubectl -n longhorn-system get recurringjobs.longhorn.io
+kubectl -n longhorn-system get volumes.longhorn.io \
+  -o jsonpath='{range .items[*]}{.status.kubernetesStatus.namespace}/{.status.kubernetesStatus.pvcName}{"\t"}{.metadata.labels}{"\n"}{end}' | grep vaultwarden
+# must show recurring-job-group.longhorn.io/{daily,weekly,monthly}=enabled and
+# NOT recurring-job-group.longhorn.io/vaultwarden (that group is retired)
 ```
 
 DNS: TTL 60, so if `dig` still returns the WAN IP you are seeing the wildcard —
@@ -174,8 +180,10 @@ tofu -chdir=stacks/mantle apply
   CRUD path (see [`../network/dns/route53_record/README.md`](../network/dns/route53_record/README.md)).
   It stays scoped to the one zone — don't widen it.
 - Fresh-cluster ordering: `stacks/core` before `stacks/mantle` (the HTTPRoute needs
-  the Gateway API CRDs at plan time) and Longhorn's CRD before `backup.tf` — both
-  hold in the documented stack order.
+  the Gateway API CRDs at plan time). This module no longer creates Longhorn CRs,
+  so it has no CRD ordering left to respect — but snapshot enrolment happens in
+  `stacks/core`, which runs *before* this PVC exists: re-apply `stacks/core` after
+  `stacks/mantle` so the labeler finds the volume (it warns and skips otherwise).
 - Cert issuance sharp edge: `challenge.spec.solver` is a frozen snapshot, so editing
   the `ClusterIssuer` does not fix an in-flight challenge. Delete the
   CertificateRequest/Order/Challenge chain; if a Challenge is stuck `Terminating`,

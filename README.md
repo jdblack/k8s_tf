@@ -122,7 +122,7 @@ never through authentik.
 | ↳ `network/gateway/` ([README](modules/network/gateway/README.md)) | one NGF control plane + `Gateway` per call; `expose` = `listener_set` + `http_route` in one call |
 | ↳ `network/dns/route53_record/` ([README](modules/network/dns/route53_record/README.md)) | Terraform-authoritative Route53 record, for hosts external-dns cannot publish |
 | ↳ `network/whisker/` ([README](modules/network/whisker/README.md)) | Calico Whisker flow-log UI, authentik-gated |
-| `storage/` | Longhorn (+ netpols, `VolumeSnapshotClass`es), SeaweedFS (helm, CSI, master/S3 listeners, Grafana dashboard) |
+| `storage/` ([README](modules/storage/README.md)) | Longhorn (+ netpols, `VolumeSnapshotClass`es, the cluster-wide recurring-snapshot jobs and their [recovery runbook](modules/storage/disaster_recovery.md)), SeaweedFS (helm, CSI, master/S3 listeners, Grafana dashboard) |
 | ↳ `storage/seaweedfs_admin/` ([README](modules/storage/seaweedfs_admin/README.md)) | SeaweedFS admin UI, authentik-gated (mantle) |
 | `cert_manager/` ([README](modules/cert_manager/README.md)) | cert-manager (pinned `v1.21.1`), the `letsencrypt` ClusterIssuer (Route53 DNS-01, zone pinned — `.vn` hosts included) which signs **all 19 hosts**, and the dormant private `linuxguru-ca` ClusterIssuer |
 | `auth/authentik/core/` | authentik server + worker + API key + listener |
@@ -185,6 +185,22 @@ gateway, no outpost on purpose).
   files as secrets; the AWS identity in them is deliberately least-privilege
   (one hosted zone). `stacks/apps` has no tfvars at all — create one before
   planning it.
+
+## Backups and recovery
+
+Longhorn snapshots are decided **per volume, cluster-wide**, in
+[`modules/storage/longhorn_jobs.tf`](modules/storage/longhorn_jobs.tf): three
+jobs (`snapshot-daily|weekly|monthly`, UTC, retain 2 each) joined to volumes by a
+group label that only `modules/storage/snapshot_labeler.tf` writes. Eight PVCs
+are enrolled, seven are deliberately skipped, and **no job may ever list the
+`default` group** — Longhorn puts every new unlabelled volume in it.
+
+**These are recovery points, not backups**: there is no `backupTarget`, so no
+snapshot has ever left the cluster, and they share the failure domain with their
+volume. What is covered, the coverage audit, and the verified restore procedure
+(including the maintenance-mode requirement and the in-cluster-only manager API)
+live in [`modules/storage/disaster_recovery.md`](modules/storage/disaster_recovery.md);
+the offsite gap is tracked in `memory-bank/progress.md`.
 
 ## Alerting
 

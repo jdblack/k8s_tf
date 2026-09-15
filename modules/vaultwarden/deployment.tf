@@ -22,10 +22,7 @@ resource "kubernetes_deployment_v1" "this" {
       metadata {
         labels = local.labels
 
-        # Roll the pod when the config changes: k8s does not restart pods for a
-        # Secret update, so a SIGNUPS_ALLOWED flip would otherwise appear to do
-        # nothing. The whole configuration lives in that Secret, so this is the
-        # only checksum needed.
+        # redeploy if the config changes
         annotations = {
           "checksum/config" = sha256(jsonencode(kubernetes_secret_v1.config.data))
         }
@@ -66,25 +63,14 @@ resource "kubernetes_deployment_v1" "this" {
   }
 }
 
-# The vault itself: SQLite DB, attachments, RSA keys.
-#
-# Both labels are required. `recurring-job.longhorn.io/source: enabled` is the
-# opt-in that makes this PVC a "recurring job label source"; without it Longhorn
-# ignores the group label and keeps the VOLUME's labels as truth, so the
-# RecurringJob in backup.tf would never fire. Note the value is "enabled"
-# (types.LonghornLabelValueEnabled in longhorn-manager) -- Longhorn's own
-# enhancement doc says "enable", which is silently ignored.
-#
-# Owning the PVC ourselves (rather than letting a chart create it) is one reason
-# this module is hand-rolled.
 resource "kubernetes_persistent_volume_claim_v1" "data" {
   metadata {
     name      = local.data_pvc_name
     namespace = kubernetes_namespace_v1.this.metadata[0].name
-    labels = {
-      "recurring-job.longhorn.io/source"                        = "enabled"
-      "recurring-job-group.longhorn.io/${local.snapshot_group}" = "enabled"
-    }
+    # Deliberately unlabelled: Longhorn snapshot enrolment is cluster policy and
+    # lives on the Volume CR (modules/storage/snapshot_labeler.tf). A recurring
+    # job label here would REPLACE the volume's whole group set instead of
+    # merging with it.
   }
 
   spec {
