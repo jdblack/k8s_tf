@@ -53,5 +53,7 @@ has **no auth** and is created outside this repo.
 - **Alertmanager has no receiver** (stock `null`). Alerts are visible in the UI
   only.
 - **No authentik outpost on vaultwarden, on purpose** — clients aren't browsers.
-- **`linuxguru-ca` for every `.vn` host** — clients install `~/.ssl/ca.crt`.
-  Retiring it is an open idea (`TODO.md`).
+- **`letsencrypt` (DNS-01 via Route53) for every host, `.vn` included** — no client
+  installs anything and `~/.ssl/ca.crt` is unused. The private CA still exists but
+  is dormant and unreferenced; retiring it is deferred by decision, not forgotten
+  (`memory-bank/progress.md`).

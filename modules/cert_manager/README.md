@@ -4,8 +4,8 @@ Installed by `stacks/core`. Two ClusterIssuers, one per trust model:
 
 | ClusterIssuer | Type | Serves | Trusted by |
 |---|---|---|---|
-| `linuxguru-ca` | `ca`, backed by a self-signed local CA | **no host since 2026-09-15** — the four consumers (`auth.vn`, `harbor`, `grafana`, `argo-wf`) moved to `letsencrypt` and their CA injections were deleted. The issuer is kept only because the module still creates it; read "If a private CA ever comes back" before reusing it | clients that installed `~/.ssl/ca.crt` |
-| `letsencrypt` | `acme`, **DNS-01 via Route53** (its only solver) | **all 17 hosts since 2026-09-15**: `auth.vn`, `harbor`, `grafana`, `argo-wf`, `argo-cd`, `ollama.vn` (manifest owned by the external app-of-apps repo), plex (public gateway), vaultwarden, `s3`/`master.seaweedfs`, `admin.seaweedfs`, `whisker`, and all five media apps — yes, `.vn` hosts (see "Signing a `.vn` host") | public roots — no client setup |
+| `linuxguru-ca` | `ca`, backed by a self-signed local CA | **no host since 2026-09-15** — the four consumers (`auth.vn`, `harbor`, `grafana`, `argo-wf`) moved to `letsencrypt` and their CA injections were deleted. Still created, still `Ready`, dormant: nothing references it. Read "If a private CA ever comes back" before reusing it | clients that installed `~/.ssl/ca.crt` |
+| `letsencrypt` | `acme`, **DNS-01 via Route53** (its only solver) | **all 19 hosts since 2026-09-15**: the 16 this repo declares — `auth.vn`, `harbor`, `grafana`, `argo-wf`, `argo-cd`, plex (public gateway), vaultwarden, `s3`/`master.seaweedfs`, `admin.seaweedfs`, `whisker` and all five media apps — plus `ollama.vn`, `llm-embedder.vn` and `corsless.vn`, whose ListenerSets live in the external app-of-apps repo. Yes, `.vn` hosts (see "Signing a `.vn` host") | public roots — no client setup |
 
 ## What it creates
 
@@ -24,6 +24,23 @@ annotates the ListenerSet with the issuer and the shim renders the Certificate +
 TLS secret in the app's own namespace.
 
 ## The local CA
+
+**Status: dormant.** The ClusterIssuer exists and reports `Ready`, but nothing in
+the cluster references it: all 19 hosts are on `letsencrypt` and the
+`default/linuxguru-ca` ConfigMap has no consumer left. What it costs to leave
+alone is three inert objects (ClusterIssuer, Secret, ConfigMap). It expires
+**2027-08-14 10:22 UTC** (issued 2026-08-14), so a reintroduced host would need
+`~/.ssl/ca.{crt,key}` regenerated *and* the trust injected by hand into every
+consumer — see "If a private CA ever comes back".
+
+`var.ca_certfile`/`var.ca_keyfile` default to `~/.ssl/ca.crt` and `~/.ssl/ca.key`,
+which makes those two files a **standing plan-time dependency of `stacks/core`**:
+delete them and the next plan of *any* kind fails, not just a cert one.
+
+The CA's *name* is not a literal anywhere in `.tf`: `ca.tf` reads it from
+`var.data["cert_issuer"]` (tfvars `cert.cert_issuer`) and derives all five object
+names from it. So that key is **not** dead the way `cert.pub_cert_issuer` was —
+deleting it renames the Secret, ClusterIssuer and ConfigMap.
 
 The CA lives **outside** Terraform — this module only consumes its cert and key.
 It is self-signed, `CN=vn.linuxguru.net`, and valid for one year:
@@ -65,25 +82,27 @@ they are different RR types (verified: `A deep.deeper.vn…` answers from the
 wildcard while the `TXT` at the challenge name is NODATA-until-created), so
 validation sees the TXT and no inbound reachability is involved.
 
-The issuer comes from whichever stack renders the ListenerSet. `modules/media`
-signs **every** app with the public issuer (they are leaf-only — nothing
-in-cluster validates them) and takes a per-app `cert_issuers` override for
-exceptions:
+## Choosing the issuer
 
-```hcl
-# stacks/mantle/media.tf -- optional per-app override (modules/media/variables.tf)
-# to pin one app back to the CA without moving its namespace.
-cert_issuers = {
-  sonarr = var.deployment.cert_authorities.private
-}
-```
+One knob: **`cert_authorities.default`** in tfvars (`letsencrypt` today). Every
+module takes a plain `cert_issuer` string and every stack passes that key:
 
-Everywhere else it is the module's `cert_issuer` argument, set in the stack:
-`stacks/core/devops.tf` (argo-cd, harbor), `stacks/core/monitoring.tf` (grafana),
-`stacks/core/auth.tf` (auth.vn), `stacks/mantle/devops.tf` (argo-wf),
-`stacks/core/storage.tf` (a `cert_issuers` map keyed by visibility),
-`stacks/mantle/storage.tf` (seaweedfs admin) and `stacks/mantle/observability.tf`
-(whisker).
+| Call site | Hosts |
+|---|---|
+| `stacks/core/auth.tf` | `auth.vn` |
+| `stacks/core/devops.tf` | harbor, argo-cd |
+| `stacks/core/monitoring.tf` | grafana |
+| `stacks/core/storage.tf` | `master.seaweedfs`, `s3` (both listeners) |
+| `stacks/mantle/media.tf` | plex + the five arr apps |
+| `stacks/mantle/vaultwarden.tf` | vaultwarden |
+| `stacks/mantle/devops.tf` | argo-wf |
+| `stacks/mantle/storage.tf` | `admin.seaweedfs` |
+| `stacks/mantle/observability.tf` | whisker |
+
+Ten call sites, one name for the value — there is no per-app override map any
+more. To put a host, or every host, back on the CA, point that key (or the single
+call site) at `cert_authorities.private` after re-establishing client trust; see
+"If a private CA ever comes back".
 
 Then `tofu -chdir=stacks/<stack> apply` — there is nothing else to do. The
 gateway-shim names its Certificate after the Secret the listener references

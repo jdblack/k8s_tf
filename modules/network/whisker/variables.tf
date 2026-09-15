@@ -19,7 +19,7 @@ variable "domain" {
 
 variable "cert_issuer" {
   type        = string
-  description = "ClusterIssuer for the listener cert (the private CA)."
+  description = "ClusterIssuer for the listener cert (see modules/cert_manager)."
 }
 
 variable "gateway_name" {

@@ -2,9 +2,26 @@
 
 ## Current state (as of 2026-09-15, late)
 
-- Branch `main`, **all pushed** (baseline `5f0f582` → `7c24e81`): the CA
-  migration (3), its memory-bank note, the CA-retirement commit, two memory-bank
-  updates, plus a root-README host-table update. Working tree clean.
+- Branch `main`, one commit ahead of `origin/main` (baseline `5f0f582` →
+  `7c24e81` → `92469da`, then `226ba04`): the CA migration (3), its memory-bank
+  note, the CA-retirement commit, two memory-bank updates, a root-README
+  host-table update, and the issuer-plumbing refactor plus its docs commit.
+  **Not pushed as of this writing.**
+- **2026-09-15 (night) — the issuer plumbing collapsed onto one key.** A
+  post-migration audit found the (already single-valued) issuer reachable three
+  different ways: a direct `cert_authorities.public` lookup (9 stack sites), a
+  `merge()` in `stacks/core/storage.tf` that faked a `private` key so seaweedfs'
+  visibility-keyed map resolved to a public issuer, and a `cert_issuers` per-app
+  override in `modules/media` that nothing ever passed. All of it now reads
+  **`cert_authorities.default`** (= letsencrypt), one plain `cert_issuer` string
+  per module; those override maps, `local.issuers`, the seaweedfs visibility map
+  and the dead `cert.pub_cert_issuer` key are gone. `tofu plan` came back **empty in
+  core and mantle both before and after** — a pure no-op, which is the proof the
+  three shapes were the same constant.
+  Two host-count corrections fell out: **19 Certificates live, 16 declared here** —
+  the other 3 (`ollama`, `llm-embedder`, `corsless`) are declared by the external
+  app-of-apps repo. Entries below that say 17 are the count at the migration
+  moment, before those two `ai` hosts came back the same day.
 - **2026-09-15 (later) — both dead `ai` apps are alive and serving.**
   `https://corsless.vn.linuxguru.net` (`/health` → `200 {"status":"ok"}`, proxy
   returns `access-control-allow-origin: *`) and
@@ -206,8 +223,10 @@
   applies at any depth. Earlier notes claiming a lingering
   `*.vn.linuxguru.net` record were wrong — dig can't tell a real wildcard record
   from synthesis, and the stale `4.5.6.7` was a deletion still propagating.)
-- There is **no `TODO.md`** in the repo, despite this file and the root README
-  referencing it — the open work lives in `progress.md` / this file instead.
+- There is **no `TODO.md`** in the repo; the open work lives in `progress.md` and
+  this file. Six docs pointed at it anyway (root README, `.clinerules/resources.md`,
+  `.clinedocs/flow-logs.md`, `modules/{media,vaultwarden}/README.md`, plus the
+  reading order here) — all repointed 2026-09-15.
 - The vaultwarden build shipped and was verified live on 2026-09-14. The big
   33 KB handoff doc was retired into `modules/vaultwarden/README.md` and
   `modules/network/dns/route53_record/README.md`.
@@ -226,14 +245,15 @@
 namespaces. Method (validated by hand, not yet in code): render staged policies
 via a `staged` flag on `firewalls/policy` (+ pass-through on `limited_ingress`),
 stage → watch a few days with real traffic (a login, an Argo sync, a fresh image
-pull) → flip `staged = false`. Intended guest lists per namespace are in
-`TODO.md`; they come from Goldmane/Whisker flow data, not guesses. Highest-value
+pull) → flip `staged = false`. Intended guest lists per namespace were never
+written down (the `TODO.md` they used to point at does not exist); derive them
+from Goldmane/Whisker flow data, not guesses. Highest-value
 first candidates: `kube-auth`, `devops-harbor`, `argo`, `ai`, `monitoring`,
 `kube-certificates`, `blender`.
 
 Note `argo` also has **no egress fence** (`enable_egress_firewall=false`).
 
-## Immediate follow-ups owed (from `TODO.md`)
+## Immediate follow-ups owed (the old `TODO.md` list)
 
 - **vaultwarden backups are cluster-local** → point Longhorn `backupTarget` at
   the SeaweedFS S3 endpoint + flip the RecurringJob to `task = "backup"`. Until
@@ -380,6 +400,7 @@ Note `argo` also has **no egress fence** (`enable_egress_firewall=false`).
 ## Decisions that are settled — don't relitigate
 
 - Three stacks, in order; state in k8s Secrets.
+- `cert_authorities.default` is the one issuer knob; no per-app override maps.
 - Typed `kubernetes_*` over `kubectl_manifest`, so `plan` sees drift.
 - TF owns groups/apps/bindings; the authentik UI owns membership.
 - No `-target`/`-exclude`.
@@ -388,7 +409,7 @@ Note `argo` also has **no egress fence** (`enable_egress_firewall=false`).
 ## Reading order for a fresh session
 
 1. Root `README.md` (map, hostnames, conventions).
-2. `TODO.md` (what's actually open).
+2. `memory-bank/progress.md` (what's actually open).
 3. The `README.md` of the one module you're touching.
 4. `.clinedocs/calico-netpols.md` or `.clinedocs/flow-logs.md` only if the task
    is a NetworkPolicy / flow-query task.

@@ -5,9 +5,10 @@ variable "name" { default = "vaultwarden" }
 # private gateway, publicly-trusted cert.
 variable "domain" { type = string }
 
-# ClusterIssuer for the listener cert. Deliberately the PUBLIC issuer
-# ("letsencrypt") even though the gateway is private: its only solver is DNS-01, so
-# issuance needs no inbound reachability and clients need no private-CA install.
+# ClusterIssuer for the listener cert — the deployment's
+# `cert_authorities.default` (letsencrypt). The gateway is private but the cert is
+# public: DNS-01 means issuance needs no inbound reachability and clients need no
+# private-CA install.
 variable "cert_issuer" { type = string }
 
 variable "gateway_name" { default = "private" }

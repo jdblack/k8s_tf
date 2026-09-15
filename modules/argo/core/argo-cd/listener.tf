@@ -1,6 +1,6 @@
 # HTTPS listener via the shared private gateway (kube-network). The HTTPRoute
 # is rendered by the argo-cd chart itself (server.httproute), so this module
-# only declares the ListenerSet (which provisions the linuxguru-ca cert); the
+# only declares the ListenerSet (which provisions the listener cert); the
 # listener_set submodule creates the cross-namespace ReferenceGrants for both
 # ListenerSet and HTTPRoute attachment.
 module "expose" {

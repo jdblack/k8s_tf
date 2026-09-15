@@ -17,8 +17,8 @@ locals {
         EOF
       }
       # Plain HTTP on 8080, no TLS redirect: the shared private gateway
-      # terminates TLS (linuxguru-ca cert) and proxies to the ClusterIP over
-      # HTTP. (Chart reads this from the argocd-cmd-params-cm configmap.)
+      # terminates TLS and proxies to the ClusterIP over HTTP. (Chart reads this
+      # from the argocd-cmd-params-cm configmap.)
       params = {
         "server.insecure" = "true"
       }

@@ -99,14 +99,15 @@ of the external app-of-apps repo (`deployments/ai`), not because of anything in
 this repo — each declares its own ListenerSet + `ReferenceGrant` + HTTPRoute in
 its chart values (`extraObjects`). Gutting them here would not remove them.
 
-**Which cert a host gets** is `letsencrypt` everywhere, since 2026-09-15: every
-host either serves only browsers or has in-cluster consumers that trust public
-roots on their own. Nothing in the cluster ships a private CA any more, so
-`~/.ssl/ca.crt` is not needed by any client. The `linuxguru-ca` ClusterIssuer
-still exists but signs nothing — if you ever need it again, the per-consumer
-injection checklist (Argo CD first) lives in
+**Which cert a host gets** is `cert_authorities.default` in tfvars
+(`letsencrypt`, DNS-01 via Route53) everywhere, since 2026-09-15: every host
+either serves only browsers or has in-cluster consumers that trust public roots
+on their own. Nothing in the cluster ships a private CA any more, so `~/.ssl/ca.crt`
+is not needed by any client. The `linuxguru-ca` ClusterIssuer still exists but is
+dormant (no references; expires 2027-08-14) — if you ever need it again, the
+per-consumer injection checklist (Argo CD first) lives in
 [`modules/cert_manager/README.md`](modules/cert_manager/README.md), along with
-the flip recipe and the rate limits.
+the issuer table, the flip recipe and the rate limits.
 
 Non-HTTP ingress is separate: plex also listens on its own LoadBalancer, and
 qBittorrent peers connect to `qbittorrent-torrent` on `192.168.0.105:21010` —
@@ -123,7 +124,7 @@ never through authentik.
 | ↳ `network/whisker/` ([README](modules/network/whisker/README.md)) | Calico Whisker flow-log UI, authentik-gated |
 | `storage/` | Longhorn (+ netpols, `VolumeSnapshotClass`es), SeaweedFS (helm, CSI, master/S3 listeners, Grafana dashboard) |
 | ↳ `storage/seaweedfs_admin/` ([README](modules/storage/seaweedfs_admin/README.md)) | SeaweedFS admin UI, authentik-gated (mantle) |
-| `cert_manager/` ([README](modules/cert_manager/README.md)) | cert-manager (pinned `v1.21.1`), the `letsencrypt` ClusterIssuer (Route53 DNS-01, zone pinned — `.vn` hosts included) which signs **all 17 hosts**, and the now-unused private `linuxguru-ca` ClusterIssuer |
+| `cert_manager/` ([README](modules/cert_manager/README.md)) | cert-manager (pinned `v1.21.1`), the `letsencrypt` ClusterIssuer (Route53 DNS-01, zone pinned — `.vn` hosts included) which signs **all 19 hosts**, and the dormant private `linuxguru-ca` ClusterIssuer |
 | `auth/authentik/core/` | authentik server + worker + API key + listener |
 | ↳ `auth/authentik/proxy_app/` ([README](modules/auth/authentik/proxy_app/README.md)) | authentik proxy provider/app/group **and** the outpost + its non-expiring token |
 | ↳ `auth/authentik/outpost/` ([README](modules/auth/authentik/outpost/README.md)) | the outpost Deployment/Service in the protected app's namespace + its egress carve-out |
@@ -176,7 +177,7 @@ gateway, no outpost on purpose).
   bindings are created here — `platform`, `media` and `storage` for the outpost
   apps, and `<app>-admin` / `<app>-user` for every OIDC client — but group
   *membership* is managed by hand in the authentik UI, so a from-scratch rebuild
-  needs the members re-added (see `TODO.md`).
+  needs the members re-added (see `memory-bank/progress.md`).
 - **Secrets in tfvars, on purpose (and it is a compromise).**
   `terraform.tfvars` is in `.gitignore`, but `stacks/core` and `stacks/mantle`'s
   copies are tracked anyway — they carry the Route53 key, the bind9 TSIG secret
@@ -230,7 +231,8 @@ duplicating it.
   via the [`gateway/expose`](modules/network/gateway/expose/README.md)
   submodule: one call renders the app's `ListenerSet` (its HTTPS listener on the
   public/private/media gateway) annotated with the cert-manager issuer so the
-  `cert-<host>` secret is auto-provisioned (private CA or letsencrypt), plus an
+  `cert-<host>` secret is auto-provisioned (from `cert_authorities.default` —
+  `letsencrypt` today), plus an
   `HTTPRoute` (host -> service). Charts that render their own route
   (harbor/authentik/argo-cd) omit `backend_name` and get the listener only.
   Apps behind the authentik outpost (the arr apps, the qbittorrent web UI, the

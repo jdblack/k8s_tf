@@ -28,7 +28,7 @@ module "outpost" {
   token        = module.auth.outpost_token
 }
 
-# HTTPS listener (whisker.<domain>, private CA) on the shared private gateway +
+# HTTPS listener (whisker.<domain>) on the shared private gateway +
 # HTTPRoute to the OUTPOST -- not to whisker directly. Exactly the media pattern.
 module "expose" {
   source = "../gateway/expose"

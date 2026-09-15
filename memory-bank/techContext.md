@@ -55,16 +55,26 @@ MetalLB IPs, so renumbering the network is a one-line change, not a code edit.
 - `cert` doubles as the AWS credential bucket (`AWS_ACCESS_KEY_ID`,
   `AWS_SECRET_ACCESS_KEY` — note the v6 rename `secret_key`, not
   `secret_access_key` — `AWS_REGION`, `R53_ZONEID`).
+- `cert_authorities` = `{ private = "linuxguru-ca", public = "letsencrypt",
+  default = "letsencrypt" }`. **`default` is the issuer knob** (added
+  2026-09-15 late): all ten `cert_issuer` arguments in core/mantle read it.
+  `private` still exists but nothing references it — the CA is dormant.
 - `stacks/apps` has **no** tfvars committed; create one locally:
   `deployment = { common = { domain = "vn.linuxguru.net" } }`.
 - **`grep -r` cannot see this file** (it's a symlink, and recursive grep skips
   symlinked files), so a key here looks unreferenced even when it drives a
   resource. Confirm with an explicit path: `grep -n '<key>' stacks/*/terraform.tfvars`.
   Known dead keys: `deployment.dyndns_host` (no `.tf` references it), and
-  `argocd_devops.repo_name` / `argocd_devops.harbor_project`, both deleted
-  2026-09-15 — the module hardcodes the repo display name and `…/library`.
-  Pre-edit backup: `~/.tfenvs/k8s.tfenv.bak-20260915` (the tfenv is **not**
-  under git, so a bad edit there is unrecoverable).
+  `argocd_devops.repo_name` / `argocd_devops.harbor_project` plus
+  `cert.pub_cert_issuer` — all deleted 2026-09-15 (the module hardcodes the repo
+  display name and `…/library`; the ACME issuer name is `external_issuer_name`'s
+  default).
+- **The tfenv is not under git**, so a bad edit there is unrecoverable — back it
+  up first (`~/.tfenvs/k8s.tfenv.bak-*`). And **check for an open editor before
+  editing**: `ps -eo command | grep '[v]im'`. vim's swap file lives in
+  `~/.tfenvs/`, so an outside edit lands under a stale buffer and the next `:w`
+  silently reverts it — the failure is loud (`default` disappears → every plan
+  errors), but it is avoidable.
 
 ## Run / validate
 

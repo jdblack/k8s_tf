@@ -13,16 +13,18 @@ LAN and WireGuard only. **Not** reachable from the internet: the A record is an
 RFC1918 address and the public gateway has no listener for the host (fails closed
 with TLS `unrecognized name`). The cert is publicly trusted.
 
-## Two things that look wrong and are not
+## Two deliberate choices
 
-1. **`cert_issuer = "letsencrypt"` on a private gateway.** Every other
-   private-gateway app uses the `linuxguru-ca` issuer; this one uses the public
-   issuer, whose only solver is `dns01/route53` — issuance needs no inbound
-   reachability and no phone has to install a CA. The gateway-shim mechanism is
-   unchanged (`cert-manager.io/cluster-issuer` annotation → `Certificate`
-   `cert-<fqdn>` → TLS `certificateRefs`), so moving the `ListenerSet` to the
-   public gateway later is a one-line change with zero client reconfiguration —
-   Bitwarden clients pin the server URL.
+1. **A publicly-trusted cert on a private gateway.** The issuer is the
+   deployment's default (`letsencrypt`; DNS-01/route53 is its only solver), so
+   issuance needs no inbound reachability and no phone has to install a CA. This
+   host was simply the first one on it: as of 2026-09-15 the CA is dormant and
+   *every* host is on the default issuer, so the reasoning below survives as the
+   template rather than the exception. The gateway-shim mechanism is unchanged
+   (`cert-manager.io/cluster-issuer` annotation → `Certificate` `cert-<fqdn>` →
+   TLS `certificateRefs`), so moving the `ListenerSet` to the public gateway later
+   is a one-line change with zero client reconfiguration — Bitwarden clients pin
+   the server URL.
 2. **The hostname is `linuxguru.net`, with a Terraform-managed A record.** The
    `*.linuxguru.net` wildcard points at the WAN IP and external-dns owns
    `vn.linuxguru.net` only, so nothing automatic can publish this host. `dns.tf`
@@ -97,9 +99,9 @@ the group label must appear on the **volume**, not just the PVC.
 **Snapshots are cluster-local** — they belong to the volume, so losing the cluster
 (or its disks) loses them, and destroying this module deletes the PVC while the
 `longhorn` StorageClass is `reclaimPolicy: Delete`. Until an offsite S3
-`backupTarget` exists (`TODO.md`), **export from a client before any destroy** and
-treat the cluster as one failure domain. Attachment blobs are in neither the client
-cache nor a standard export.
+`backupTarget` exists (`memory-bank/progress.md`), **export from a client before
+any destroy** and treat the cluster as one failure domain. Attachment blobs are in
+neither the client cache nor a standard export.
 
 ## Offline behaviour (accepted design, not a bug list)
 

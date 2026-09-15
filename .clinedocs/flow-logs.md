@@ -17,5 +17,5 @@
    deny-all pod netpol does not block it.
 
  - Deny with empty `policies.enforced` = default deny, NOT a named policy. Don't read that field as "which policy blocked me" -- the deciding rule's policy is at `policies.enforced[].trigger` (`trigger.name` / `trigger.namespace`). EndOfTier name="" + trigger.name="namespace-firewall" = that netpol's tail deny.
- - `policies.pending` = staged netpol preview (see TODO.md).
+ - `policies.pending` = staged netpol preview (see `memory-bank/progress.md`).
  - Off-cluster / unnamed peers: `dest_name` = `PRIVATE NETWORK` / `PUBLIC NETWORK` with `dest_namespace` = `-`. Reachability to an RFC1918 dest that still reads as PRIVATE = an `ipBlock … except` in a namespace firewall, not a missing netpol.

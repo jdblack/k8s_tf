@@ -36,7 +36,7 @@ module "outpost" {
   token        = module.auth.outpost_token
 }
 
-# HTTPS listener (admin.<app>.<domain>, private CA) on the shared private gateway
+# HTTPS listener (admin.<app>.<domain>) on the shared private gateway
 # + HTTPRoute to the OUTPOST -- not the admin service. Reuses the names the core
 # module's expose_admin used (ListenerSet "seaweedfs-admin", cert
 # cert-admin.<app>.<domain>), so the cert/grants are simply re-owned here.

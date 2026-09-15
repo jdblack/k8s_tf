@@ -5,9 +5,10 @@
 - **Core platform** — Calico (tigera-operator), MetalLB (L2), external-dns
   (rfc2136 → bind9, authoritative for `vn.linuxguru.net` only), Longhorn,
   SeaweedFS + CSI, cert-manager (pinned `v1.21.1`; **`letsencrypt` DNS-01 with the
-  zone pinned signs all 17 hosts** as of 2026-09-15 — no workload injects a
+  zone pinned signs all 19 hosts** as of 2026-09-15 — no workload injects a
   private CA any more, and `~/.ssl/ca.crt` is not needed by any client; the
-  `linuxguru-ca` issuer still exists but signs nothing),
+  `linuxguru-ca` issuer still exists but is dormant and unreferenced, expiring
+  2027-08-14),
   authentik, kube-prometheus-stack + Grafana SSO, Harbor, Argo CD,
   WireGuard operator, Gateway API CRDs + shared NGF gateways.
 - **Gateway/exposure model** — `gateway/expose` used by every app; certs
@@ -32,7 +33,7 @@
 ## What's left / open
 
 - **Namespace ingress rollout** for every namespace except `media` (see
-  `activeContext.md` and `TODO.md`). This is the main thread of work.
+  `activeContext.md`). This is the main thread of work.
 - **vaultwarden off-cluster backups** (Longhorn `backupTarget` → SeaweedFS S3).
 - **vaultwarden has nothing to scrape** — 1.37.3 dropped its metrics build
   feature (no `/metrics`, no `PROMETHEUS_ENABLED`, only `GET /alive`), so the
@@ -41,14 +42,17 @@
   `modules/vaultwarden/security.tf`.
 - **Longhorn Grafana dashboard** not imported.
 - **external-dns HTTPRoute-annotation publishing** unexplained for `.vn` names.
-- ~~**Let's Encrypt for the remaining `.vn` hosts.**~~ **DONE 2026-09-15: all 17
-  hosts are on `letsencrypt`** and every CA injection was deleted in the same
+- ~~**Let's Encrypt for the remaining `.vn` hosts.**~~ **DONE 2026-09-15: all 19
+  hosts are on `letsencrypt`** (16 declared here + the 3 `ai` hosts from the
+  external repo) and every CA injection was deleted in the same
   apply as the last four flips (`auth.vn`, `harbor`, `grafana`, `argo-wf`). See
   `activeContext.md` for the verification evidence (SSO hand-offs, in-cluster
   trust probe, cluster-wide CA sweep).
 - **Retire the CA** (the migration's last step) — **deliberately deferred as of
   2026-09-15: the private CA is kept on purpose, in case it's wanted back, so
-  don't "finish" this without asking.** When it does happen: drop the `linuxguru-ca`
+  don't "finish" this without asking.** The issuer plumbing was collapsed onto
+  `cert_authorities.default` the same day, so the CA is now one `private` key that
+  nothing names. When it does happen: drop the `linuxguru-ca`
   ClusterIssuer + the `kube-certificates/linuxguru-ca` Secret + the
   `default/linuxguru-ca` ConfigMap + the module's `ca_certfile`/`ca_keyfile`
   `file()` inputs, then `~/.ssl/ca.crt` and the node trust store in

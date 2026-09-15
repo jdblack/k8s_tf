@@ -1,9 +1,9 @@
 # HTTPS listener on the shared PRIVATE gateway + HTTPRoute to the app Service,
 # via the standard `expose` pairing. Two deliberate choices:
 #
-#   - cert_issuer is the PUBLIC issuer (letsencrypt) though the gateway is
-#     private: its only solver is dns01/route53, so issuance needs no inbound
-#     reachability and phones need no private CA installed. Moving to the public
+#   - the issuer is `cert_issuer`, the deployment default (letsencrypt), though
+#     the gateway is private: DNS-01/route53 is its only solver, so issuance needs
+#     no inbound reachability and phones need no CA installed. Moving to the public
 #     gateway later is a one-line change with zero client reconfiguration
 #     (Bitwarden clients pin the server URL).
 #   - NO authentik outpost in front: the clients are not browsers (token POSTs,

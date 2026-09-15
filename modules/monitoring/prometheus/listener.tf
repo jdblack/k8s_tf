@@ -1,5 +1,5 @@
 # Exposure via the shared private gateway (kube-network): HTTPS listener
-# (grafana.vn.linuxguru.net, linuxguru-ca cert) + HTTPRoute to the
+# (grafana.vn.linuxguru.net) + HTTPRoute to the
 # prometheus-grafana ClusterIP service. TLS terminated at the gateway.
 module "expose" {
   source            = "../../network/gateway/expose"

@@ -16,7 +16,8 @@ plane are **not** managed here.
   order, with no hand-run `kubectl apply` step for anything this repo owns.
 - `tofu plan` is the drift check. Resources are typed (`kubernetes_*`) rather
   than `kubectl_manifest` on purpose, so out-of-band edits show as diffs.
-- Least-privilege NetworkPolicies per namespace (in progress — see `TODO.md`).
+- Least-privilege NetworkPolicies per namespace (in progress — see
+  `memory-bank/progress.md`).
 - Version-pin every chart you touch.
 
 ## Non-goals / explicitly out of scope
@@ -31,6 +32,6 @@ plane are **not** managed here.
 ## Scope note
 
 This memory bank is an **index, not a copy**. The repo already has dense,
-high-quality docs (root `README.md`, `TODO.md`, per-module `README.md`,
+high-quality docs (root `README.md`, `memory-bank/progress.md`, per-module `README.md`,
 `.clinedocs/`, `.clinerules/`). Read the narrowest of those first; the memory
 bank tells you *which* one and captures state that has no other home.

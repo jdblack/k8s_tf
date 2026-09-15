@@ -12,7 +12,7 @@ module "expose" {
   name              = var.name
   namespace         = var.namespace
   domain            = var.domain
-  cert_issuer       = var.cert_issuer          # linuxguru-ca / letsencrypt
+  cert_issuer       = var.cert_issuer          # cert_authorities.default
   gateway_name      = var.gateway_name         # media-private / private / public
   gateway_namespace = var.gateway_namespace
 

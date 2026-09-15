@@ -1,5 +1,5 @@
 # Exposure via the shared private gateway (kube-network): HTTPS listener
-# (argo-wf.vn.linuxguru.net, linuxguru-ca cert) + HTTPRoute to the ClusterIP
+# (argo-wf.vn.linuxguru.net) + HTTPRoute to the ClusterIP
 # service (plain HTTP backend on 2746).
 module "expose" {
   source            = "../../../network/gateway/expose"

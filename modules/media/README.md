@@ -88,4 +88,5 @@ weaken external exposure.)
   LoadBalancer apps), plus a pod-scoped `limited_ingress` for plex so
   `kube-network` reaches plex only. This is why the arr ClusterIPs can't be hit
   directly, bypassing the outpost.
-- Locked down 2026-09-12; the other namespaces are not — see `TODO.md`.
+- Locked down 2026-09-12; the other namespaces are not — see
+  `memory-bank/progress.md`.

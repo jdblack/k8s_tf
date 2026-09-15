@@ -37,12 +37,15 @@ Outpost-fronted apps point `route_name = "<app>-auth"` at the outpost service.
 
 - Certs and secrets live with the services that use them; no hand-written
   `Certificate` anywhere.
-- One host can move to `letsencrypt` without moving its namespace (per-app
-  `cert_issuers`, `modules/media`): the shim re-issues in place because the
-  Certificate is named after the listener's Secret. `modules/media` now defaults
-  *every* app to the public issuer (they are leaf-only) with the override kept
-  for exceptions; the other modules take a `cert_issuer` argument from the stack.
-- **No module injects a CA any more (2026-09-15).** All 17 hosts are on
+- One host can move off the default issuer without moving its namespace: the shim
+  re-issues in place because the Certificate is named after the listener's Secret.
+- **One name for the issuer: `cert_authorities.default`** (tfvars; `letsencrypt`
+  today). Every module takes a plain `cert_issuer` string and each of the ten call
+  sites in core/mantle passes that key, so switching one host — or all of them —
+  back to the CA is a value change, not a plumbing change. The `cert_issuers` maps
+  (media per-app override, seaweedfs visibility-keyed) and `local.issuers` were
+  deleted 2026-09-15.
+- **No module injects a CA any more (2026-09-15).** All 19 hosts are on
   `letsencrypt`; the four that used to mount the private CA (`harbor`, `grafana`,
   `argo-wf`, `argo-cd`) validate authentik against the container's own public
   roots. Per-consumer injection checklist (Argo CD first) and the

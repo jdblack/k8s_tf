@@ -11,7 +11,7 @@ Everything below is a deliberate deviation from chart defaults. The comments in
 ## Grafana
 
 - **Exposed at `grafana.<domain>`** on the shared private gateway (`listener.tf`
-  → `gateway/expose`), cert from the private CA.
+  → `gateway/expose`), cert from `cert_issuer` (letsencrypt today).
 - **SSO-only UI:** `auth.disable_login_form = true`, with `auth.generic_oauth`
   pointed at authentik. Basic auth stays **enabled** on purpose — the chart's
   dashboard/datasource sidecars authenticate with it to call Grafana's
@@ -26,9 +26,10 @@ Everything below is a deliberate deviation from chart defaults. The comments in
   placeholder so Grafana's `$__file{}` expander always finds a file (it hard-fails
   at startup when the mount is missing), and holds `ignore_changes = [data]` so
   the two stacks never flap. See [`../grafana_oidc/README.md`](../grafana_oidc/README.md).
-- **`SSL_CERT_FILE`** points at the private CA cert, mirrored from the
-  cluster-wide `linuxguru-ca` ConfigMap in `default` into this namespace
-  (`grafana.tf`) — Grafana is Go, and it validates authentik's TLS cert.
+- **No CA bundle.** Grafana used to mount `SSL_CERT_FILE` pointing at the
+  `linuxguru-ca` ConfigMap (mirrored from `default` into this namespace in
+  `grafana.tf`) because Grafana is Go and had to validate authentik's cert. Deleted
+  2026-09-15: authentik serves a public chain now, so Grafana's own roots suffice.
 - **`deploymentStrategy: Recreate`** because the Grafana PVC is Longhorn RWO: a
   RollingUpdate that lands the new pod on another node deadlocks on the volume.
 - **`root_url` is explicit** — Grafana builds the OAuth `redirect_uri` from it,

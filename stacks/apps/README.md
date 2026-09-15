@@ -42,9 +42,9 @@ of this stack. Both were module calls into
 `git::https://github.com/Linuxgurus/wordpress.git//terraform` — a module that
 takes `ingress_class` and expects the old nginx ingress classes — so they were
 disabled when the cluster moved to Gateway API. Reviving one means porting that
-module to `gateway/expose` (ListenerSet + HTTPRoute) and a working cert issuer
-(`letsencrypt-http` no longer exists; the issuers are `letsencrypt`, DNS-01, and
-`linuxguru-ca`).
+module to `gateway/expose` (ListenerSet + HTTPRoute) and passing a working cert
+issuer — `cert_authorities.default` (`letsencrypt`, DNS-01; the old
+`letsencrypt-http` is long gone and `linuxguru-ca` is dormant).
 
 The module repo's own `./build` script (bump chart version → commit/push →
 package and push the chart) still applies if you go back to it.

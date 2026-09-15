@@ -1,6 +1,6 @@
 # Exposure via the shared private gateway (kube-network): HTTPS listeners for
 # master/s3 + HTTPRoutes to the chart's ClusterIP services. TLS terminates at the
-# gateway with linuxguru-ca certs.
+# gateway, signed by `cert_issuer` (see modules/cert_manager).
 #
 # The ADMIN UI is deliberately NOT published here: it is fronted by an authentik
 # proxy outpost, which must live in the mantle stack (only mantle has the
