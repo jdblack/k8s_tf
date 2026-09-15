@@ -1,8 +1,3 @@
-# The library's single NetworkPolicy renderer: the presets (basic_internet /
-# limited_ingress / allow_api) and any bespoke caller build explicit rule lists
-# and hand them here, so the "rule object -> typed kubernetes_network_policy_v1"
-# translation exists once.
-
 variable "name" {
   type        = string
   description = "NetworkPolicy metadata.name (unique per namespace)."
@@ -12,7 +7,7 @@ variable "namespace" {
   type = string
 }
 
-# Which pods this policy applies to. Empty = `podSelector: {}` = whole namespace.
+# Which pods this policy applies to. Empty = whole namespace.
 variable "pod_selector" {
   type    = map(string)
   default = {}
@@ -23,7 +18,7 @@ variable "policy_types" {
   type = list(string)
 }
 
-# Rule lists. Rule shape (same for both directions):
+# Rule lists, same shape in both directions:
 #   {
 #     peers = [
 #       { namespace_selector = { "kubernetes.io/metadata.name" = "kube-network" } },
@@ -32,9 +27,8 @@ variable "policy_types" {
 #     ]
 #     ports = [{ protocol = "TCP", port = 6443 }]   # optional; omitted = any
 #   }
-# Typed `any` (not `list(any)`): peer shapes differ between entries (some
-# ip_block, some namespace_selector; optional ports), and `list(any)` would force
-# every element to the same type.
+# Typed `any`, not `list(any)`: peer shapes differ between entries and
+# `list(any)` would force every element to the same type.
 variable "ingress_rules" {
   type    = any
   default = []

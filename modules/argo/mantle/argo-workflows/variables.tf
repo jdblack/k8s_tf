@@ -17,9 +17,8 @@ variable "chart" {
   default = "argo-workflows"
 }
 
-# Pin to the chart version currently running in the cluster.  See helm.tf for
-# why this should only move in a deliberate, dedicated change.
-variable "chart_version" {
+# See helm.tf for why this only moves in a deliberate, dedicated change.
+variable "helm_version" {
   type    = string
   default = "0.46.4"
 }
@@ -28,8 +27,7 @@ variable "domain" {
   type = string
 }
 
-# Issuer for this host's own ListenerSet (argo-wf.vn) -- leaf cert only. The
-# SSO clients validate authentik against the container's public roots.
+# Issuer for this host's own ListenerSet -- leaf cert only.
 variable "cert_issuer" {
   type = string
 }
@@ -39,10 +37,8 @@ variable "oauth2_server" {
   type = string
 }
 
-# Global-admin group, matched in addition to the app's own `<name>-admin`
-# group.  This is authentik's built-in superuser group; its name is a literal
-# (authentik ships it), and it must match exactly as it appears in the `groups`
-# claim.
+# authentik's built-in superuser group; matched in addition to the app's own
+# `<name>-admin` group. Must match the `groups` claim exactly.
 variable "admin_group" {
   type    = string
   default = "authentik Admins"

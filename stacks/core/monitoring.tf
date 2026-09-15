@@ -19,16 +19,15 @@ module "smartctl" {
 module "prometheus" {
   source    = "../../modules/monitoring/prometheus"
   namespace = "monitoring"
-  # module.storage: this module creates Grafana/Prometheus/Alertmanager PVCs on
-  # Longhorn, so the module that installs Longhorn has to be applied first.
+  # module.storage: Grafana/Prometheus/Alertmanager PVCs live on Longhorn, so the
+  # module that installs it must be applied first.
   depends_on = [
     module.network,
     module.cert_man,
     module.storage,
   ]
   domain = var.deployment.common.domain
-  # Leaf cert only. Grafana's OIDC client trusts authentik through the
-  # container's public roots, so it mounts no CA bundle.
+  # Listener cert only; client trust comes from authentik's public chain.
   cert_issuer = var.deployment.cert_authorities.default
 }
 

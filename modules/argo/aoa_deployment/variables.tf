@@ -1,4 +1,4 @@
-variable "argo_namespace" {} # The AoA deployer goes into the argocd namespace
+variable "argo_namespace" {} # the AoA deployer goes into the argocd namespace
 variable "name" {}
 variable "namespace" { default = "" }
 variable "create_namespace" { default = false }

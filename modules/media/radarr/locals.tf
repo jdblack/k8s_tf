@@ -21,8 +21,10 @@ locals {
         size = var.config_size
       }
     }
+    # 1000:1000 across the arrs sharing the `media` PVC -- see README.md.
     securityContext = {
-      runAsUser = 1000
+      runAsUser  = 1000
+      runAsGroup = 1000
     }
   }
 }

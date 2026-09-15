@@ -7,8 +7,10 @@ resource "helm_release" "helm" {
   chart      = "authentik"
   # Pinned: 2026.8.0 (unpinned latest) crashes at startup in this cluster
   # ("server has exited unexpectedly"). Upgrade deliberately later.
-  version   = "2025.10.3"
+  version   = var.helm_version
   namespace = var.namespace
+  wait      = true
+  timeout   = 600
   values    = [yamlencode(local.helm_values)]
 }
 

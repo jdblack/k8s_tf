@@ -3,8 +3,7 @@ variable "apps" {
   type = map(object({
     external_host = string
     internal_host = string
-    # Bookmark-tile icon URL shown in authentik's application list. Optional;
-    # null leaves it unset (no icon).
+    # Bookmark-tile icon URL; null leaves it unset.
     icon = optional(string)
   }))
 }

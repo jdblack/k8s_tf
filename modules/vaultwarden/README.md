@@ -1,43 +1,44 @@
 # `vaultwarden` — self-hosted Bitwarden server on the private gateway
 
-Hand-rolled, no chart: the workload is a Deployment + PVC + Service + Secret, so
-this module owns the `Recreate` strategy, the config Secret and the deliberately
-absent admin panel. Snapshotting is *not* decided here — it is cluster policy in
+Hand-rolled, no chart: Deployment + PVC + Service + Secret, so this module owns
+the `Recreate` strategy, the config Secret and the deliberately absent admin
+panel. Snapshotting is *not* decided here — it is cluster policy in
 [`../storage/longhorn_jobs.tf`](../storage/longhorn_jobs.tf).
 
 ```
-https://vaultwarden.linuxguru.net   ->  private gateway (192.168.0.100)
+https://vaultwarden.linuxguru.net   ->  private gateway (MetalLB VIP, .100 today)
                                     ->  vaultwarden:80 (ClusterIP, RWO PVC /data)
 ```
 
 LAN and WireGuard only. **Not** reachable from the internet: the A record is an
-RFC1918 address and the public gateway has no listener for the host (fails closed
-with TLS `unrecognized name`). The cert is publicly trusted.
+RFC1918 address and the public gateway has no listener for the host (fails
+closed with TLS `unrecognized name`). The cert is publicly trusted.
 
 ## Two deliberate choices
 
 1. **A publicly-trusted cert on a private gateway.** The issuer is the
-   deployment's default (`letsencrypt`; DNS-01/route53 is its only solver), so
-   issuance needs no inbound reachability and no phone has to install a CA. This
-   host was simply the first one on it: as of 2026-09-15 the CA is dormant and
-   *every* host is on the default issuer, so the reasoning below survives as the
-   template rather than the exception. The gateway-shim mechanism is unchanged
-   (`cert-manager.io/cluster-issuer` annotation → `Certificate` `cert-<fqdn>` →
-   TLS `certificateRefs`), so moving the `ListenerSet` to the public gateway later
-   is a one-line change with zero client reconfiguration — Bitwarden clients pin
-   the server URL.
+   deployment default (`letsencrypt`; DNS-01/route53 is its only solver), so
+   issuance needs no inbound reachability and no phone installs a CA. This host
+   was simply the first one on it — every host is now. The gateway-shim
+   mechanism is unchanged (`cert-manager.io/cluster-issuer` annotation →
+   `Certificate` `cert-<fqdn>` → TLS `certificateRefs`), so moving the
+   `ListenerSet` to the public gateway later is a one-line change with zero
+   client reconfiguration (clients pin the server URL).
 2. **The hostname is `linuxguru.net`, with a Terraform-managed A record.** The
    `*.linuxguru.net` wildcard points at the WAN IP and external-dns owns
    `vn.linuxguru.net` only, so nothing automatic can publish this host. `dns.tf`
    ([`../network/dns/route53_record`](../network/dns/route53_record/README.md))
-   creates an authoritative `A → 192.168.0.100`, ttl 60. Without it, LAN clients
-   follow the wildcard out to the internet and hairpin into the public gateway.
+   creates an authoritative `A`, ttl 60, whose value is read off the private
+   gateway's live data-plane Service (`stacks/mantle/vaultwarden.tf`) — the VIP
+   floats, so the record tracks it instead of freezing an address. Without the
+   record, LAN clients follow the wildcard out to the internet and hairpin into
+   the public gateway.
 
-Also note: **no authentik proxy outpost here, on purpose.** The clients are not
-browsers — they POST to `/identity/connect/token`, call `/api/*` with bearer
-tokens, and hold a `/notifications/hub` websocket. An outpost 302s those to a
-login page and breaks every client. `/admin` is disabled instead (`ADMIN_TOKEN`
-unset — see `secret.tf`), and config lives in Terraform.
+**No authentik proxy outpost here, on purpose.** Clients are not browsers — they
+POST to `/identity/connect/token`, call `/api/*` with bearer tokens, and hold a
+`/notifications/hub` websocket. An outpost 302s those to a login page and breaks
+every client. `/admin` is disabled instead (`ADMIN_TOKEN` unset — see
+`secret.tf`), and config lives in Terraform.
 
 ## Files
 
@@ -50,13 +51,12 @@ unset — see `secret.tf`), and config lives in Terraform.
 | `listener.tf` | `expose`: ListenerSet on the `private` gateway + HTTPRoute to the Service |
 | `dns.tf` | the authoritative Route53 A record |
 | `security.tf` | egress `basic_internet`; ingress `limited_ingress` = self + `kube-network`, no CIDRs |
-| `disaster_recovery.md` | what a restore costs here; the mechanics are in [`../storage/disaster_recovery.md`](../storage/disaster_recovery.md) |
+| `disaster_recovery.md` | what a restore costs here; mechanics in [`../storage/disaster_recovery.md`](../storage/disaster_recovery.md) |
 
-`strategy = Recreate` is required: the PVC is RWO and a rolling update would
-deadlock waiting for the old pod to release the volume. The pod template carries a
-`checksum/config` annotation derived from the config Secret, so an apply that
-changes a setting actually rolls the pod — Kubernetes does not restart pods when
-only a Secret changes.
+`strategy = Recreate` is required (RWO PVC; a rolling update deadlocks waiting
+for the old pod to release the volume), and the pod template carries a
+`checksum/config` annotation from the config Secret so a setting change actually
+rolls the pod — Kubernetes never restarts pods for a Secret alone.
 
 ## Configuration (env, in `secret.tf`)
 
@@ -72,58 +72,57 @@ only a Secret changes.
 | `PASSWORD_HINTS_ALLOWED` | `false` | unauth endpoint off |
 | `EMERGENCY_ACCESS_ALLOWED` | `false` | unauth endpoint off |
 | `LOGIN_RATELIMIT_SECONDS` / `_MAX_BURST` | `60` / `10` | brute-force brake, per client because NGF sets `X-Real-IP` (vaultwarden's default `IP_HEADER`) |
-| `ADMIN_TOKEN` | **unset** | no admin panel. Unset ⇒ `/admin` returns a plain-text `200` saying the panel is disabled and every `/admin/*` API path (diagnostics, users, login) `404`s. If ever set, use an argon2 hash, never plaintext |
+| `ADMIN_TOKEN` | **unset** | no admin panel: `/admin` returns plain-text `200` "panel is disabled", every `/admin/*` API path `404`s. If ever set, use an argon2 hash, never plaintext |
 
-**No metrics.** 1.37.3 has no `/metrics` and no `PROMETHEUS_ENABLED` (the metrics
-build feature was dropped upstream); the only health route is `GET /alive`, hence
-no ServiceMonitor. Re-check upstream before adding one — and then also add
+**No metrics.** 1.37.3 has no `/metrics` and no `PROMETHEUS_ENABLED` (the build
+feature was dropped upstream); the only health route is `GET /alive`, hence no
+ServiceMonitor. Re-check upstream before adding one — and then also add
 `monitoring` to the ingress guest list in `security.tf`.
 
 ## Snapshots
 
-Snapshotting is cluster policy, not app config: `vaultwarden-data` is enrolled in
+Cluster policy, not app config: `vaultwarden-data` is enrolled in
 `daily` + `weekly` + `monthly` (retain 2 each) by
-[`../storage/longhorn_jobs.tf`](../storage/longhorn_jobs.tf), and labelled by
+[`../storage/longhorn_jobs.tf`](../storage/longhorn_jobs.tf) and labelled by
 [`../storage/snapshot_labeler.tf`](../storage/snapshot_labeler.tf), which writes
-the group label onto the Longhorn **Volume CR** — never onto this PVC. A PVC
-carrying `recurring-job.longhorn.io/*` *replaces* its volume's whole group set
-instead of merging into it, which silently de-enrols that volume from every tier;
-this module did exactly that until 2026-09-16 (a per-app `backup.tf` job with
-retain 7, a group named after the app, plus the `source: enabled` PVC label the
-enhancement doc requires). Retired deliberately: uniform tiers beat per-app
-sentiment, and every Bitwarden client already holds a full copy of the vault.
+the group label onto the Longhorn **Volume CR** — never onto this PVC, because a
+PVC carrying `recurring-job.longhorn.io/*` *replaces* its volume's whole group
+set instead of merging, silently de-enrolling it from every tier. This module
+did exactly that (per-app `backup.tf`, retain 7, group named after the app, plus
+the `source: enabled` PVC label) until 2026-09-16. Retirement rationale: uniform
+tiers beat per-app sentiment, and every Bitwarden client already holds a full
+copy of the vault.
 
-Restore mechanics and their preconditions (the revert needs maintenance mode, and
-the manager API is in-cluster only) are in
+Restore mechanics (revert needs maintenance mode; the manager API is
+in-cluster only) are in
 [`../storage/disaster_recovery.md`](../storage/disaster_recovery.md); what a
 vaultwarden restore specifically costs is in
 [`disaster_recovery.md`](disaster_recovery.md).
 
-**Snapshots are cluster-local** — they belong to the volume, so losing the cluster
-(or its disks) loses them, and destroying this module deletes the PVC while the
-`longhorn` StorageClass is `reclaimPolicy: Delete`. Until an offsite S3
-`backupTarget` exists (`memory-bank/progress.md`), **export from a client before
-any destroy** and treat the cluster as one failure domain. Attachment blobs are in
+**Snapshots are cluster-local**: they belong to the volume, and destroying this
+module deletes the PVC (`longhorn` StorageClass is `reclaimPolicy: Delete`).
+Until an offsite S3 `backupTarget` exists, **export from a client before any
+destroy** and treat the cluster as one failure domain. Attachment blobs are in
 neither the client cache nor a standard export.
 
 ## Offline behaviour (accepted design, not a bug list)
 
 - **Works offline from cache**: reading/copying items, search, autofill, TOTP
   codes (the seeds live in the vault).
-- **Does NOT work offline**: creating/editing items (Bitwarden clients have no
-  offline write queue), attachment downloads, and new-device enrolment / re-login.
-- **Cache loss = lockout**: a reinstall, iOS storage eviction, or an invalidated
+- **Does NOT work offline**: creating/editing items (no offline write queue in
+  the clients), attachment downloads, new-device enrolment / re-login.
+- **Cache loss = lockout**: a reinstall, iOS storage eviction or an invalidated
   session means no access until you are home or on WireGuard. Keep two enrolled
   clients (phone + laptop) so losing one does not strand you.
-- **WireGuard is the escape hatch** (`modules/network/wireguard`: full tunnel, DNS
-  `192.168.0.2`). It is UDP-only on `home.linuxguru.net:51820`, so a network that
-  blocks UDP defeats it.
+- **WireGuard is the escape hatch** (`modules/network/wireguard`: full tunnel,
+  DNS `192.168.0.2`). It is UDP-only on `home.linuxguru.net:51820`, so a network
+  that blocks UDP defeats it.
 - **A phone/laptop is not a backup**: see the export caveat above.
 
 ## Verifying
 
 ```sh
-dig +short vaultwarden.linuxguru.net                 # 192.168.0.100
+dig +short vaultwarden.linuxguru.net                 # the private gateway's VIP (.100 today)
 
 echo | openssl s_client -connect vaultwarden.linuxguru.net:443 \
   -servername vaultwarden.linuxguru.net 2>/dev/null | openssl x509 -noout -issuer -subject
@@ -135,19 +134,17 @@ curl -s -o /dev/null -w '%{http_code}\n' \
      https://vaultwarden.linuxguru.net/admin/diagnostics   # 404 - no admin API
 
 kubectl -n vaultwarden get listenerset,certificate,pvc,pod
-kubectl -n longhorn-system get volumes.longhorn.io \
-  -o jsonpath='{range .items[*]}{.status.kubernetesStatus.namespace}/{.status.kubernetesStatus.pvcName}{"\t"}{.metadata.labels}{"\n"}{end}' | grep vaultwarden
-# must show recurring-job-group.longhorn.io/{daily,weekly,monthly}=enabled and
-# NOT recurring-job-group.longhorn.io/vaultwarden (that group is retired)
+kubectl -n longhorn-system get volumes.longhorn.io -o json | \
+  grep -A2 vaultwarden | grep recurring-job-group
+# must show daily/weekly/monthly=enabled and NOT .../vaultwarden (retired group)
 ```
 
-DNS: TTL 60, so if `dig` still returns the WAN IP you are seeing the wildcard —
-wait a minute, don't "fix" it.
-
-The `A` record and the `ListenerSet` are independent; browsers need both (cert
-`Ready` in ~30-90 s, DNS inside the TTL). The ListenerSet briefly reports
-`InvalidCertificateRef: Secret vaultwarden/cert-vaultwarden.linuxguru.net does not
-exist` then flips to `Accepted/Programmed=True` on its own — no `depends_on` hacks.
+DNS TTL is 60, so if `dig` still returns the WAN IP you are seeing the wildcard
+— wait a minute, don't "fix" it. The `A` record and the `ListenerSet` are
+independent; browsers need both (cert `Ready` in ~30-90 s, DNS inside the TTL).
+The ListenerSet briefly reports `InvalidCertificateRef: Secret
+vaultwarden/cert-vaultwarden.linuxguru.net does not exist` then flips to
+`Accepted/Programmed=True` on its own — no `depends_on` hacks.
 
 Drift test (this is the "authoritative" requirement):
 
@@ -163,29 +160,31 @@ tofu -chdir=stacks/mantle apply
 
 - **First-run bootstrap (there is no CLI user-create).** Set `signups_allowed =
   true` in `stacks/mantle/vaultwarden.tf`, apply, register at
-  `https://vaultwarden.linuxguru.net/#/register`, set it back to `false`, apply
-  again. While true, anyone who can reach the host can create an account — a small
-  window here (LAN/WireGuard only), but don't leave it on.
-- **The admin panel is never needed.** Everything it configures is in `secret.tf`,
-  and it is the one component that can silently diverge from Terraform: the panel
-  writes `/data/config.json`, and **vaultwarden gives `config.json` precedence over
-  these env vars**. Enable it only for a one-off (e.g. inviting a user, which needs
-  an `ADMIN_TOKEN`), then remove the token — otherwise a panel edit looks like it
-  "didn't stick" after the next apply, or worse sticks while TF claims ownership.
+  `https://vaultwarden.linuxguru.net/#/register`, set it back to `false`, apply.
+  While true, anyone who can reach the host can create an account — a small
+  window (LAN/WireGuard only), but don't leave it on.
+- **The admin panel is never needed.** Everything it configures is in
+  `secret.tf`, and it is the one component that can silently diverge from
+  Terraform: it writes `/data/config.json`, and **vaultwarden gives that file
+  precedence over these env vars**. Enable it only for a one-off (e.g. inviting a
+  user, which needs an `ADMIN_TOKEN`), then remove the token — otherwise a panel
+  edit looks like it "didn't stick" after the next apply, or worse sticks while
+  TF claims ownership.
 - **Rollback caution**: destroying this module deletes the PVC and with it the
-  snapshots (see "Backups"). Export from a client first.
+  snapshots. Export from a client first.
 - AWS credentials come from `var.deployment.cert` — the least-privilege
-  `lg-route53` key `modules/cert_manager` already uses for the DNS-01 solver, plus
+  `lg-route53` key `modules/cert_manager` already uses, plus
   `route53:GetHostedZone`, because `aws_route53_record` reads the zone on every
-  CRUD path (see [`../network/dns/route53_record/README.md`](../network/dns/route53_record/README.md)).
+  CRUD path ([`../network/dns/route53_record/README.md`](../network/dns/route53_record/README.md)).
   It stays scoped to the one zone — don't widen it.
-- Fresh-cluster ordering: `stacks/core` before `stacks/mantle` (the HTTPRoute needs
-  the Gateway API CRDs at plan time). This module no longer creates Longhorn CRs,
-  so it has no CRD ordering left to respect — but snapshot enrolment happens in
-  `stacks/core`, which runs *before* this PVC exists: re-apply `stacks/core` after
-  `stacks/mantle` so the labeler finds the volume (it warns and skips otherwise).
-- Cert issuance sharp edge: `challenge.spec.solver` is a frozen snapshot, so editing
-  the `ClusterIssuer` does not fix an in-flight challenge. Delete the
-  CertificateRequest/Order/Challenge chain; if a Challenge is stuck `Terminating`,
-  strip its finalizer
+- Fresh-cluster ordering: `stacks/core` before `stacks/mantle`. Snapshot
+  enrolment happens in `stacks/core`, which runs *before* this PVC exists —
+  re-apply `stacks/core` after `stacks/mantle` so the labeler finds the volume
+  (it warns and skips otherwise).
+- Cert issuance sharp edge: `challenge.spec.solver` is a frozen snapshot, so
+  editing the `ClusterIssuer` does not fix an in-flight challenge. Delete the
+  CertificateRequest/Order/Challenge chain; if a Challenge is stuck
+  `Terminating`, strip its finalizer
   (`kubectl patch challenge <name> -n vaultwarden --type=merge -p '{"metadata":{"finalizers":null}}'`).
+
+

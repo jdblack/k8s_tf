@@ -4,7 +4,7 @@ module "oauth2" {
   redirect_uri = "https://${local.fqdn}/c/oidc/callback"
   source       = "../../auth/authentik/oidc_provider"
 
-  # Bookmark tile (dashboard-icons via jsDelivr) + open in a new tab.
+  # Bookmark tile (dashboard-icons via jsDelivr).
   meta_icon       = "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/harbor.svg"
   open_in_new_tab = true
 }
@@ -13,9 +13,8 @@ module "oauth2" {
 
 resource "harbor_config_auth" "oidc" {
   auth_mode = "oidc_auth"
-  # Skip the "Authentik vs local DB" login page and bounce straight to the OIDC
-  # provider. Local DB login still exists -- the admin has to type the login url
-  # (/account/sign-in) by hand. Harbor >= 2.8 (chart is unpinned, so fine).
+  # Skips the "Authentik vs local DB" login page. The local DB login still exists but
+  # is only reachable by typing /account/sign-in by hand.
   primary_auth_mode  = true
   oidc_name          = "Authentik"
   oidc_endpoint      = "https://${var.oauth2_server}/application/o/${var.name}/"

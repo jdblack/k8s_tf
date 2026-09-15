@@ -1,5 +1,5 @@
-# Grafana SSO. The grafana release itself is managed by the core stack; this
-# only creates the authentik OIDC client and the credential secret it reads.
+# Grafana SSO: the authentik OIDC client and the credential secret the grafana release
+# (core stack) reads.
 module "grafana_oidc" {
   source    = "../../modules/monitoring/grafana_oidc"
   namespace = "monitoring"

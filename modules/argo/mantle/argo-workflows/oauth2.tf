@@ -5,8 +5,8 @@ module "auth" {
   redirect_uri = "https://${local.fqdn}/oauth2/callback"
   source       = "../../../auth/authentik/oidc_provider"
 
-  # Tile icon + open in a new tab. No dedicated Argo Workflows icon exists in the
-  # dashboard-icons/selfh.st sets, so keep the official Argo Project GitHub avatar.
+  # No Argo Workflows icon exists in the dashboard-icons/selfh.st sets, so keep the
+  # official Argo Project GitHub avatar.
   meta_icon       = "https://avatars.githubusercontent.com/u/30269780?s=60&v=4"
   open_in_new_tab = true
 }

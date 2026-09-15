@@ -7,19 +7,18 @@ resource "kubernetes_service_account_v1" "argo_wf_ui_admin" {
     namespace = var.namespace
 
     annotations = {
-      # `authentik Admins` is the built-in superuser group. Treating it as admin
-      # (here and in every other app's group rule) means a global admin need not
-      # be hand-added per app group -- which matters because groups only reach the
-      # claims at login time, so every membership change costs a re-login.
+      # `authentik Admins` is the built-in superuser group, matched in addition to
+      # the app's own group so a global admin need not be hand-added per app group
+      # -- group membership only reaches the claims at login time, so every change
+      # costs a re-login.
       "workflows.argoproj.io/rbac-rule"            = "'${var.name}-admin' in groups || '${var.admin_group}' in groups"
       "workflows.argoproj.io/rbac-rule-precedence" = "1"
     }
   }
 }
 
-# K8s >= 1.24 no longer auto-provisions a per-SA token secret; create one so the
-# server has a stable secret to read when acting as the user's SA. Whitelisted on
-# the server in locals.tf.
+# K8s >= 1.24 no longer auto-provisions a per-SA token secret; the server needs a
+# stable secret to read when acting as the user's SA.
 resource "kubernetes_secret_v1" "argo_wf_ui_admin_token" {
   metadata {
     name      = local.ui_admin_token_secret
@@ -50,7 +49,7 @@ resource "kubernetes_cluster_role_binding_v1" "argo_wf_ui_admin" {
     name      = kubernetes_service_account_v1.argo_wf_ui_admin.metadata[0].name
   }
 
-  # The referenced ClusterRole is rendered by the Helm chart; make sure it exists
-  # before the binding on a cold install.
+  # The ClusterRole is rendered by the chart: on a cold install the binding must wait
+  # for it.
   depends_on = [helm_release.workflows]
 }

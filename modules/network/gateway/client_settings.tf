@@ -1,11 +1,7 @@
-# NGF 2.x ignores the legacy nginx.org/client-max-body-size HTTPRoute
-# annotation; client request body size is configured via the
-# ClientSettingsPolicy API (gateway.nginx.org/v1alpha1). Targetting the Gateway
-# removes nginx's 1m client_max_body_size default for EVERY route on this
-# gateway (including ListenerSet-derived listeners in other namespaces), so
-# apps don't each need their own policy. A more specific route-level
-# ClientSettingsPolicy can still override this per app if one ever needs a
-# tighter cap.
+# NGF 2.x ignores the legacy nginx.org/client-max-body-size annotation: body size
+# comes from ClientSettingsPolicy. Targeted at the Gateway, not a route, so one
+# policy overrides nginx's 1m default for every route on this gateway -- including
+# listeners contributed by ListenerSets in other namespaces.
 resource "kubectl_manifest" "client_settings" {
   yaml_body = yamlencode({
     apiVersion = "gateway.nginx.org/v1alpha1"

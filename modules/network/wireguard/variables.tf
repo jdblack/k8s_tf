@@ -27,8 +27,8 @@ variable "dns" {
   default = ""
 }
 
-# Search domains handed to peers; joined with ", " into the operator's single
-# dnsSearchDomain string -> clients get `DNS = <dns>, <domain>, <domain>`.
+# Search domains handed to peers, joined into the operator's single
+# dnsSearchDomain string.
 variable "dns_search_domains" {
   type    = list(string)
   default = []
@@ -39,7 +39,7 @@ variable "peers" {
   default = []
 }
 
-variable "chart_version" {
+variable "helm_version" {
   type    = string
   default = "0.3.0"
 }

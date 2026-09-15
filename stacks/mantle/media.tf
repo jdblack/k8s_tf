@@ -1,29 +1,21 @@
 module "media" {
   source      = "../../modules/media"
-  namespace   = "media"
   domain      = var.deployment.common.domain
   cert_issuer = var.deployment.cert_authorities.default
   domains     = var.deployment.domains
-  plex_claim  = try(var.deployment.media.plex_claim, "")
+  # Optional Plex registration token; empty in tfvars today.
+  plex_claim = try(var.deployment.media.plex_claim, "")
 
-  # MetalLB IP the home router port-forwards qbittorrent torrent traffic to;
-  # pinned so the webui/torrent Service split can't reassign it.
+  # LAN / cluster-CIDR / LoadBalancer inputs come from tfvars so that renumbering is a
+  # tfvars edit.
+  #
+  # qbittorrent_torrent_lb_ip is optional, and exists to re-pin the torrent
+  # LoadBalancer -- the one address the home router port-forwards, so the one DNS
+  # cannot cover. Unset = float.
   qbittorrent_torrent_lb_ip = try(var.deployment.media.qbittorrent_torrent_lb_ip, null)
-
-  # The local LAN: the only non-pod source allowed to reach media's
-  # LoadBalancers (plex / qbittorrent-torrent / media-private gateway). Comes
-  # from tfvars so renumbering the LAN is a one-line change, not a code edit.
-  lan_cidrs = [var.deployment.metal.local_lan]
-
-  # Cluster pod + service CIDRs, from tfvars (deployment.network) -- excluded
-  # from the public-internet ingress peer so no cluster pod can reach media.
+  lan_cidrs                 = [var.deployment.metal.local_lan]
   cluster_cidrs = [
     var.deployment.network.pod_cidr,
     var.deployment.network.service_cidr,
   ]
-
-  # Every media host is signed by the default issuer (letsencrypt, DNS-01) -- the
-  # TXT lands in the Route53 linuxguru.net zone, so it needs no inbound
-  # reachability, and no client needs ~/.ssl/ca.crt. See
-  # modules/cert_manager/README.md.
 }

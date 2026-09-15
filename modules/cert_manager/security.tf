@@ -1,11 +1,10 @@
 
-# Egress: same-ns + DNS + the k8s API (cert-manager watches/patches
-# Certificates) + internet (Let's Encrypt, Route53).
+# Egress: same-ns + DNS + the k8s API (cert-manager watches/patches Certificates) +
+# internet (Let's Encrypt, Route53).
 #
-# Deliberately NO ingress policy: the kube-apiserver calls the webhook from the
-# nodes (host traffic, not a pod namespace), so restricting ingress would break
-# certificate issuance cluster-wide. Egress-only keeps the lateral-movement win
-# without that risk.
+# Deliberately NO ingress policy: the kube-apiserver calls the webhook from the nodes
+# (host traffic, not a pod namespace), so restricting ingress would break certificate
+# issuance cluster-wide.
 module "firewall" {
   source          = "../network/firewalls/basic_internet"
   namespace       = var.namespace
@@ -13,8 +12,8 @@ module "firewall" {
 
   # Read one level up: this module is called under a module-level depends_on
   # (stacks/core/core.tf: depends_on = [module.network]), which would defer the
-  # firewall's own endpoints read to apply time and abort the apply (see
-  # var.api_peer_ips).
+  # firewall's own endpoints read to apply time and abort the apply -- see
+  # var.api_peer_ips.
   api_peer_ips = var.api_peer_ips
 
   depends_on = [kubernetes_namespace_v1.namespace]

@@ -3,10 +3,8 @@ locals {
   cert_name = "cert-${local.fqdn}"
 }
 
-# App HTTPS listener on this Gateway instance (e.g. media-private). cert-manager's
-# gateway-shim auto-provisions the cert secret (in this namespace, alongside the
-# ListenerSet) from the annotation. protocol = "HTTP" gives a plain-HTTP listener
-# with no cert (cert_issuer ignored).
+# cert-manager's gateway-shim provisions the cert secret (in this namespace) from
+# the annotation. protocol = "HTTP" gives a plain listener with no cert.
 resource "kubernetes_manifest" "listener_set" {
   manifest = {
     apiVersion = "gateway.networking.k8s.io/v1"
@@ -30,9 +28,8 @@ resource "kubernetes_manifest" "listener_set" {
           protocol = var.protocol
           hostname = local.fqdn
           # Accept routes from ANY namespace: charts that render their own route
-          # against the Gateway (e.g. harbor's expose.type = "route") attach
-          # cross-namespace via hostname matching, which the default
-          # allowedRoutes (Same) would block. Hostname scoping keeps it isolated.
+          # (e.g. harbor's expose.type = "route") attach cross-namespace via
+          # hostname matching, which the default allowedRoutes (Same) blocks.
           allowedRoutes = {
             namespaces = {
               from = "All"
@@ -53,8 +50,7 @@ resource "kubernetes_manifest" "listener_set" {
 }
 
 # Cross-namespace ListenerSet -> Gateway attachment needs a ReferenceGrant in the
-# ListenerSet's namespace. Same-namespace attachment (the media pattern) needs
-# none, so this is skipped there.
+# ListenerSet's namespace; same-namespace attachment needs none.
 resource "kubernetes_manifest" "reference_grant" {
   count = var.gateway_namespace != var.namespace ? 1 : 0
 
@@ -84,9 +80,8 @@ resource "kubernetes_manifest" "reference_grant" {
   }
 }
 
-# Charts that render their own HTTPRoute against the Gateway (harbor's
-# expose.type = "route") reference it directly, so a cross-namespace attachment
-# needs a SECOND grant for HTTPRoute -> Gateway.
+# Charts that render their own HTTPRoute against the Gateway reference it
+# directly, so that direction needs a second grant.
 resource "kubernetes_manifest" "reference_grant_httproute" {
   count = var.gateway_namespace != var.namespace ? 1 : 0
 

@@ -1,533 +1,289 @@
 # Active Context
 
-## Current state (as of 2026-09-16, early)
+*Last consolidated 2026-09-16. The dated blow-by-blow is folded into one-line
+entries at the bottom; `progress.md` holds the open list.*
 
-- Branch `main`, ahead of `origin/main` (baseline `5f0f582` → `7c24e81` →
-  `92469da` → `226ba04` → `bbe94f4`), plus the 2026-09-15 orphan/dead-config
-  sweep below. **Not pushed as of this writing.**
-- **2026-09-16 (early) — every `moved` block in the repo was deleted: all 28 were
-  spent.** 17 files carried them (media ×6, seaweedfs ×4, prometheus ×2,
-  argo-wf ×2, argo-cd/harbor/authentik-core ×1 each, authentik-outpost ×1,
-  proxy_app ×1, firewalls ×3) from three refactors — `expose` (2026-09-12),
-  `firewalls/policy` folding the inline netpols in, and the authentik group's
-  brief `count`. Proof they were spent: `state list` for core/mantle/apps holds
-  only the *destination* addresses (e.g.
-  `module.media.module.plex.module.expose.module.listener_set…`,
-  `module.media.module.auth.authentik_group.access`, `…module.policy.kubernetes_network_policy_v1.this`)
-  and no source address anywhere, and both stacks still plan **No changes**
-  after deletion (`apps` can't plan without its `deployment` var; it has no
-  `moved` blocks and none of its 4 resources are affected). Rule adopted: a
-  `moved` block dies in the same change that applies it, or as soon as its
-  source address is provably absent from state. The shape to re-add (with the
-  rationale) is kept in `modules/network/gateway/expose/README.md`.
-- **2026-09-16 (early) — Longhorn snapshots became one cluster-wide, TF-owned
-  scheme, and the restore path was verified end to end.** The per-app job in
-  `modules/vaultwarden/backup.tf` (retain 7, group `vaultwarden`, the
-  `source: enabled` PVC labels) is retired: `modules/storage/longhorn_jobs.tf`
-  owns three jobs (daily 03:00, weekly Sun 04:00, monthly 28th 05:00, all UTC,
-  uniform `retain: 2`) plus the enrolment table (8 volumes covered, 7 explicit
-  `skip`), and `snapshot_labeler.tf` writes the group labels onto the **Volume
-  CRs** — the only writer of those labels in the repo. Verified live on a
-  throwaway volume + throwaway 2-minute job in a throwaway group (all deleted
-  afterwards, nothing production was reverted): the join fires from a Volume-CR
-  label alone (`status.executionCount: 1`), a new volume is born in the `default`
-  group, revert is refused with `failed to revert snapshot ... with frontend
-  enabled` (http 500) both while attached **and** while merely detached,
-  patching the Volume CR's `disableFrontend` is reverted by the controller,
-  patching the VolumeAttachment ticket's `parameters.disableFrontend` works (no
-  detach needed), the revert returns 200 and the remounted data really is the
-  pre-snapshot content, and the no-ticket path (`attach` +
-  `attacherType: longhorn-api` + `disableFrontend: true`) works too. The manager
-  API is **in-cluster only**: `kubectl exec` into a `longhorn-manager` pod +
-  `http://longhorn-backend:9500` (port-forward and the apiserver service-proxy
-  both fail). Docs: `modules/storage/README.md`,
-  `modules/storage/disaster_recovery.md` (canonical runbook + coverage audit),
-  plus `disaster_recovery.md` in vaultwarden, auth/authentik/core,
-  monitoring/prometheus, harbor/core, storage/seaweedfs,
-  storage/seaweedfs_admin, media/prowlarr and media/bazarr. Core and mantle both
-  plan **No changes** and the audit is clean. Still no `backupTarget`: this is
-  recovery, not backup. In the same session the long-standing core-apply
-  landmine was root-caused and fixed: any pending change in a module under a
+## Current state
+
+- Branch `main`, **ahead of `origin/main`, not pushed** (`5f0f582` → `7c24e81` →
+  `92469da` → `226ba04` → `bbe94f4` → the 2026-09-15/16 sweeps).
+- **VIP policy: everything floats, names are the interface.** No address is
+  pinned in tfvars — clients find services by *DNS*, so every gateway/LB takes a
+  MetalLB pool VIP. `gateway_ips` is deleted from `modules/network` (with it
+  tfvars `network_ingress` and the `stacks/core/core.tf` argument, its only
+  consumers), both shared gateways float, `qbittorrent_torrent_lb_ip` is unset
+  (variable kept as the re-pin escape hatch), and vaultwarden's Route53 A record
+  reads the private gateway's live data-plane Service
+  (`kubernetes_service_v1` data source in `stacks/mantle/vaultwarden.tf`).
+  Consequence to remember: MetalLB keeps an assigned IP when
+  `spec.loadBalancerIP` is cleared, but a **recreated** Service gets a different
+  pool IP — the two router NAT rules (WAN 443 → public gateway, WAN 21010 →
+  torrent) are the only things needing attention, and only on a recreate.
+  Plans: core 0/17/2, mantle 0/10/0, in-place, **not applied**.
+- **All 28 `moved` blocks are deleted** — every one was spent (17 files, three
+  refactors: `expose`, `firewalls/policy`, the authentik group's brief `count`).
+  Proof: `state list` holds only destination addresses, and both stacks plan
+  **No changes** after deletion (`apps` can't plan without its `deployment`
+  var; none of its 4 resources were affected). **Rule:** a `moved` block dies in
+  the same change that applies it. The shape to re-add, with rationale, is in
+  `modules/network/gateway/expose/README.md`.
+- **Longhorn snapshots are one cluster-wide, TF-owned scheme, and the restore
+  path is verified end to end.** `modules/storage/longhorn_jobs.tf` owns three
+  jobs (daily 03:00, weekly Sun 04:00, monthly 28th 05:00, UTC, uniform
+  `retain: 2`) plus the enrolment table (8 volumes covered, 7 explicit `skip`);
+  `snapshot_labeler.tf` writes the group labels onto the **Volume CRs** and is
+  the only writer of them. The per-app job in `modules/vaultwarden/backup.tf` is
+  retired. Verified on throwaway objects: the join fires from a Volume-CR label
+  alone; a new volume is born in the `default` group; revert is refused
+  (`failed to revert snapshot ... with frontend enabled`, http 500) while
+  attached **and** while detached; patching the Volume CR's `disableFrontend` is
+  reverted by the controller, patching the VolumeAttachment ticket's
+  `parameters.disableFrontend` works (no detach needed), the revert returns 200
+  and the remounted data really is the pre-snapshot content; the no-ticket path
+  (`attach` + `attacherType: longhorn-api` + `disableFrontend: true`) works too.
+  **The manager API is in-cluster only**: `kubectl exec` into a
+  `longhorn-manager` pod + `http://longhorn-backend:9500` (port-forward and the
+  apiserver service-proxy both fail). Runbook + coverage audit:
+  `modules/storage/disaster_recovery.md`, mirrored per consumer (vaultwarden,
+  auth/authentik/core, monitoring/prometheus, harbor/core, storage/seaweedfs,
+  storage/seaweedfs_admin, media/prowlarr, media/bazarr). **Still no
+  `backupTarget`: this is recovery, not backup.**
+- **The core-apply landmine is fixed.** A pending change in any module under a
   caller's `depends_on` (cert-manager as readily as storage) deferred the
-  `kubernetes` Endpoints read inside authentik's `allow_api` netpol, and the
+  `kubernetes` Endpoints read inside authentik's `allow_api` netpol and the
   apply aborted with a provider "inconsistent final plan" error. The read now
   happens in the stack root (`stacks/core/core.tf`) and is passed down as
-  `api_peer_ips`, so nothing can defer it. Verified with a deliberate pending
-  storage change applying clean; mechanism in `.clinedocs/calico-netpols.md`,
-  full evidence in `progress.md`.
-- **2026-09-15 (later) — IdP-first login was tried, judged not worth its failure
-  mode, and removed.** Harbor keeps its native `primary_auth_mode`. Argo CD and
-  Argo Workflows got a gateway rule hijacking `Exact /` into their OIDC
-  entrypoints; it worked, then looped the moment the Argo CD target lacked a
-  return URL — `redirectURL := a.baseHRef`, i.e. back to `/`, the hijacked path
-  — showing as ERR_TOO_MANY_REDIRECTS plus argocd-server's `data length is less
-  than nonce size` (its own `util/crypto` decrypting the state cookie the
-  previous callback had just emptied). 604 log lines in 3h, **all `level=info`,
-  not one error**; nothing about it was visible in a plan. Net: both apps serve
-  their own login page again, the `redirect_route` module and both call sites are
-  deleted, and the one-click SSO paths (`/auth/login`,
-  `/oauth2/redirect?redirect=/workflows`) are untouched for bookmarks. Deletion
-  was chosen over a corrected redirect because no native switch exists for either
-  app (grep of Argo CD v3.2.3: no auto-redirect setting; its only built-in SSO
-  bounce is the UI's 401 handler, `app.tsx subscribeUnauthorized`, which needs a
-  session to expire first) — so IdP-first there is a facade by construction, and
-  the click it saves isn't worth a silent loop.
-- **2026-09-15 (night, cleanup session) — orphans and dead config removed, plans
-  still empty.** Four separate messes, each confirmed by a plan that came back
-  empty (core and mantle):
-  1. **The `ai` namespace had two owners** — `stacks/core/ai.tf` created it
-     (genesis-era) *and* `stacks/apps`'s `aoa_deployment` did
-     (`ai_create_namespace` defaults `true`), so both states held the same object
-     and destroying either stack would have deleted it under the other. Core
-     released it: `state rm` **first**, then the file, so no plan could ever
-     destroy the live namespace. Apps keeps ownership — its state already had
-     `module.ai_deployment.kubernetes_namespace_v1.namespace`, so nothing needed
-     importing and the namespace itself was never touched.
-  2. **Dead tfenv blocks deleted**: `deployment.keycloak` and `deployment.ldap`
-     (see the dead-keys bullet above). `dyndns_host` deliberately kept.
-  3. **Orphan namespaces gone**: `trivy-system` + `trivy-temp` were unmanaged
-     empty shells (`kubectl delete`); `kube-security` was declared in
-     `stacks/mantle/security.tf`, so it was removed from TF and `apply` destroyed
-     it — the plan's *only* change (0 add / 0 change / 1 destroy). The same sweep
-     took the `tfstate-default-fuckbatz` Secret and its lock Lease.
-  4. **`stacks/apps` was unplannable** — its `lock-tfstate-default-deployment`
-     Lease had held `70683ac4-6618-f61e-2ad7-52a54ae77110` since **2026-08-29**
-     (`Who: jblack@MacBook-Pro.local`, no tofu process alive; the k8s backend
-     locks through a `coordination.k8s.io` Lease, which is why the lock is not in
-     the state Secret — `kubectl get secret` looked perfectly innocent). Core's
-     and mantle's equivalent Leases were empty/released. Cleared that night with
-     `force-unlock`, after which apps planned `No changes` **and** refreshed
-     `module.ai_deployment.kubernetes_namespace_v1.namespace[0] [id=ai]` — a live
-     confirmation that apps owns the `ai` namespace (see item 1). Note it needs
-     `-var-file=~/.tfenvs/k8s.tfenv` explicitly: unlike core/mantle there is no
-     `terraform.tfvars` symlink in this stack. This was the **first drift check on
-     `stacks/apps` since August**, so its clean plan is new information, not a
-     formality.
-  5. **`.terraform` caches pruned, 2.5 GB → 1.5 GB** — only versions absent from
-     each stack's lock file, plus module dirs nothing enabled references (which is
-     where the orphaned 81 MB `fuckbatz_website` cache lived). See `progress.md`.
-  6. **The `fuckbatz` wordpress module was deleted outright** (the sibling stays
-     parked): `stacks/apps/notbatz.com_website.tf.disabled` is gone, along with
-     the last of its traces. `notbatz.com` is not a Route53 zone in this account
-     (only `linuxguru.net` and `emtho.com` are), so the site could never have
-     resolved. See `progress.md`.
-- **2026-09-15 (night) — the issuer plumbing collapsed onto one key.** A
-  post-migration audit found the (already single-valued) issuer reachable three
-  different ways: a direct `cert_authorities.public` lookup (9 stack sites), a
-  `merge()` in `stacks/core/storage.tf` that faked a `private` key so seaweedfs'
-  visibility-keyed map resolved to a public issuer, and a `cert_issuers` per-app
-  override in `modules/media` that nothing ever passed. All of it now reads
-  **`cert_authorities.default`** (= letsencrypt), one plain `cert_issuer` string
-  per module; those override maps, `local.issuers`, the seaweedfs visibility map
-  and the dead `cert.pub_cert_issuer` key are gone. `tofu plan` came back **empty in
-  core and mantle both before and after** — a pure no-op, which is the proof the
-  three shapes were the same constant.
-  Two host-count corrections fell out: **19 Certificates live, 16 declared here** —
-  the other 3 (`ollama`, `llm-embedder`, `corsless`) are declared by the external
-  app-of-apps repo. Entries below that say 17 are the count at the migration
-  moment, before those two `ai` hosts came back the same day.
-- **2026-09-15 (later) — both dead `ai` apps are alive and serving.**
-  `https://corsless.vn.linuxguru.net` (`/health` → `200 {"status":"ok"}`, proxy
-  returns `access-control-allow-origin: *`) and
-  `https://llm-embedder.vn.linuxguru.net` (`/health` →
-  `{"name":"llm-embedder","status":"ok"}`, 5/5 pods Running, Argo
-  Synced/Healthy, `library/llm-embedder-chart:0.0.77` +
-  `library/llm-embedder:v0.0.77` published). Both wire certs are now
-  `O=Let's Encrypt` with the right SAN and verify against stock roots. Three
-  chained bugs, in the order they bit:
-  1. **Build**: `corsless/Dockerfile` built for the builder's platform, so the
-     amd64 image was a qemu-emulated Go build that crashed. Now
-     `FROM --platform=$BUILDPLATFORM` + `GOOS`/`GOARCH` cross-compile — builder
-     runs native arm64, output is amd64.
-  2. **Publish auth**: `helm` had no credentials. On macOS its store is
-     `~/Library/Preferences/helm/registry/config.json`, **not**
-     `~/.config/helm/...` as on Linux, and a fresh machine doesn't have it.
-     Anonymous `helm push` → `401`. Seeded it from podman's auth file with the
-     Harbor `robot$jblack` creds (merged `ghcr.io` back in).
-  3. **Registry split-brain — the real killer**: everything said `linuxguru`
-     (chart `values.yaml`, the ArgoCD repo URL, TF's `harbor_project`), but
-     `AppInfo.txt` pushed to `library`, and `robot$jblack` holds a system-level
-     permission on **`library` only**. Argo was reading a project that contained
-     zero artifacts → `404: repository linuxguru/corsless-helm not found`.
-     **Decision: point the apps at `library`** (the only writable project)
-     instead of widening the robot: both `chart/values.yaml` image repos, both
-     `deployments/ai/*.yaml` `repoURL`s, and the live Argo repo Secret
-     `argo/repo-3272614039` (`url=…/library`, `enableOCI=true`). `library` is
-     **not** TF-managed (Harbor's default project) — import it before adding any
-     `harbor_project` resource, or `apply` 409s.
-  - **Exposure was the next wall, and it was a chart problem**: both
-    Applications exposed themselves with the stock `helm create` `Ingress`
-    (`className: private`), which attaches to nothing — the shared gateways only
-    serve HTTPS through app-declared ListenerSets, so TLS died with
-    `unrecognized name` and Argo sat at `Progressing` (an Ingress never gets an
-    address). Both charts now ship `templates/extraObjects.yaml` (+ an
-    `extraObjects: []` default) and both Applications pass a ListenerSet +
-    ReferenceGrant + HTTPRoute, exactly like the `ollama` Application does with
-    `otwld/ollama-helm`. Certs come from `letsencrypt` (DNS-01), so neither app
-    touches the retired `linuxguru-ca`.
-  - **Also fixed**: `corsless/build` bumped and packaged the chart in `build`
-    but pushed it in `publish`, so publishing shipped a stale `.tgz` silently.
-    It now matches its sibling (bump + package at publish time, from the
-    committed tree).
-  - **`llm-embedder`'s Dockerfile needed a fix too**: the torch install used
-    `--index-url` (exclusive) against the CPU wheel index, which carries no
-    build dependencies. pip rejects PyPI's `typing_extensions` wheel
-    ("inconsistent Name": `typing_extensions` vs the dash-form request), falls
-    back to the sdist, then can't find `flit_core` on that index. Now
-    `--extra-index-url https://pypi.org/simple` plus an explicit
-    `torch==2.8.0+cpu` pin, so PyPI's CUDA build can never win. Note: this Mac's
-    podman VM builds `linux/amd64` under emulation (verified), which is why the
-    python image build takes ~25 minutes — plan for it, don't run it inline.
-  - **TF held a landmine around the same Secret.** `argocd_repository.devops_helm`
-    in `modules/argo/mantle/argo-cd/repositories.tf` still said
-    `harbor.${var.domain}/linuxguru`, and its Terraform *id is the repo URL*. The
-    live Argo Secret had been hand-edited to `.../library`, so the provider could
-    not find an entry for the configured URL and **every `tofu plan` in the mantle
-    stack reported `1 to add`** — an apply would have (re)written that Secret as
-    `.../linuxguru` and 404'd both apps all over again. Config now says
-    `.../library`, the apply ran (`1 added, 0 changed, 0 destroyed`), and
-    `tofu plan` is back to **"No changes."** Notes: the ArgoCD provider names repo
-    Secrets `repo-<fnv32a(repo_url)>` (`repo-3272614039` = the *old* linuxguru
-    URL), but it resolves the resource by URL, so no duplicate Secret appeared and
-    the stale name is cosmetic. `library` is deliberately *not* in
-    `var.deployment.harbor.projects` and should stay that way: it's Harbor's
-    default project (public, 7 artifacts) and the only thing TF needs from it is
-    the *name*, to build the OCI URL — an imported `harbor_project` would be a
-    resource whose only valid state is "the default". The TF-managed `linuxguru`
-    project now has zero consumers (0 artifacts; dropping it from tfvars destroys
-    it, so it's still there pending a call).
-  - **Dead keys in the tfenv, removed 2026-09-15 (later).**
-    `argocd_devops.repo_name` and `argocd_devops.harbor_project` were read by
-    nothing — `modules/argo/mantle/argo-cd/repositories.tf` hardcodes both the
-    display name (`"linuxguru github repo"`) and `harbor.${var.domain}/library` —
-    and the second named the retired project, so a wiring "fix" tempts the next
-    reader into a knob with one legal value. Both deleted instead; backup at
-    `~/.tfenvs/k8s.tfenv.bak-20260915` (the tfenv is **not** under git). `tofu
-    plan` re-run in **both** core and mantle → `No changes`. The trap that hid
-    them: the tfvars files are symlinks into `~/.tfenvs/`, and `grep -r` does not
-    follow symlinked files — see `techContext.md`.
-    The same audit later that night killed `deployment.keycloak` (all four keys)
-    and `deployment.ldap`: nothing in the `.tf` tree mentioned either, and
-    authentik had replaced keycloak long before — there is no keycloak namespace
-    in the cluster, only a stale `keycloak/keycloak` provider download in
-    mantle's `.terraform`. Deleting them also re-exposed a formatting artifact
-    (deleting the longest key left the `argocd_devops` block over-padded; `tofu
-    fmt` fixed it).
-  - **`llm-embedder`'s `/embed` — broken by a typo in 0.0.77, fixed and verified
-    live 2026-09-15 (later).** `app.py` passed `task="retrival.query"` (typo) and
-    jina-embeddings-v3 rejects it (`Unsupported task 'retrival.query'…`), so every
-    `/embed` call 500'd regardless of caller. Source fix `e1ff46f` shipped as
-    **0.0.79** (`library/llm-embedder-chart:0.0.79` +
-    `library/llm-embedder:v0.0.79`; chart-bump release commit `6d66a9b`) and Argo
-    auto-synced `0.0.*` → a clean 5/5 rollout. **The build was seconds, not ~25
-    min**: podman reused every layer except `COPY app.py`, so the emulation cost
-    only applies to a cold cache. Verified through the live gateway:
-    `/embed?text=hello+world&prompt=retrieval.query` → **HTTP 200, 1024-dim**
-    embedding in 1.9s, no `error` key, no exceptions in the pod logs, and the
-    running image is `…/library/llm-embedder:v0.0.79`.
-    Note for whoever wires it next: `prompt` is accepted but **ignored** —
-    `EmbedService.embedding()` hardcodes `task`/`prompt_name` to
-    `retrieval.query`, so a passage-side caller can't yet ask for
-    `retrieval.passage` (that's a real design gap, not a bug).
-- **2026-09-15 (evening) — CA migration FINISHED. All 17 hosts are on Let's
-  Encrypt and nothing consumes `linuxguru-ca`.** The last four (`auth.vn`,
-  `harbor`, `grafana`, `argo-wf`) flipped in **one apply per stack**, together
-  with the deletion of every CA injection:
-  - core: `0 added / 5 changed / 2 destroyed` — ListenerSet annotations
-    `linuxguru-ca` → `letsencrypt` on `auth`/`harbor`/`grafana`, harbor helm
-    (`caBundleSecretName` gone) + grafana helm (`SSL_CERT_FILE` + mount gone),
-    and the two CA objects destroyed (`devops-harbor/linuxguru-ca-cert`,
-    `monitoring/grafana-ca`).
-  - mantle: `0 added / 3 changed / 1 destroyed` — `argo-wf` ListenerSet flipped,
-    workflows helm (subPath bundle mount gone), `argo/argo-wf-ca-cert` destroyed,
-    and `argocd-cm`'s `oidc.config` rewritten without `rootCA`.
-  - **Why one apply, not four**: `var.cert_issuer` drives *both* the listener and
-    the CA lookup in each module, so a listener-only flip needs throwaway
-    scaffolding; and Grafana/Workflows *replace* the container bundle, so
-    removing their injection before or after the flip breaks their SSO against a
-    still-private / already-public issuer. The planned `ca_name` split turned out
-    to be unnecessary — deleting the wiring in the same apply is what avoids it.
-    Harbor's `caBundleSecretName` and Argo CD's `rootCA` are additive (so
-    order-agnostic); all four moved together anyway to keep one reviewed diff.
-  - **Verified live**: `openssl s_client` → `O=Let's Encrypt, CN=YR1/YR2` on all
-    four (exp 2026-12-13); `ca.crt` gone from every listener Secret (cert-manager
-    only adds it for CA-issued certs); both deleted objects gone;
-    `argocd-cm → oidc.config` really has **no** `rootCA` left (the
-    `kubernetes_config_map_v1_data` merge did remove the key — checked, not
-    assumed); all four SSO hand-offs 302 to
-    `https://auth.vn.linuxguru.net/application/o/authorize/` with the right
-    client_id (argo-cd `/auth/login`, grafana `/login/generic_oauth`, harbor
-    `/c/oidc/login`, and argo-wf **`/oauth2/redirect`** — `/oauth2/start` is not
-    a route on this chart and returns the SPA, so don't be fooled by a 200);
-    an in-cluster `curlimages/curl` probe validates auth.vn on system roots
-    alone (`ssl_verify_result=0`); and a cluster-wide ConfigMap+Secret sweep
-    finds the CA only in `default/linuxguru-ca` and
-    `kube-certificates/linuxguru-ca` — the CA itself, with nothing consuming it.
-  - Rolled `authentik-server`/`authentik-worker` (its cert mount is not a
-    subPath, so the file rotates in place, but the server caches it) and
-    `argo-cd-argocd-server` (parses `oidc.config` once, at startup).
-  - **Bonus fix found while verifying**: `corsless` / `llm-embedder` had been
-    failing chart pulls with `x509: certificate signed by unknown authority`
-    because `argocd-tls-certs-cm` was **empty** while the Helm repo
-    `harbor.vn.linuxguru.net/linuxguru` had verification on. Going public fixed
-    it for free (repo-server ships the public roots). Zero `x509` errors now;
-    they report `404: repository linuxguru/corsless-helm not found` — the honest
-    next error, so both remain dead apps for a different reason. **Resolved
-    later the same day**: that 404 was the registry split-brain, not a missing
-    push — see the top of this file.
-  - **Docs**: `modules/cert_manager/README.md` gained "If a private CA ever comes
-    back" — the per-consumer injection checklist with **Argo CD first** (its two
-    independent trust stores — `oidc.config.rootCA` on argocd-server vs
-    `argocd-tls-certs-cm` on repo-server — the `kubernetes_config_map_v1_data`
-    merge trap, Harbor's Secret-not-ConfigMap quirk, the replace-vs-add table,
-    the same-apply rule, and the sweep one-liners). Root `README.md` host table
-    now shows `letsencrypt` for every host.
-  - **Retiring the CA outright is deliberately deferred (2026-09-15, operator
-    call: keep the private CA around in case it's wanted back — don't "finish"
-    this without asking)**: ClusterIssuer
-    `linuxguru-ca`, the `kube-certificates/linuxguru-ca` Secret, the
-    `default/linuxguru-ca` ConfigMap, and the module's `ca_certfile`/`ca_keyfile`
-    `file()` inputs; then `~/.ssl/ca.crt` and the node trust store
-    (`initial_setup.yml`, k8s repo). Nothing breaks while it lingers, but
-    `~/.ssl/ca.*` must keep existing or `tofu plan` fails. Argo CD `rootCA`
-    replace-vs-add is **still unverified** — documented as such rather than
-    guessed, and moot now that the field is gone.
-- **2026-09-15 — `.vn` hosts can now hold Let's Encrypt certs.** Two real bugs in
-  `modules/cert_manager` were fixed (`zoneid` → `hostedZoneID`; DNS-01 nameservers
-  now point at public resolvers), the cert-manager chart was pinned to
-  `v1.21.1`, and `sonarr.vn.linuxguru.net` was flipped as the first `.vn` host
-  (`stacks/mantle/media.tf` → per-app `cert_issuers`, new `modules/media`
-  variable). Verified live: LE cert served by the media-private gateway,
-  `cert-sonarr.vn.linuxguru.net` ready in ~90s, challenge TXT cleaned up, and
-  `tofu plan` empty in **both** core and mantle.
-- **2026-09-15 (same session) — the 9 "easy and safe" hosts followed.** Now
-  signed by `letsencrypt`: `argo-cd`, `s3` + `master.seaweedfs`,
-  `admin.seaweedfs`, `whisker`, and all five media apps — media's **default**
-  issuer flipped in `modules/media/arr_stack.tf` (the sonarr override was
-  deleted; per-app overrides still exist for exceptions). Core: 3 ListenerSets
-  (`stacks/core/devops.tf`, `stacks/core/storage.tf` — a `merge` onto the
-  per-visibility `cert_issuers` map). Mantle: 6 (`stacks/mantle/media.tf`,
-  `stacks/mantle/observability.tf`, `stacks/mantle/storage.tf`).
-  Verified live: all 17 certs `Ready`, leaf certs checked over the wire for all
-  10 `vn` hosts (`openssl s_client` → `O=Let's Encrypt`) and a **stock-trust
-  `curl`** (no `--cacert`, `ssl_verify_result=0`), then `No changes` from an
-  untargeted `tofu plan` in **both** stacks. 12 of 17 certs were LE at that
-  point; the 5 still on the CA were exactly the ones an in-cluster consumer
-  pinned by issuer name — `auth.vn`, `harbor`, `grafana`, `argo-wf`, `ollama`.
-  **Both later steps landed the same day: `ollama` flipped first (external repo,
-  see below) → 13 LE / 4 CA, then those last four flipped in-repo with all their
-  CA wiring deleted → 17 LE / 0 CA. See the top of this file.**
-- **Environment gotcha from that apply:** this Mac's resolver (`192.168.0.2`)
-  dropped out mid-run — SERVFAIL/NXDOMAIN for most names — which aborted the
-  *full* plans with `charts.jetstack.io: no such host` (helm chart lookup) and an
-  STS `lookup sts.us-west-2.amazonaws.com` failure. Not config: the same plans
-  returned `No changes` once DNS recovered. Because a complete plan was
-  impossible, the 3+6 ListenerSets went in with **`-target`** (the settled "no
-  `-target`" rule) — justified by the tool failure and proven equivalent by the
-  clean untargeted plans afterwards.
-- Route53 is the public authority for the **whole** `linuxguru.net` tree:
-  `vn.linuxguru.net` has no NS delegation, so an ACME TXT written into
-  `Z3FM4Y4P2572E4` is what Let's Encrypt sees. bind9 stays the LAN-only view.
-  (Verified 2026-09-15 against the API, not dig: the zone holds **no `.vn`
-  records at all**, and every `.vn` name resolves publicly only because
-  `*.linuxguru.net` is an **A alias to `home.linuxguru.net`** that Route53
-  applies at any depth. Earlier notes claiming a lingering
-  `*.vn.linuxguru.net` record were wrong — dig can't tell a real wildcard record
-  from synthesis, and the stale `4.5.6.7` was a deletion still propagating.)
-- There is **no `TODO.md`** in the repo; the open work lives in `progress.md` and
-  this file. Six docs pointed at it anyway (root README, `.clinerules/resources.md`,
-  `.clinedocs/flow-logs.md`, `modules/{media,vaultwarden}/README.md`, plus the
-  reading order here) — all repointed 2026-09-15.
-- The vaultwarden build shipped and was verified live on 2026-09-14. The big
-  33 KB handoff doc was retired into `modules/vaultwarden/README.md` and
-  `modules/network/dns/route53_record/README.md`.
-- Media namespace is the only namespace with real (enforced) NetworkPolicies
-  (locked down 2026-09-12). Everything else is still open to any cluster pod.
-- The `staged` (preview-only) NetPolicy *mechanism* is proven — an allow-list
-  staged on `argo` logged `pendingPolicies: Deny` while traffic kept flowing.
-  But **the `staged` flag does not exist in the code yet** (grep verified
-  2026-09-14): no `staged` var in `modules/network/firewalls/policy` or
-  `limited_ingress`. The proof was a hand-run object. Implementing that flag is
-  the first concrete task of the rollout.
+  `api_peer_ips`. Mechanism: `.clinedocs/calico-netpols.md`; evidence:
+  `progress.md`.
+- **The CA migration is finished: all 17 hosts are on Let's Encrypt and nothing
+  consumes `linuxguru-ca`.** The last four (`auth.vn`, `harbor`, `grafana`,
+  `argo-wf`) flipped in one apply per stack together with the deletion of every
+  CA injection (core 0/5/2, mantle 0/3/1); `ollama.vn` flipped in the external
+  app-of-apps repo. The CA is **dormant** but not deleted, and
+  `var.ca_certfile`/`ca_keyfile` remain a standing **plan-time** dependency of
+  `stacks/core` — full story, expiry and re-introduction checklist in
+  `modules/cert_manager/README.md`.
 
-## In-flight work
+## In flight
 
 **Namespace ingress rollout, part 2** — the "media treatment" for the remaining
-namespaces. Method (validated by hand, not yet in code): render staged policies
-via a `staged` flag on `firewalls/policy` (+ pass-through on `limited_ingress`),
-stage → watch a few days with real traffic (a login, an Argo sync, a fresh image
-pull) → flip `staged = false`. Intended guest lists per namespace were never
-written down (the `TODO.md` they used to point at does not exist); derive them
-from Goldmane/Whisker flow data, not guesses. Highest-value
-first candidates: `kube-auth`, `devops-harbor`, `argo`, `ai`, `monitoring`,
-`kube-certificates`, `blender`.
+namespaces. Media is the **only** namespace with enforced NetworkPolicies
+(locked down 2026-09-12); everything else is open to any cluster pod. Method
+(validated by hand, not yet in code): render staged policies via a `staged` flag
+on `firewalls/policy` (+ pass-through on `limited_ingress`), stage → watch a few
+days with real traffic (a login, an Argo sync, a fresh image pull) → flip
+`staged = false`.
 
-Note `argo` also has **no egress fence** (`enable_egress_firewall=false`).
+- The staged mechanism is **proven** (an allow-list staged on `argo` logged
+  `pendingPolicies: Deny` while traffic kept flowing) but **the `staged` flag
+  does not exist in code yet** (grep-verified 2026-09-14) — implementing it is
+  the first concrete task.
+- Guest lists were never written down (the `TODO.md` they pointed at does not
+  exist); derive them from Goldmane/Whisker flow data, not guesses.
+- Highest-value first candidates: `kube-auth`, `devops-harbor`, `argo`, `ai`,
+  `monitoring`, `kube-certificates`, `blender`.
+- `argo` also has **no egress fence** (`enable_egress_firewall=false`).
 
-## Immediate follow-ups owed (the old `TODO.md` list)
+## Owed follow-ups (the old `TODO.md` list)
 
-- **Backups are cluster-local for *every* volume, not just vaultwarden** → point
-  Longhorn `backupTarget` at the SeaweedFS S3 endpoint + add/flip jobs to
-  `task = "backup"`. The snapshot scheme itself is now cluster-wide
-  (`modules/storage/longhorn_jobs.tf`). Until then: treat the cluster as one
-  failure domain, and export vaultwarden from a client before any destroy.
-- **`modules/cert_manager` ACME config** — `zoneid` → `hostedZoneID` and the
-  public-resolver DNS-01 args are **done**, and 12 of 17 certs are now on
-  `letsencrypt` (2026-09-15). What is left to finish the move:
-  - **Group 2 — `harbor`, `grafana`, `argo-wf` (and mantle's argo-cd SSO):** each
-    uses the *same* `var.cert_issuer` for both the listener issuer **and** the CA
-    ConfigMap name. Flipping them alone would make the data source look for a
-    ConfigMap named `letsencrypt` → plan dies. **But the CA mount is not about
-    their own cert** — it exists so four consumers can verify *auth.vn's* TLS
-    (Authentik OIDC): `harbor/core/secrets.tf` → `caBundleSecretName`
-    (with `oidc_verify_cert = true`), `monitoring/prometheus/grafana.tf` +
-    `locals.tf` (`grafana-ca` CM + `SSL_CERT_FILE`),
-    `argo/mantle/argo-workflows/oauth2.tf` (mirror CM over
-    `/etc/ssl/certs/ca-certificates.crt`), `argo/mantle/argo-cd/oauth2.tf`
-    (`oidc.config.rootCA`). So **flipping auth.vn in the same change removes the
-    need for a `ca_name` split entirely**: delete that wiring instead of
-    renaming it. Grafana's `SSL_CERT_FILE` and Workflows' subPath mount *replace*
-    the bundle, so they must be deleted in the same apply as auth.vn's flip
-    (Harbor's `caBundleSecretName` merges a bundle into the components' trust, so
-    it's order-agnostic; Argo CD's `oidc.config.rootCA` is *documented* as an
-    additional CA but whether it replaces the pool was NOT verified — if it does,
-    it needs the same same-apply treatment as Grafana/Workflows). Once that lands, the private CA can retire outright —
-    issuer, key secret, the `default` ConfigMap, and the `~/.ssl/ca.crt` you hand
-    to clients. That collapses Group 2 and Group 3 into **one** change: flip all
-    four (`auth.vn` + these three) and delete the CA wiring together.
-  - **Verified 2026-09-15 — the `auth.vn` trust graph is fully enumerated**, so
-    this flip is safer than the module coupling made it look:
-    - `kube-apiserver` has **no** `--oidc-*` flags (only
-      `--authorization-mode=Node`, bootstrap tokens) → auth.vn is not the API
-      server's identity provider.
-    - Authentik **outposts talk plain HTTP in-cluster**
-      (`http://authentik-server.kube-auth.svc.cluster.local:80`) and never
-      validate auth.vn's TLS. `browser_url` is for redirects only, so the CA
-      validation the `stacks/mantle/{storage,observability}.tf` comments refer to
-      is the *browser's*, not a pod's.
-    - Node trust is **additive**: `initial_setup.yml` copies `~/.ssl/ca.crt` into
-      `/usr/local/share/ca-certificates/` + `update-ca-certificates`, and the
-      containerd `certs.d` override covers only `docker.io` (pull-through proxy).
-      Public roots stay in the bundle, so flipping `harbor.vn` does not break node
-      image pulls.
-    - A live grep of every workload env / ConfigMap / Secret matching `auth.vn`
-      returns exactly the known consumers: `argo/argocd-cm`,
-      `argo/argo-wf-argo-workflows-workflow-controller-configmap`,
-      `monitoring/prometheus-grafana`. Nothing hidden. Harbor's OIDC endpoint
-      lives in Harbor's **DB** (`harbor_config_auth`), invisible to that grep but
-      already known (`oidc_verify_cert = true`).
-    - `authentik-server`/`authentik-worker` mount their own
-      `cert-auth.vn.linuxguru.net` secret at `/certs/auth.vn.linuxguru.net` → they
-      need a **rollout after the flip** (secret content changes in place).
-    - No live client certs come from `linuxguru-ca`:
-      `~/code/k8s/projects/openvpn-docker` builds `Certificate` CRs against it but
-      no OpenVPN workload is deployed (only WireGuard).
-    - The external `~/code/k8s/argocd` app-of-apps annotates three apps
-      `linuxguru-ca` (`ai/{ollama,llm-embedder,corsless}.yaml`) but only
-      `ai/cert-ollama.vn.linuxguru.net` exists live → the other two are dead config.
-  - **Group 3 — `auth.vn` last.** Argo CD `rootCA` and Harbor
-    `caBundleSecretName` only *augment* trust (safe), but Grafana's
-    `SSL_CERT_FILE` and Argo Workflows' `ca-certificates.crt` subPath mount
-    **replace** the container bundle — delete both overrides when `auth.vn` goes
-    public, or Grafana/Workflows stop trusting every public root.
-  - **`ollama.vn` flipped 2026-09-15 — it is NOT in this repo.** Its ListenerSet
-    is a helm `extraObjects` entry in the external app-of-apps repo
-    (`git@github.com:jdblack/argo-linuxguru.git`, path `deployments/ai`), applied
-    by Application `argo/aoa-ai → argo/ollama`. Commit `99ab12a` changed the
-    annotation to `letsencrypt`; Argo auto-synced, cert-manager re-issued
-    (`verify return code: 0 (ok)` on public roots only, `curl` 200). **That was
-    the last CA-signed host: all 17 certs are now Let's Encrypt**, and no live
-    workload consumes `linuxguru-ca`, so the CA is retireable — the remaining
-    work is in *this* repo (the four `auth.vn`-trust hosts).
-  - **How to make Argo CD pick up an external-repo push** (asked 2026-09-15):
-    there is **no webhook** (no `webhook.*.secret` in `argocd-secret`, and
-    `argocd-cm` has no webhook key), so the trigger is the repo poll only —
-    `timeout.reconciliation: 180s` → up to ~3 min. Force it:
-    `kubectl -n argo annotate application aoa-ai argocd.argoproj.io/refresh=hard --overwrite`
-    (or `argocd app get aoa-ai --hard-refresh`). Refresh the **root** app
-    (`aoa-ai`), not the child: the child Application's whole spec, helm
-    `valuesObject` included, is generated by the root, so the child only learns
-    about the change after the root syncs. Watch with
-    `kubectl -n argo get applications -o wide`; verify the wire, not just the
-    sync status (`openssl s_client … | openssl x509 -noout -issuer -dates`).
-- **Route53 credentials are NOT in git — earlier note corrected 2026-09-15.**
-  `stacks/{core,mantle}/terraform.tfvars` is a **symlink** (git mode `120000`) to
-  `/Users/jblack/.tfenvs/k8s.tfenv`, outside the repo, and the access key ID
-  (redacted here — it begins `AKIA…`) appears nowhere in git history
-  (`git log --all -S` on the ID → empty) nor in any tracked blob
-  (`git grep AKIA HEAD` → empty). So the "*leaked
-  in a tracked tfvars*" worry was wrong: exposure is a plaintext file on local
-  disk, which is the intended single-sourced design. Rotating the key is still
-  fine hygiene (it is the DNS-01 credential), but there is no VCS incident.
-- **CA inventory (checked live 2026-09-15).** The signing CA
-  (`kube-certificates/linuxguru-ca`) was regenerated **2026-08-14** and is valid
-  to **2027-08-14**; `~/.ssl/ca.crt` matches it exactly (`5E:D5:04:DE:…`), so no
-  expiry cliff — but everything still on the CA dies on 2027-08-14 unless the CA
-  is rolled, and rolling it means redistributing `~/.ssl/ca.crt` to every client.
-  The CA also lives as a ConfigMap in `default` (`linuxguru-ca`, the copy modules
-  mount). Live issuers are exactly two: `letsencrypt` (DNS-01) and
-  `linuxguru-ca`.
-- **Orphan `letsencrypt-http` — deleted 2026-09-15.** It was in no `.tf`, no
-  Certificate referenced it, and HTTP-01 can't work behind this gateway anyway.
-  Its ACME account key (`kube-certificates/letsencrypt-http-key`) went with it.
-  Do **not** confuse those with the live Route53 solver secrets
-  `certman-letsencrypt` / `certman-route53-letsencrypt`.
-- **CA-era orphan secrets — cleaned up 2026-09-15.** Each had no Certificate CR
-  and was mentioned by none of the 123 workload/gateway objects cluster-wide:
-  `ai/cert-ollama` (pre-shim ollama; the ListenerSet uses
-  `cert-ollama.vn.linuxguru.net`), `argo/argocd-server-tls` (argo-cd mounts
-  repo-server/dex-server TLS, not this), `monitoring/prometheus-grafana-cert`,
-  and `kube-auth/keycloak.vn.linuxguru.net-tls` (expired 2026-02-04). Secrets are
-  not Terraform state, so this moved no plan.
-  **Deliberately left: `default/jblack`** — the only one with *client-auth* EKU
-  (`SAN DNS:jblack`, exp 2026-12-03), so an off-cluster mTLS client may still use
-  it. Its Certificate CR is gone, so it will never renew; delete when you're sure.
-- **Grafana's CA trust *replaced* the bundle — resolved 2026-09-15.** The module
-  used to render the CA into a `grafana-ca` ConfigMap mounted at
-  `/etc/grafana/certs` with `SSL_CERT_FILE=/etc/grafana/certs/tls.crt`, so Grafana
-  trusted *only* the private CA. Both the env var and the mount were deleted in
-  the same apply as `auth.vn`'s flip (that simultaneity was mandatory — either
-  order on its own breaks Grafana's SSO), and the ConfigMap is gone.
-- **Argo Workflows' equivalent mount did the same thing**, over
-  `/etc/ssl/certs/ca-certificates.crt` with `subPath: tls.crt`, and went with the
-  same apply. Its SSO entry point on this chart is **`/oauth2/redirect`**;
-  `/oauth2/start` just returns the SPA (200), which looks like a failure and
-  isn't.
+- **Backups are cluster-local for *every* volume** → point Longhorn
+  `backupTarget` at the SeaweedFS S3 endpoint and add/flip jobs to
+  `task = "backup"`. Until then treat the cluster as one failure domain and
+  export vaultwarden from a client before any destroy.
 - **Nothing scrapes cert-manager.** No `ServiceMonitor`, no expiry
   `PrometheusRule`, so a failed renewal is invisible until the cert expires
   (~30 days of slack, since renewal is at 2/3 of lifetime). Cheap win: a
   ServiceMonitor on `kube-certificates/cert-manager:9402` plus a
   `certmanager_certificate_expiration_timestamp_seconds < 21d` alert.
-- **Orphan ClusterIssuer `letsencrypt-http`** (+ `letsencrypt-http-key` secret)
-  was live in `kube-certificates` but appeared in no `.tf` — HTTP-01 leftover from
-  ingress-nginx (`ingressClassName: public`, which no longer exists).
-  **Resolved by 2026-09-15**: both are gone from the cluster, so only
-  `letsencrypt` (DNS-01) and the dormant `linuxguru-ca` remain, and the two live
-  Secrets (`certman-route53-letsencrypt` — TF-created; `certman-letsencrypt` —
-  cert-manager's own ACME account key) are both expected.
-- **external-dns never published `certtest.vn.linuxguru.net`** from its HTTPRoute
-  annotation — understand why before relying on automatic `.vn` DNS.
-- **Longhorn has no Grafana dashboard** — ship it the SeaweedFS way next to
+- **Longhorn has no Grafana dashboard** — ship it the SeaweedFS way, next to
   `modules/storage/longhorn.tf`.
 - **Whisker UI**: confirm the flow list populates *through the authentik proxy*.
-- Leftovers to delete: ~~the `kube-security` namespace (kept only because it's in
-  state) and the orphaned `tfstate-default-fuckbatz` Secret~~ — **both deleted
-  2026-09-15** (plus `trivy-system`/`trivy-temp` and the fuckbatz lock Lease; see
-  the cleanup bullet at the top).
+- **external-dns never published `certtest.vn.linuxguru.net`** from its HTTPRoute
+  annotation — understand why before relying on automatic `.vn` DNS.
+- **Harbor's `linuxguru` project has zero consumers** (0 artifacts); dropping it
+  from tfvars destroys it, so it is still there pending a call. `library` (the
+  Harbor default, public) is deliberately *not* in
+  `var.deployment.harbor.projects` — TF only needs its *name* to build the OCI
+  URL.
+- **`default/jblack`** is the one CA-era secret deliberately left (only one with
+  *client-auth* EKU, `SAN DNS:jblack`, exp 2026-12-03), so an off-cluster mTLS
+  client may still use it. Its Certificate CR is gone, so it will never renew —
+  delete when you're sure.
+- **`corsless` / `llm-embedder`** are dead apps for a different reason now
+  (`404: repository linuxguru/corsless-helm not found`, i.e. the registry
+  split-brain), not TLS.
 
-## Decisions that are settled — don't relitigate
+## Durable facts and quirks
 
-- Three stacks, in order; state in k8s Secrets.
+- **Route53 is the public authority for the *whole* `linuxguru.net` tree.**
+  `vn.linuxguru.net` has no NS delegation, so an ACME TXT written into
+  `Z3FM4Y4P2572E4` is what Let's Encrypt sees; bind9 stays the LAN-only view.
+  Verified 2026-09-15 **against the API, not dig**: the zone holds no `.vn`
+  records at all, and every `.vn` name resolves publicly only because
+  `*.linuxguru.net` is an **A alias to `home.linuxguru.net`** applied at any
+  depth. (Earlier notes claiming a real `*.vn.linuxguru.net` record were wrong —
+  dig can't tell a record from synthesis, and the stale `4.5.7.6`-style answer
+  was a deletion still propagating.)
+- **Issuer plumbing is one key:** `cert_authorities.default` (= `letsencrypt`),
+  read as a plain `cert_issuer` string per module. The per-app override maps, the
+  `local.issuers` indirection, the seaweedfs visibility map, the `merge()` in
+  `stacks/core/storage.tf` and the dead `cert.pub_cert_issuer` key are gone
+  (empty plans before *and* after proved they were the same constant).
+  Host count: **19 Certificates live, 16 declared in this repo** — `ollama`,
+  `llm-embedder`, `corsless` come from the external app-of-apps repo.
+- **`stacks/apps` has no `terraform.tfvars` symlink** — it needs
+  `-var-file=~/.tfenvs/k8s.tfenv` explicitly. Its clean plan on 2026-09-15 was
+  the **first drift check since August**.
+- **The tfvars files are symlinks** (git mode `120000`) into `~/.tfenvs/`, i.e.
+  outside the repo, and **`grep -r` does not follow symlinked files** — the trap
+  that hid dead keys (`deployment.keycloak`, `deployment.ldap`,
+  `argocd_devops.repo_name`, `argocd_devops.harbor_project`; backup at
+  `~/.tfenvs/k8s.tfenv.bak-20260915`). See `techContext.md`.
+- **Route53 credentials are NOT in git.** The access key (begins `AKIA…`) appears
+  nowhere in history (`git log --all -S` → empty) nor in any tracked blob
+  (`git grep AKIA HEAD` → empty), because the tfvars are symlinks. Exposure is a
+  plaintext file on local disk — the intended single-sourced design. Rotating is
+  still fine hygiene (it is the DNS-01 credential).
+- **`harbor.${var.domain}/library` is the registry the ai apps use, and it is
+  NOT TF-managed** (Harbor's default project, public). The old `linuxguru`
+  registry name was a **split-brain**: charts, Argo repo URL and TF said
+  `linuxguru`, but artifacts went to `library` and `robot$jblack` only has a
+  system permission on `library` → `404: repository linuxguru/… not found`.
+  Decision: point the apps at `library`, not widen the robot. Import it before
+  adding any `harbor_project` resource or `apply` 409s. `argocd_repository`'s
+  **id is the repo URL** — a stale URL makes every mantle plan report `1 to add`.
+- **Argo CD has no webhook** (no `webhook.*.secret`, no `argocd-cm` key), so an
+  external-repo push triggers only on the poll (`timeout.reconciliation: 180s`).
+  Force it:
+  `kubectl -n argo annotate application aoa-ai argocd.argoproj.io/refresh=hard --overwrite`.
+  Refresh the **root** app (`aoa-ai`), not the child — the child's whole spec is
+  generated by the root. Verify the wire, not the sync status
+  (`openssl s_client … | openssl x509 -noout -issuer -dates`), and that a
+  stock-trust `curl` (no `--cacert`) validates it, i.e. `ssl_verify_result=0`
+  on system roots alone.
+- **Reaching a service from a fresh machine (ai apps, 2026-09-15).** The
+  app-of-apps repo is `~/code/k8s/argocd` (both apps repointed there: chart
+  `values.yaml` + `deployments/ai/*.yaml`):
+  - helm's registry store on macOS is
+    `~/Library/Preferences/helm/registry/config.json`, **not**
+    `~/.config/helm/…`; missing ⇒ anonymous `helm push` ⇒ `401`.
+  - a Dockerfile that builds for the builder's platform yields a qemu-emulated
+    image that crashes; use `FROM --platform=$BUILDPLATFORM` + `GOOS`/`GOARCH`.
+  - a chart's stock `helm create` Ingress (`className: private`) attaches to
+    nothing here — the shared gateways serve HTTPS only, via app-declared
+    ListenerSets, so it dies with `unrecognized name` and Argo sits
+    `Progressing` (an Ingress never gets an address).
+  - `llm-embedder`'s Dockerfile also needed a fix: torch went in with
+    `--index-url` (exclusive) against the CPU wheel index, which carries no
+    build deps — pip rejects PyPI's `typing_extensions` wheel ("inconsistent
+    Name"), falls back to the sdist and can't find `flit_core` there. Fix:
+    `--extra-index-url https://pypi.org/simple` plus an explicit
+    `torch==2.8.0+cpu`, so PyPI's CUDA build can never win.
+  - the split-brain's provenance: `AppInfo.txt` pushed to `library` while
+    values, Argo and TF all said `linuxguru`; the live Argo repo Secret is
+    `argo/repo-3272614039` (`url=…/library`, `enableOCI=true`), and the chart
+    version is a `0.0.*` wildcard, so a republished chart auto-syncs.
+  - re-verify an app through the gateway: `/health` →
+    `{"name":"llm-embedder","status":"ok"}`, and
+    `/embed?text=hello+world&prompt=retrieval.query` → **HTTP 200, 1024-dim**;
+    corsless `/health` → `200 {"status":"ok"}` and proxied calls carry
+    `access-control-allow-origin: *`.
+- **Argo Workflows' SSO entry point on this chart is `/oauth2/redirect`;**
+  `/oauth2/start` just returns the SPA (200), which looks like a failure and
+  isn't. The cheap OIDC check for all four is a redirect trace: argo-cd
+  `/auth/login`, grafana `/login/generic_oauth`, harbor `/c/oidc/login` and
+  argo-wf `/oauth2/redirect` all 302 to
+  `https://auth.vn.linuxguru.net/application/o/authorize/` with the right
+  `client_id`; an in-cluster `curlimages/curl` probe of any of them shows
+  whether `auth.vn` validates on system roots alone (`ssl_verify_result=0`)
+  without a browser.
+- **Trust graph facts** (enumerated 2026-09-15): `kube-apiserver` has **no**
+  `--oidc-*` flags; authentik outposts talk plain HTTP in-cluster and never
+  validate `auth.vn` TLS (`browser_url` is redirect-only); node trust is
+  *additive* (`initial_setup.yml` copies the CA into
+  `/usr/local/share/ca-certificates/` + `update-ca-certificates`, and the
+  containerd `certs.d` override covers only `docker.io`); Harbor's OIDC config
+  lives in Harbor's **DB** (`harbor_config_auth`), invisible to grep;
+  `authentik-server`/`worker` mount `cert-auth.vn…` so they need a **rollout**
+  after an issuer flip; no live client certs come from the CA
+  (`~/code/k8s/projects/openvpn-docker` builds CRs but only WireGuard is
+  deployed).
+- **There is no `TODO.md`** — open work lives in `progress.md` and this file.
+  Six docs pointed at it anyway (root README, `.clinerules/resources.md`,
+  `.clinedocs/flow-logs.md`, `modules/{media,vaultwarden}/README.md`, the
+  reading order) — all repointed 2026-09-15.
+- The vaultwarden build shipped and was verified live 2026-09-14; the 33 KB
+  handoff doc was retired into `modules/vaultwarden/README.md` and
+  `modules/network/dns/route53_record/README.md`.
+- **Environment gotcha:** when this Mac's resolver (`192.168.0.2`) drops out
+  mid-run, plans abort with `charts.jetstack.io: no such host` and an STS
+  `lookup sts.us-west-2.amazonaws.com` failure. Not config — re-run once DNS
+  recovers and it plans `No changes`. That outage is the one justified use of
+  `-target` (the 3+6 ListenerSets).
+
+## Settled — don't relitigate
+
+- Three stacks, applied in order (core → mantle → apps); state in k8s Secrets.
 - `cert_authorities.default` is the one issuer knob; no per-app override maps.
-- Typed `kubernetes_*` over `kubectl_manifest`, so `plan` sees drift.
-- TF owns groups/apps/bindings; the authentik UI owns membership.
-- No `-target`/`-exclude`.
-- `parse the narrowest doc first` — root README → module README → `.clinedocs/`.
+- Typed `kubernetes_*` resources over `kubectl_manifest`, so `plan` sees drift.
+- Terraform owns groups/apps/bindings; the authentik UI owns membership.
+- No `-target` / `-exclude`.
+- Parse the **narrowest doc first**: root README → module README → `.clinedocs/`.
+
+## Recent history, one line each
+
+- **2026-09-16** — every `*.tf` comment trimmed to constraints/gotchas only
+  (history, dates, README pointers and rationale dropped). `tofu fmt -recursive
+  -check` clean, `validate` green in all three stacks; the pass had also eaten
+  `variable "private_gateway_ip"` in `modules/vaultwarden/variables.tf` — found
+  by `validate`, restored. See `progress.md` → Traps.
+- **2026-09-16** — VIP pins removed (everything floats; DNS is the interface).
+- **2026-09-16** — all 28 `moved` blocks deleted (all spent); Longhorn snapshot
+  scheme centralised and the restore path verified.
+- **2026-09-15** — CA migration finished, 17/17 on Let's Encrypt; CA dormant.
+- **2026-09-15** — issuer plumbing collapsed onto `cert_authorities.default`
+  (no-op plan proved it).
+- **2026-09-15** — both `ai` apps un-broken: platform-cross-compile, helm
+  registry auth path, registry split-brain → `library`, ListenerSet exposure.
+  `llm-embedder`'s `/embed` 500 was a task-name typo (`retrival.query`), fixed in
+  `0.0.79`. Note `prompt` is accepted but **ignored** — `EmbedService.embedding()`
+  hardcodes `retrieval.query`, so a passage-side caller can't ask for
+  `retrieval.passage` (real design gap, not a bug).
+- **2026-09-15** — IdP-first login (gateway hijack of `Exact /`) tried, judged
+  not worth its failure mode, removed: it looped when the target lacked a return
+  URL, 604 log lines in 3h **all `level=info`**, nothing visible in a plan. Both
+  apps serve their own login page again and `redirect_route` is deleted; the
+  one-click paths (`/auth/login`,
+  `/oauth2/redirect?redirect=/workflows`) still work for bookmarks. No native
+  switch exists for either app, so IdP-first there is a facade by construction.
+- **2026-09-15** — orphan sweep: `letsencrypt-http` ClusterIssuer + its account
+  key deleted (HTTP-01 leftover, no Certificate referenced it — do not confuse
+  them with the live `certman-letsencrypt` /
+  `certman-route53-letsencrypt` solver secrets); CA-era secrets `ai/cert-ollama`,
+  `argo/argocd-server-tls`, `monitoring/prometheus-grafana-cert`,
+  `kube-auth/keycloak.vn.linuxguru.net-tls` (expired 2026-02-04) deleted;
+  `kube-security` ns, the orphaned `tfstate-default-fuckbatz` Secret,
+  `trivy-system`/`trivy-temp` and the fuckbatz lock Lease all deleted. Secrets
+  are not Terraform state, so none of this moved a plan.
+- **2026-09-15** — `ai` namespace dual ownership fixed: core created it *and*
+  `stacks/apps`'s `aoa_deployment` did, so destroying either stack would have
+  taken it out from under the other. Core released it (`state rm` **first**, then
+  the file — so no plan could destroy the live namespace); apps keeps ownership.
+- **2026-09-15** — dead config deleted after a `grep`-verified audit:
+  `deployment.keycloak`, `deployment.ldap`, `argocd_devops.repo_name`,
+  `argocd_devops.harbor_project` (the tfenv is not under git); the `fuckbatz`
+  WordPress module was deleted outright (`notbatz.com` is not a Route53 zone in
+  this account — only `linuxguru.net` and `emtho.com` are — so the site could
+  never resolve); `.terraform` caches pruned 2.5 GB → 1.5 GB (only versions
+  absent from each stack's lock file, plus unreferenced module dirs).
 
 ## Reading order for a fresh session
 
 1. Root `README.md` (map, hostnames, conventions).
 2. `memory-bank/progress.md` (what's actually open).
 3. The `README.md` of the one module you're touching.
-4. `.clinedocs/calico-netpols.md` or `.clinedocs/flow-logs.md` only if the task
-   is a NetworkPolicy / flow-query task.
+4. `.clinedocs/calico-netpols.md` or `.clinedocs/flow-logs.md` only for a
+   NetworkPolicy / flow-query task.
+
+
+

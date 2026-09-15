@@ -12,8 +12,6 @@ locals {
 }
 
 
-# Rendering is delegated to the shared `policy` module so the rule-object ->
-# typed-resource translation lives in exactly one place (see ../policy).
 module "policy" {
   source       = "../policy"
   name         = var.policy_name

@@ -59,7 +59,8 @@ resource "helm_release" "harbor" {
   repository = "https://helm.goharbor.io"
   chart      = "harbor"
   namespace  = var.namespace
-  timeout    = 500
+  wait       = true
+  timeout    = 600
   values     = [yamlencode(local.helm_values)]
 
 }

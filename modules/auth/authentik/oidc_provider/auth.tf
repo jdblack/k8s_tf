@@ -23,13 +23,10 @@ data "authentik_property_mapping_provider_scope" "openid" {
   scope_name = "openid"
 }
 
-# Groups claim. authentik does not ship a 'groups' scope mapping in this
-# instance (the provider scope mappings present are only openid/email/profile/
-# offline_access/entitlements/ak_proxy/goauthentik.io/api), so create one.
-#
-# Each client gets its own mapping object (same scope_name, unique name). A
-# provider only ever references its own, so the emitted token still carries
-# exactly one groups claim -- the duplication is cosmetic, in authentik's UI.
+# Groups claim. authentik ships no 'groups' scope mapping in this instance, so create
+# one. Each client gets its own mapping object (same scope_name, unique name) -- a
+# provider only references its own, so the token still carries exactly one groups
+# claim; the duplication is cosmetic, in authentik's UI.
 resource "authentik_property_mapping_provider_scope" "groups" {
   name        = "OpenID 'groups' (${var.name})"
   scope_name  = "groups"

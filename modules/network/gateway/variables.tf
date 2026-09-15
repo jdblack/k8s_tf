@@ -5,6 +5,12 @@ variable "namespace" {
   description = "Existing namespace to run this Gateway + NGF control plane in (caller must create it)"
 }
 
+variable "helm_version" {
+  type        = string
+  default     = "2.6.7"
+  description = "nginx-gateway-fabric chart version. Every gateway instance in the cluster must pin the same one."
+}
+
 variable "name" {
   type        = string
   description = "Gateway instance name (namespaced). Also names the cluster-scoped GatewayClass and derives the controller name (gateway.nginx.org/<name>-controller). Every NGF installation must pass a unique value."

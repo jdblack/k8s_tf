@@ -3,6 +3,7 @@ variable "name" { default = "prowlarr" }
 
 variable "helm_repo" { default = "oci://ghcr.io/m0nsterrr/helm-charts" }
 variable "chart" { default = "prowlarr" }
+variable "helm_version" { default = "3.8.2" }
 
 variable "domain" { type = string }
 
@@ -10,8 +11,7 @@ variable "cert_issuer" { type = string }
 variable "gateway_name" { default = "media-private" }
 variable "gateway_namespace" { default = "media" }
 
-# The authentik outpost Service (same namespace) this app is always fronted
-# by; the gateway HTTPRoute in route.tf points here.
+# The authentik outpost Service (same namespace) always fronting this app.
 variable "auth_backend" { type = string }
 
 locals {

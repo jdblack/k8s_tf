@@ -1,13 +1,9 @@
-# The Longhorn chart ships its own NetworkPolicies (networkPolicies.enabled).
-# The longhorn-manager DaemonSet also carries the admission-webhook and
-# recovery-backend labels, so the manager pods are selected by THREE chart
-# policies (longhorn-manager, longhorn-webhook, longhorn-recovery-backend)
-# whose union admits only Longhorn's own components. Prometheus -- via the
-# chart's longhorn-prometheus-servicemonitor, which scrapes
-# app=longhorn-manager on TCP 9500 -- then hits the end-of-tier deny (visible
-# in Whisker/Goldmane as monitoring -> longhorn-system:9500 Deny). Chart
-# netpols can't be extended from values, so union in the monitoring namespace
-# here (Kubernetes NetworkPolicies are additive).
+# The chart ships its own NetworkPolicies, which admit only Longhorn's own
+# components (longhorn-manager pods carry the manager, webhook and
+# recovery-backend labels, so three chart policies select them). Prometheus
+# scraping app=longhorn-manager:9500 via the chart's ServiceMonitor therefore hits
+# the end-of-tier deny. Chart netpols can't be extended from values, so union in
+# the monitoring namespace here (NetworkPolicies are additive).
 module "firewall_metrics" {
   source = "../network/firewalls/policy"
 

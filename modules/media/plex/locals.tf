@@ -28,19 +28,17 @@ locals {
       }
     ]
     ingress = {
-      # Web UI exposure moved to the shared public gateway (listener.tf); the
-      # chart just keeps the LoadBalancer service for direct PMS access (32400).
+      # Web UI exposure is the shared public gateway (listener.tf); the chart keeps
+      # only the LoadBalancer service for direct PMS access (32400).
       enabled = false
     }
     service = {
       type = "LoadBalancer"
-      # externalTrafficPolicy=Local is required for the direct PMS LoadBalancer
-      # (32400) to survive the media ingress firewall. With the default
-      # (Cluster), kube-proxy SNATs cross-node traffic to a cluster-internal IP
-      # that no external CIDR in allowed_ingress_cidrs can match, so the pod
-      # rejects it. Local preserves the real client source IP and only routes
-      # the VIP to the node actually running the pod (MetalLB re-announces
-      # accordingly).
+      # Required for the direct PMS LoadBalancer (32400) to survive the media ingress
+      # firewall: with the default (Cluster), kube-proxy SNATs cross-node traffic to a
+      # cluster-internal IP that no external CIDR in allowed_ingress_cidrs can match,
+      # so the pod rejects it. Local preserves the real client source IP (MetalLB
+      # re-announces the VIP to nodes actually running the pod).
       externalTrafficPolicy = "Local"
       annotations = {
         "external-dns.alpha.kubernetes.io/hostname" = local.plex_host_internal,

@@ -7,9 +7,8 @@ module "expose" {
   gateway_name      = var.gateway_name
   gateway_namespace = var.gateway_namespace
 
-  # Web UI fronted by the authentik outpost (same namespace): the route targets
-  # the outpost Service, named "<app>-auth". Torrent traffic (21010) does NOT
-  # go through here -- it is served by the separate LoadBalancer Service.
+  # Web UI route to the outpost Service, named "<app>-auth". Torrent traffic (21010)
+  # does NOT go through here -- it is served by the separate LoadBalancer Service.
   backend_name = var.auth_backend
   backend_port = 9000
   route_name   = "${var.name}-auth"

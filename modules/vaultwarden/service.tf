@@ -1,6 +1,3 @@
-# ClusterIP only, deliberately: the private gateway is the ONLY way in. There is
-# no LoadBalancer, so no LAN-side IP exists that would bypass the gateway (and
-# the ingress firewall).
 resource "kubernetes_service_v1" "this" {
   metadata {
     name      = var.name
@@ -20,8 +17,7 @@ resource "kubernetes_service_v1" "this" {
     }
   }
 
-  # Controllers (MetalLB, cloud LBs) like to write annotations on Services;
-  # qbittorrent's Services carry the same guard.
+  # Controllers (MetalLB, cloud LBs) like to write annotations on Services.
   lifecycle {
     ignore_changes = [
       metadata[0].annotations

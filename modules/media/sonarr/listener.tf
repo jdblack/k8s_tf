@@ -7,8 +7,7 @@ module "expose" {
   gateway_name      = var.gateway_name
   gateway_namespace = var.gateway_namespace
 
-  # Fronted by the authentik outpost (same namespace): the route targets the
-  # outpost Service, named "<app>-auth" so it can't collide with the
+  # Route to the outpost Service, named "<app>-auth" so it cannot collide with the
   # chart-generated "<app>" route during the disable/apply transition.
   backend_name = var.auth_backend
   backend_port = 9000

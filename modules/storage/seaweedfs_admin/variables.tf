@@ -1,17 +1,14 @@
 # SSO gate for the SeaweedFS admin UI (`weed admin`).
 #
-# The admin UI speaks no OIDC, so authentik fronts it as a **proxy outpost** --
-# exactly the media / whisker pattern: an HTTPS listener + HTTPRoute on the shared
-# private gateway targeting the outpost, which proxies to the admin Service once
-# the user has a session.
-#
-# In the MANTLE stack: only mantle has the authentik provider configured (core
-# creates authentik, so it cannot talk to its API in the same apply). The
-# SeaweedFS release and Services stay in core (stacks/core/storage.tf); this
-# module adds the auth layer and is what publishes admin.<release>.<domain> now.
-#
-# The outpost is co-located in var.namespace so the outpost -> admin hop is
+# The admin UI speaks no OIDC, so authentik fronts it as a proxy outpost: an HTTPS
+# listener + HTTPRoute on the shared private gateway targeting the outpost. The
+# outpost is co-located in var.namespace so the outpost -> admin hop is
 # same-namespace and needs no cross-namespace policy.
+#
+# Lives in the MANTLE stack: only mantle has the authentik provider configured
+# (core creates authentik, so it cannot talk to its API in the same apply). The
+# SeaweedFS release stays in core; this module is what publishes
+# admin.<release>.<domain> now.
 
 variable "namespace" {
   type        = string
@@ -85,9 +82,8 @@ variable "group_name" {
   description = "authentik group bound to the app; add members in the UI."
 }
 
-# Bookmark-tile icon for the authentik application. dashboard-icons (the set the
-# media apps use) has no seaweedfs entry, so this comes from the selfh.st set via
-# jsDelivr instead -- same versionless-CDN idiom, different repo.
+# dashboard-icons (the set the media apps use) has no seaweedfs entry, so this
+# comes from the selfh.st set via jsDelivr instead.
 variable "icon" {
   type        = string
   default     = "https://cdn.jsdelivr.net/gh/selfhst/icons/svg/seaweedfs.svg"

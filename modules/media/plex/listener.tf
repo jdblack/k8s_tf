@@ -1,8 +1,5 @@
-# Web UI exposure via the shared public gateway (kube-network): HTTPS listener
-# (plex.linuxguru.net, letsencrypt cert) + HTTPRoute to the same PMS service
-# the chart's LoadBalancer exposes (32400). DNS keeps publishing both IPs:
-# 192.168.0.104 (direct PMS via the LoadBalancer service) and 192.168.0.101
-# (web UI via the gateway).
+# Web UI exposure via the shared public gateway: HTTPS listener + HTTPRoute to the same
+# PMS service the chart's LoadBalancer exposes (32400).
 module "expose" {
   source            = "../../network/gateway/expose"
   name              = var.plex_name

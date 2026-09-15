@@ -3,6 +3,8 @@ resource "helm_release" "plex" {
   repository = "https://raw.githubusercontent.com/plexinc/pms-docker/gh-pages"
   chart      = "plex-media-server"
   namespace  = var.namespace
+  wait       = true
+  timeout    = 600
   values     = [yamlencode(local.helm_values)]
 }
 

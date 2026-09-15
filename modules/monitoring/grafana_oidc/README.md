@@ -8,12 +8,12 @@ release itself is core's (`modules/monitoring/prometheus`).
 
 Grafana's `$__file{}` config expander **hard-fails at startup** when the
 referenced file is missing (the container exits), and core applies before mantle.
-So the Secret *object* is created by core with placeholder values, and this
-module patches only its *data*:
+So the Secret *object* is created by core with inert `unset` placeholders, and
+this module patches only its *data*:
 
 | Piece | Owner |
 |---|---|
-| Secret `grafana-oidc` (object + placeholder) | `stacks/core` → `modules/monitoring/prometheus/grafana.tf`, with `ignore_changes = [data]` |
+| Secret `grafana-oidc` (object + static placeholders) | `stacks/core` → `modules/monitoring/prometheus/grafana.tf`, with `ignore_changes = [data]` |
 | The real `client_id` / `client_secret` | `stacks/mantle` → here, via `kubernetes_secret_v1_data` |
 | The authentik OIDC provider + application | here (`auth/authentik/oidc_provider`) |
 

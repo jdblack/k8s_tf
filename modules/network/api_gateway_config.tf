@@ -1,11 +1,8 @@
-# Gateway API CRDs (gateway.networking.k8s.io/*) are not shipped by the NGF
-# chart, so install them here: CLUSTER-SCOPED API definitions, installed exactly
-# once (from the core stack), never per-gateway. Idempotent; re-runs only when
-# triggers_replace changes. NGF's own CRDs (gateway.nginx.org/*) come from its
-# chart's crds/ directory.
+# The NGF chart does not ship the Gateway API CRDs, so install them here: cluster-
+# scoped, installed exactly once. Idempotent; re-runs only when triggers_replace
+# changes. NGF's own CRDs (gateway.nginx.org/*) come from the chart's crds/.
 #
-# Fresh cluster: apply core BEFORE any stack that creates Gateway API resources
-# -- plan/apply needs the CRDs' schema to exist.
+# Fresh cluster: apply core BEFORE any stack that creates Gateway API resources.
 resource "terraform_data" "gateway_api_crds" {
   provisioner "local-exec" {
     command = <<-EOT

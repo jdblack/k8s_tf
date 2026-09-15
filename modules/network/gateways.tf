@@ -1,22 +1,19 @@
-# Shared, cluster-wide NGINX Gateway Fabric gateways (they replaced the old
-# public/private ingress-nginx controllers; ingress.tf removed).
+# Shared, cluster-wide NGF gateways in var.namespace, open to ListenerSets from any
+# namespace and watching all namespaces. Apps own their exposure from their own
+# namespace via the listener_set submodule + an HTTPRoute.
 #
-# In kube-network (var.namespace, owned by this module), open to ListenerSets from
-# ANY namespace (routes_namespace = null -> allowedListeners from: All) and
-# watching every namespace. Each app owns its exposure from its own namespace via
-# the listener_set submodule + an HTTPRoute; that submodule creates the
-# cross-namespace ReferenceGrant.
-#
-# Data-plane LoadBalancer Services are pinned to the IPs the old controllers held
-# (gateway_ips) so DNS / NAT / firewall rules keep working. MetalLB frees those IPs
-# once the old ingress-nginx releases are gone, so the new Services may sit Pending
-# until then (re-apply if they don't converge).
+# Data-plane Services take a MetalLB VIP like every other LoadBalancer here (no
+# load_balancer_ip passed). Two addresses are router-coupled and cannot be made
+# DNS-independent, since DNS is not in the path of an inbound NAT rule: the router
+# forwards WAN 443 -> the public gateway and WAN 21010 -> the qbittorrent torrent
+# Service. MetalLB keeps a Service's IP for that Service's lifetime, so unpinning
+# moves nothing -- but a *recreated* Service gets a new pool IP and the router
+# rules need re-pointing (re-pin via the submodule's load_balancer_ip).
 module "gateway_public" {
   source           = "./gateway"
   namespace        = var.namespace
   name             = "public"
   release_name     = "ngf-public"
-  load_balancer_ip = var.gateway_ips.public
   routes_namespace = null
   watch_namespaces = []
 
@@ -28,7 +25,6 @@ module "gateway_private" {
   namespace        = var.namespace
   name             = "private"
   release_name     = "ngf-private"
-  load_balancer_ip = var.gateway_ips.private
   routes_namespace = null
   watch_namespaces = []
 

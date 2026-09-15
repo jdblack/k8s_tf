@@ -1,26 +1,18 @@
-# NGINX Gateway Fabric control plane for THIS gateway instance. The caller owns
-# the namespace and must ensure it exists before apply (depends_on).
+# NGINX Gateway Fabric control plane. The caller owns the namespace.
 #
-# The chart creates a GatewayClass named var.name; every NGF instance needs a
-# unique GatewayClass + controller name, so each gateway passes a distinct name
-# (media-private / private / public) and unique release_name (their ClusterRoles
-# are cluster-scoped). watch_namespaces scopes the controller; its own namespace
-# is always included. The data-plane Service is pinned to
-# var.load_balancer_ip when set, else the LoadBalancer provider assigns one.
+# Every NGF instance needs a unique GatewayClass and release name: the chart's
+# ClusterRoles are cluster-scoped, so two releases cannot share a name.
 #
-# PREREQUISITE: the cluster-scoped Gateway API CRDs are installed once by
-# modules/network/api_gateway_config.tf from the core stack -- apply that first
-# on a fresh cluster.
+# PREREQUISITE: the Gateway API CRDs come from
+# modules/network/api_gateway_config.tf in the core stack.
 resource "helm_release" "ngf" {
-  # release_name defaults to "ngf" (single-gateway-per-namespace callers like
-  # media), but shared gateways in the same namespace (public/private in
-  # kube-network) pass unique names so the chart's ClusterRoles/CRD-scoped
-  # objects don't collide.
   name       = var.release_name
   repository = "oci://ghcr.io/nginx/charts"
   chart      = "nginx-gateway-fabric"
-  version    = "2.6.7"
+  version    = var.helm_version
   namespace  = var.namespace
 
-  values = [yamlencode(local.helm_values)]
+  wait    = true
+  timeout = 600
+  values  = [yamlencode(local.helm_values)]
 }

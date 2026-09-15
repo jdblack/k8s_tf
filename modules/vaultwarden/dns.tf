@@ -1,10 +1,6 @@
-# The A record that makes vaultwarden.linuxguru.net resolve to the PRIVATE
-# gateway. Without it the *.linuxguru.net wildcard sends clients to the WAN IP
-# (public gateway), which has no listener for this host.
-#
-# Terraform-managed and authoritative -- external-dns cannot do it, because it
-# is authoritative for vn.linuxguru.net only. See
-# ../network/dns/route53_record/README.md.
+# The A record that makes the host resolve to the PRIVATE gateway -- without it the
+# *.linuxguru.net wildcard sends clients to the WAN IP, which has no listener here.
+# Managed by hand because external-dns is authoritative for vn.linuxguru.net only.
 module "dns" {
   source = "../network/dns/route53_record"
 

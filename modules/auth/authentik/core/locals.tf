@@ -1,9 +1,7 @@
 locals {
   fqdn = coalesce(var.fqdn, "${var.name}.${var.domain}")
-  # The ListenerSet name (and chart route parentRef) is "auth" -- the purpose
-  # of authentik is auth, so keep the short name even though var.name is the
-  # chart/app name. Derived via local so listener.tf and the chart route can't
-  # drift apart.
+  # The ListenerSet name and the chart route's parentRef must not drift apart, hence
+  # one local. Deliberately not var.name.
   listener_name = "auth"
   helm_values = {
     global = {
@@ -40,10 +38,9 @@ locals {
       }
     }
     server = {
-      # Chart-native Gateway API route (beta): the chart renders the HTTPRoute
-      # against our ListenerSet (NGF only attaches routes to ListenerSet
-      # listeners via a ListenerSet parentRef). TLS is terminated at the
-      # gateway; the backend is plain HTTP (servicePortHttp).
+      # Chart-native Gateway API route: the chart renders the HTTPRoute against our
+      # ListenerSet (NGF only attaches routes to ListenerSet listeners via a
+      # ListenerSet parentRef). TLS terminates at the gateway; backend is plain HTTP.
       route = {
         main = {
           enabled   = true

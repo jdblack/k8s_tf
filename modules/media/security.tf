@@ -1,7 +1,5 @@
 
-# Namespace-wide egress: same-ns + DNS + internet, but NOT the k8s API. The
-# only media workload that legitimately needs the API is the NGF control plane
-# (+ its cert-generator job), which gets it from the pod-scoped allow_api below.
+# Namespace-wide egress: same-ns + DNS + internet, but NOT the k8s API.
 module "firewall" {
   source            = "../network/firewalls/basic_internet"
   namespace         = var.namespace
@@ -9,8 +7,8 @@ module "firewall" {
   allow_to_k8sapi   = false
 }
 
-# NetworkPolicies union, so NGF pods get the namespace-wide rules PLUS this.
-# The arr apps and data-plane pods don't match the selector and stay API-denied.
+# NetworkPolicies union, so NGF (which needs the API for cert generation) gets the
+# namespace-wide rules PLUS this; the arr and data-plane pods stay API-denied.
 module "allow_api" {
   source    = "../network/firewalls/allow_api"
   namespace = var.namespace
@@ -19,19 +17,17 @@ module "allow_api" {
   }
 }
 
-# Ingress lockdown: only same-namespace, WireGuard clients (kube-network-vpn,
-# who land on the wg-server pod) and non-pod external sources may connect.
-# Everything else -- above all every other pod in the cluster, kube-network
-# included -- is denied, so the arr ClusterIPs can't be reached around the
-# authentik outpost. That is the point of the policy.
+# Ingress lockdown: only same-namespace, WireGuard clients (kube-network-vpn, who
+# land on the wg-server pod) and non-pod external sources may connect. Every other
+# pod, kube-network included, is denied -- so the arr ClusterIPs can't be reached
+# around the authentik outpost.
 #
-# The LoadBalancer apps are reached from OUTSIDE the cluster where the client is
-# never a pod, so they need ipBlock peers: media's LBs are WAN-port-forwarded,
-# hence 0.0.0.0/0 with the cluster CIDRs excluded (var.lan_cidrs listed too, for
-# clarity).
+# The LoadBalancer apps are reached from outside the cluster, where the client is
+# never a pod, so they need ipBlock peers: media's LBs are WAN-port-forwarded, hence
+# 0.0.0.0/0 with the cluster CIDRs excluded.
 #
-# policy_name must differ from module.firewall above: basic_internet already
-# owns "namespace-firewall" in this namespace.
+# policy_name must differ from module.firewall above: basic_internet already owns
+# "namespace-firewall" here.
 module "firewall_ingress" {
   source      = "../network/firewalls/limited_ingress"
   namespace   = var.namespace
@@ -48,12 +44,10 @@ module "firewall_ingress" {
   )
 }
 
-# kube-network's only legitimate ingress is the shared public gateway proxying
-# to plex (the sole media app on a shared gateway; every arr app is fronted by
-# the media-private gateway in THIS namespace). Pod-scoped so an
-# internet-facing gateway data plane there cannot reach the authentik-protected
-# arr ClusterIPs. The namespace-wide policy above still covers plex's LAN/LB
-# paths; this just adds the kube-network peer for plex.
+# kube-network's only legitimate ingress is the public gateway proxying to plex
+# (the sole media app on a shared gateway). Pod-scoped so that internet-facing
+# gateway data plane cannot reach the authentik-protected arr ClusterIPs; the
+# namespace-wide policy above still covers plex's LAN/LB paths.
 module "firewall_ingress_plex" {
   source       = "../network/firewalls/limited_ingress"
   namespace    = var.namespace

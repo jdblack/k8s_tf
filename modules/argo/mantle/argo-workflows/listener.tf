@@ -1,6 +1,5 @@
-# Exposure via the shared private gateway (kube-network): HTTPS listener
-# (argo-wf.vn.linuxguru.net) + HTTPRoute to the ClusterIP
-# service (plain HTTP backend on 2746).
+# Exposure via the shared private gateway (kube-network): HTTPS listener + HTTPRoute
+# to the ClusterIP service (plain HTTP backend on 2746).
 module "expose" {
   source            = "../../../network/gateway/expose"
   name              = var.name
@@ -13,9 +12,6 @@ module "expose" {
   backend_port      = 2746
 }
 
-# The bare host intentionally serves the UI's own login page -- same call as
-# Argo CD (see ../core/argo-cd/listener.tf): the IdP-first redirect was a
-# `redirect_route` facade rather than a feature of either app, and it isn't
-# worth the failure mode (an OIDC callback that lands back on the hijacked path
-# loops forever). The UI's Login button is the SSO entrypoint. Rationale:
-# memory-bank/progress.md.
+# The bare host intentionally serves the UI's own login page -- same call as Argo CD
+# (see ../core/argo-cd/listener.tf): hijacking `/` into the IdP login loops the
+# browser on the OIDC callback. The Login button is the SSO entrypoint.

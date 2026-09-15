@@ -24,7 +24,7 @@ resource "kubernetes_deployment_v1" "samba" {
       spec {
         container {
           name  = local.samba_name
-          image = "dockurr/samba"
+          image = var.samba_image
 
           env {
             name  = "NAME"

@@ -2,8 +2,8 @@
 
 The monitoring stack, deployed into `monitoring` by `stacks/core`. Chart:
 [kube-prometheus-stack](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack),
-**pinned to `90.1.1`** (`helm.tf`) — deliberately; see the note in `locals.tf`
-and the Conventions section of the main README.
+**pinned to `90.1.1`** (`variables.tf`, `helm_version`) — deliberately; see the
+note in `locals.tf` and the Conventions section of the main README.
 
 Everything below is a deliberate deviation from chart defaults. The comments in
 `locals.tf` carry the reasoning; this is the summary.
@@ -22,10 +22,11 @@ Everything below is a deliberate deviation from chart defaults. The comments in
   tighter than `||`, and Grafana rejects a non-role.
 - **The OIDC client lives in two stacks.** `stacks/mantle` (the authentik
   provider) creates the client and writes the credentials;
-  `modules/monitoring/prometheus/grafana.tf` creates the Secret *object* with a
-  placeholder so Grafana's `$__file{}` expander always finds a file (it hard-fails
-  at startup when the mount is missing), and holds `ignore_changes = [data]` so
-  the two stacks never flap. See [`../grafana_oidc/README.md`](../grafana_oidc/README.md).
+  `modules/monitoring/prometheus/grafana.tf` creates the Secret *object* with
+  inert `unset` placeholders so Grafana's `$__file{}` expander always finds a
+  file (it hard-fails at startup when the mount is missing), and holds
+  `ignore_changes = [data]` so the two stacks never flap. See
+  [`../grafana_oidc/README.md`](../grafana_oidc/README.md).
 - **No CA bundle.** Grafana used to mount `SSL_CERT_FILE` pointing at the
   `linuxguru-ca` ConfigMap (mirrored from `default` into this namespace in
   `grafana.tf`) because Grafana is Go and had to validate authentik's cert. Deleted
@@ -70,5 +71,5 @@ them up cluster-wide. See the main README's Dashboards section.
 ## Variables
 
 `namespace`, `domain`, `cert_issuer`, `prometheus_name` (`prometheus`),
-`grafana_name` (`grafana`), `admin_group` (`authentik Admins`), `gateway_name`
-(`private`), `gateway_namespace` (`kube-network`).
+`grafana_name` (`grafana`), `admin_group` (`authentik Admins`), `helm_version`
+(`90.1.1`), `gateway_name` (`private`), `gateway_namespace` (`kube-network`).

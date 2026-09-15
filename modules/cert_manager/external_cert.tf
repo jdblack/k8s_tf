@@ -21,17 +21,14 @@ locals {
             dns01 = {
               route53 = {
                 accessKeyID = var.data["AWS_ACCESS_KEY_ID"]
-                # `hostedZoneID` is the real API field (`zoneid` never existed:
-                # the server pruned it, which left the solver to derive the zone
-                # from SOA lookups against the pod's resolver). For a .vn host
-                # that derivation answers `vn.linuxguru.net` -- the LAN bind9
-                # zone, which has no Route53 counterpart -- and the challenge
-                # died with "zone vn.linuxguru.net not found in Route 53".
-                # Pinning the zone skips discovery entirely: the TXT goes into
-                # the linuxguru.net zone, which is what the public resolvers
-                # Let's Encrypt uses actually serve for *.vn.linuxguru.net
-                # (there is no NS delegation -- see
-                # ../network/dns/route53_record/README.md).
+                # `hostedZoneID` is the real API field (`zoneid` is silently pruned,
+                # leaving the solver to derive the zone from SOA lookups against the
+                # pod's own resolver -- which answers vn.linuxguru.net for a .vn host,
+                # a LAN bind9 zone with no Route53 counterpart, and the challenge dies
+                # with "zone vn.linuxguru.net not found in Route 53"). Pinning the zone
+                # skips discovery entirely: the TXT goes into the linuxguru.net zone,
+                # which is what the public resolvers Let's Encrypt uses serve for
+                # *.vn.linuxguru.net (there is no NS delegation).
                 hostedZoneID = var.data["R53_ZONEID"]
                 region       = var.data["AWS_REGION"]
                 secretAccessKeySecretRef = {

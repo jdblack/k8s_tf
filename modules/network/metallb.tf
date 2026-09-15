@@ -31,14 +31,14 @@ resource "helm_release" "metal" {
   name       = local.charts.metal.name
   repository = local.charts.metal.url
   chart      = local.charts.metal.chart
-  version    = "0.16.1" # bumped from 0.15.3 on 2026-08-29
+  version    = var.helm_metallb_version
+  wait       = true
+  timeout    = 600
   values     = [yamlencode(local.helm_values.metallb)]
-  # Note: no loadBalancerClass is set here. MetalLB serves ALL LoadBalancer
-  # services, which is the desired behavior for this cluster (MetalLB is the
-  # only LB implementation). The previous `set { name = "spec.loadBalancerClass" }`
-  # was a no-op (the chart value is the top-level `loadBalancerClass`) and has
-  # been removed. If a second LB controller is ever added, revisit this and set
-  # `loadBalancerClass` + add the class to every Service that MetalLB should serve.
+  # No loadBalancerClass on purpose: MetalLB serves every LoadBalancer here (it is
+  # the only implementation). It must be set at the chart's top level, and any
+  # Service MetalLB should serve would need it too, so revisit if a second LB
+  # controller is ever added.
   depends_on = [kubernetes_namespace_v1.namespace]
 }
 

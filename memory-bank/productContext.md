@@ -41,10 +41,11 @@ Three access patterns, chosen by **what the clients are**, not preference:
 | authentik **OIDC** | Grafana, Harbor, Argo CD, Argo Workflows | app speaks OIDC natively |
 | **no auth in front** | `auth.` itself, SeaweedFS master/S3, plex, vaultwarden | non-browser clients, or the service *is* the IdP |
 
-Only two ways in: **public** gateway (`192.168.0.101`, WAN-forwarded) and
-**private** gateway (`192.168.0.100`, LAN + WireGuard only). Both drop plain
-HTTP — HTTPS is the only way through. Media apps sit on a third,
-namespace-local gateway (`media-private`, `192.168.0.106`).
+Only two ways in: **public** gateway (MetalLB VIP, currently `192.168.0.101`,
+WAN-forwarded) and **private** gateway (currently `192.168.0.100`, LAN +
+WireGuard only). Both drop plain HTTP — HTTPS is the only way through. Media apps
+sit on a third, namespace-local gateway (`media-private`, currently
+`192.168.0.106`). All VIPs float; names are the interface.
 
 The full hostname table (host → gateway → fronted-by → cert issuer) lives in the
 root `README.md` § "What is exposed where". Known gap: `ollama.vn.linuxguru.net`

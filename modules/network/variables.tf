@@ -16,10 +16,8 @@ variable "namespace" {
   default = "kube-network"
 }
 
-variable "gateway_ips" {
-  type = object({
-    public  = string
-    private = string
-  })
-  description = "MetalLB IPs to pin the public/private gateway data-plane Services to (the IPs the old ingress-nginx controllers held, so DNS / NAT / firewall rules keep working)."
+variable "helm_metallb_version" {
+  type    = string
+  default = "0.16.1"
 }
+

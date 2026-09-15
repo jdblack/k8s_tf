@@ -15,7 +15,8 @@ terraform {
       version = "3.0.1"
     }
     helm = {
-      source = "hashicorp/helm"
+      source  = "hashicorp/helm"
+      version = "3.1.1"
     }
     harbor = {
       source  = "goharbor/harbor"
@@ -30,7 +31,8 @@ terraform {
       version = "2025.10.1"
     }
     random = {
-      source = "hashicorp/random"
+      source  = "hashicorp/random"
+      version = "3.8.1"
     }
     # Route53 for the vaultwarden A record (modules/vaultwarden/dns.tf). The only
     # AWS use in this repo, and deliberately narrow: one record in one zone, via
@@ -69,20 +71,6 @@ provider "aws" {
   region     = var.deployment.cert.AWS_REGION
 }
 
-data "kubernetes_secret_v1" "harbor_auth" {
-  metadata {
-    namespace = var.deployment.harbor.namespace
-    name      = var.deployment.harbor.auth_secret
-  }
-}
-
-data "kubernetes_secret_v1" "authentik_auth" {
-  metadata {
-    namespace = var.deployment.auth.namespace
-    name      = var.deployment.auth.authentik_api_key
-  }
-}
-
 provider "authentik" {
   url   = var.deployment.auth.server
   token = data.kubernetes_secret_v1.authentik_auth.data["api_key"]
@@ -92,13 +80,6 @@ provider "harbor" {
   username = data.kubernetes_secret_v1.harbor_auth.data["username"]
   password = data.kubernetes_secret_v1.harbor_auth.data["password"]
   url      = data.kubernetes_secret_v1.harbor_auth.data["url"]
-}
-
-data "kubernetes_secret_v1" "argocd_auth" {
-  metadata {
-    namespace = var.deployment.argocd_devops.namespace
-    name      = var.deployment.argocd_devops.auth_secret
-  }
 }
 
 provider "argocd" {

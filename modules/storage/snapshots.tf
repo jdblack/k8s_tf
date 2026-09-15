@@ -7,15 +7,14 @@ resource "helm_release" "snapshot_controller" {
   repository = "https://piraeus.io/helm-charts/"
   chart      = "snapshot-controller"
   namespace  = var.namespace
+  wait       = true
+  timeout    = 600
   values     = [yamlencode(local.snapshot_controller)]
 }
 
-# VolumeSnapshotClass CRs are applied via kubectl_manifest (not
-# kubernetes_manifest) on purpose: their CRD (snapshot.storage.k8s.io) is
-# installed by the snapshot-controller Helm chart in the SAME apply run.
-# kubernetes_manifest needs the CRD to exist at plan time, which it does not on
-# a fresh cluster; kubectl_manifest plans fine and applies after the chart has
-# created the CRDs (depends_on below).
+# kubectl_manifest (not kubernetes_manifest) on purpose: the CRD
+# (snapshot.storage.k8s.io) is installed by the snapshot-controller chart in the
+# SAME apply run, and kubernetes_manifest needs it to exist at plan time.
 resource "kubectl_manifest" "longhorn_snapshot" {
   yaml_body = yamlencode({
     apiVersion = "snapshot.storage.k8s.io/v1"

@@ -8,7 +8,9 @@ module "dns" {
   source  = "../network/dns/route53_record"
   zone_id = var.zone_id            # literal Z3FM4Y4P2572E4
   name    = "vaultwarden.linuxguru.net"
-  records = ["192.168.0.100"]      # the private gateway
+  records = [private_gateway_ip]   # e.g. the private gateway's VIP, read from its
+                                   # data-plane Service -- VIPs float, so never
+                                   # copy an address into tfvars
 }
 ```
 

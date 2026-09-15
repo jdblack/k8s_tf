@@ -1,15 +1,14 @@
-# HTTPS listener on the shared PRIVATE gateway + HTTPRoute to the app Service,
-# via the standard `expose` pairing. Two deliberate choices:
+# HTTPS listener on the shared PRIVATE gateway + HTTPRoute to the app Service.
 #
-#   - the issuer is `cert_issuer`, the deployment default (letsencrypt), though
-#     the gateway is private: DNS-01/route53 is its only solver, so issuance needs
-#     no inbound reachability and phones need no CA installed. Moving to the public
-#     gateway later is a one-line change with zero client reconfiguration
-#     (Bitwarden clients pin the server URL).
-#   - NO authentik outpost in front: the clients are not browsers (token POSTs,
-#     bearer-token APIs, a /notifications/hub websocket), and an outpost's 302
-#     to a login page breaks every one of them. /admin is disabled instead --
-#     see secret.tf.
+# No authentik outpost in front of this host: Bitwarden clients are not browsers
+# (token POSTs, bearer-token APIs, a /notifications/hub websocket) and an outpost's
+# 302 to a login page breaks every one of them. /admin is disabled instead -- see
+# secret.tf.
+#
+# The cert uses the default public issuer despite the private gateway: DNS-01 is its
+# only solver, so issuance needs no inbound reachability and clients need no CA
+# installed, and moving to the public gateway later becomes a one-line change with
+# zero client reconfiguration.
 module "expose" {
   source = "../network/gateway/expose"
 

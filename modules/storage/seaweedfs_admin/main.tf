@@ -1,7 +1,5 @@
 locals {
-  # admin.<release>.<domain> -- previously published by the core seaweedfs module
-  # (modules/storage/seaweedfs) and now pointing at the outpost, not the admin
-  # Service.
+  # admin.<release>.<domain>; the outpost owns this host now.
   host = var.admin_host != null ? var.admin_host : "admin.${var.app_name}.${var.domain}"
 }
 
@@ -37,9 +35,9 @@ module "outpost" {
 }
 
 # HTTPS listener (admin.<app>.<domain>) on the shared private gateway
-# + HTTPRoute to the OUTPOST -- not the admin service. Reuses the names the core
-# module's expose_admin used (ListenerSet "seaweedfs-admin", cert
-# cert-admin.<app>.<domain>), so the cert/grants are simply re-owned here.
+# + HTTPRoute to the OUTPOST -- not the admin service. The ListenerSet name and
+# cert carry the names core's retired expose_admin used, so the cert and grants
+# are re-owned here.
 module "expose" {
   source = "../../network/gateway/expose"
 
@@ -54,11 +52,9 @@ module "expose" {
   backend_port      = 9000
 }
 
-# The outpost module ships an Egress-only, default-deny policy (kube-auth:9000).
-# The SeaweedFS namespace firewall is INGRESS-only, so nothing else opens the
-# outpost's egress. Open exactly what it needs: DNS, and the admin service.
-# Calico evaluates egress post-DNAT, so the peer is the admin POD, not the
-# Service ClusterIP.
+# The outpost module ships an Egress-only default-deny policy and the SeaweedFS
+# namespace firewall is INGRESS-only, so nothing else opens the outpost's egress.
+# Calico evaluates egress post-DNAT: the peer is the admin POD, not the Service IP.
 module "outpost_egress" {
   source = "../../network/firewalls/policy"
 

@@ -1,10 +1,7 @@
 locals {
 
-  # Endpoint IPs of the apiserver (control-plane nodes), post-DNAT: handed in by
-  # the caller (var.api_peer_ips) or read from the `kubernetes` Endpoints object
-  # here. `one()` is null when the read is disabled in data.tf and try() turns
-  # that into an empty list -- correct, since a caller passing api_peer_ips gets
-  # its peers from the first branch.
+  # `one()` is null when data.tf disabled the read (caller-supplied IPs) and
+  # try() turns that into an empty list, which is the correct peer set.
   api_peer_ips = var.api_peer_ips != null ? var.api_peer_ips : flatten([
     for s in try(one(data.kubernetes_endpoints_v1.kubernetes).subset, []) : [
       for a in s.address : a.ip
@@ -60,9 +57,8 @@ locals {
           protocol = "UDP"
           port     = 53
         },
-        # CoreDNS also answers over TCP when responses are truncated for UDP
-        # (large TXT/SRV/any records). Allow it or occasional DNS lookups fail
-        # once a namespace is put behind this firewall.
+        # CoreDNS answers over TCP when UDP responses are truncated (large
+        # TXT/SRV/any records); without this, occasional lookups fail.
         {
           protocol = "TCP"
           port     = 53
@@ -72,9 +68,8 @@ locals {
 
     to_k8s_api = {
       peers = concat(
-        # kubernetes.default.svc ClusterIP (first host of the service CIDR)
         [{ ip_block = { cidr = format("%s/32", cidrhost(var.service_cidr, 1)) } }],
-        # the apiserver's actual endpoint IPs (control-plane nodes), post-DNAT
+        # this rule sees destination IPs post-DNAT, i.e. the node IPs
         [
           for ip in local.api_peer_ips : {
             ip_block = { cidr = format("%s/32", ip) }

@@ -4,7 +4,9 @@ resource "helm_release" "helm" {
   repository = var.helm_repo
   chart      = var.chart
   namespace  = var.namespace
-  version    = "2.2.2"
+  version    = var.helm_version
+  wait       = true
+  timeout    = 600
   values     = [yamlencode(local.helm_values)]
 }
 

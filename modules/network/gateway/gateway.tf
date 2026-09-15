@@ -1,11 +1,9 @@
-# The Gateway is generic shared infrastructure: it exposes no app-specific
-# HTTPS listeners -- each app module declares its own via a ListenerSet (in the
-# app namespace) plus its own HTTPRoute and Certificate.
+# The Gateway takes no app-specific listeners: each app declares its own via a
+# ListenerSet.
 #
-# The CRD (gateway.networking.k8s.io/v1) requires spec.listeners to contain at
-# least one entry (MinItems=1), so a minimal :80 HTTP listener is declared but
-# NO routes are allowed to attach to it: plain-HTTP requests are dropped (404),
-# never redirected or served. HTTPS is the only way in.
+# The CRD requires spec.listeners to have at least one entry (MinItems=1), so a
+# minimal :80 listener is declared with no routes able to attach -- plain HTTP is
+# dropped (404), never redirected. HTTPS is the only way in.
 resource "kubectl_manifest" "gateway" {
   yaml_body = yamlencode({
     apiVersion = "gateway.networking.k8s.io/v1"
@@ -16,15 +14,13 @@ resource "kubectl_manifest" "gateway" {
     }
     spec = {
       gatewayClassName = var.name
-      # Allow app namespaces to attach ListenerSets (per-app HTTPS listeners).
       allowedListeners = local.allowed_listeners
       listeners = [
         {
           name     = "http"
           port     = 80
           protocol = "HTTP"
-          # No routes can ever attach here: the namespace selector matches
-          # nothing, so plain-HTTP requests are dropped (404), never redirected.
+          # Selector matches no namespace, so no route can attach here.
           allowedRoutes = {
             namespaces = {
               from = "Selector"

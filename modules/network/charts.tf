@@ -15,9 +15,8 @@ locals {
 
   }
 
-  # Helm values for every chart installed by this module (one entry per release:
-  # Terraform allows a local name to be declared only once per module, so the
-  # releases share the helm_values local and each references its own key).
+  # Terraform allows a local name only once per module, so every release in this
+  # module reads its own key out of the shared helm_values local.
   helm_values = {
     calico = {}
 
@@ -60,11 +59,9 @@ locals {
     }
 
     metallb = {
-      # BGP backend: NATIVE mode (frr disabled, frrk8s disabled). This cluster is
-      # L2-only (single IPAddressPool, no BGPPeers), so native is the smallest
-      # correct footprint: single-container speaker, no idle FRR sidecars, no
-      # frr-k8s controller/CRDs. 0.16.0 deprecated FRR mode in favor of frr-k8s;
-      # if BGP is ever needed, switch to frrk8s.enabled = true (the chart default).
+      # Native BGP mode, not FRR: this cluster is L2-only (one IPAddressPool, no
+      # BGPPeers), so frr/frrk8s would be idle sidecars and CRDs. 0.16.0 deprecated
+      # FRR mode; switch to frrk8s.enabled = true if BGP is ever needed.
       speaker = {
         frr = {
           enabled = false

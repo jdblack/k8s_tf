@@ -3,8 +3,9 @@ locals {
 
   helm_values = {
     image = {
-      tag             = "4"
-      imagePullPolicy = "Always"
+      tag = "4"
+      # "4" is a floating major tag, so re-pull on every start.
+      pullPolicy = "Always"
     }
     volumes = [
       {
@@ -25,6 +26,7 @@ locals {
         size = var.config_size
       }
     }
+    # 1000:1000 across the arrs sharing the `media` PVC -- see README.md.
     securityContext = {
       runAsUser  = 1000
       runAsGroup = 1000
