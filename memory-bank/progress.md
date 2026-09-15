@@ -66,8 +66,13 @@
   repointed at `library`, helm's credential store is seeded, both charts render
   `extraObjects`, and `library/corsless-helm:0.0.26` is published. `corsless` is
   **verified serving** (stock-trust TLS, app answers; cert re-issued from the old
-  CA to `letsencrypt`). `llm-embedder` only needs its image to finish
-  building/publishing — see `activeContext.md` for the full bug chain.
+  CA to `letsencrypt`). **`llm-embedder` is live too** (2026-09-15, later):
+  `library/llm-embedder-chart:0.0.77` + `library/llm-embedder:v0.0.77`, 5/5 pods
+  Running, Argo Synced/Healthy, `/health` answers through the gateway. Two
+  follow-ups: `/embed` is broken in the published image (a `retrival.query` typo
+  fixed in source but not yet rebuilt), and the TF `argocd_repository.devops_helm`
+  had to be repointed at `/library` or the next `tofu apply` would have written
+  the dead project URL back. See `activeContext.md` for the full bug chain.
 - ~~Orphan ClusterIssuer `letsencrypt-http`~~ — HTTP-01/ingress-nginx leftover,
   in no `.tf` and referenced by no Certificate. **Deleted 2026-09-15**, along with
   its `letsencrypt-http-key` account key.

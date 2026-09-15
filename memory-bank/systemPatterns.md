@@ -55,6 +55,11 @@ Outpost-fronted apps point `route_name = "<app>-auth"` at the outpost service.
   (`corsless-helm`, `llm-embedder-chart`) now ship
   `templates/extraObjects.yaml` to render it. Those charts publish to Harbor
   project **`library`** (`library/<app>` + `library/<chart>`), not `linuxguru`.
+  ArgoCD reaches the charts through `argocd_repository.devops_helm`
+  (`modules/argo/mantle/argo-cd/repositories.tf`), whose Terraform id **is the
+  repo URL** and whose Secret lands as `argo/repo-<fnv32a(repo_url)>` — so
+  changing the project in one place without the other shows up as a permanent
+  `1 to add` in `tofu plan`, and hand-editing the Secret's `url` desyncs it.
 - `hostname` overrides for sub-subdomains (`admin.seaweedfs.<domain>`).
 
 ## Pattern: firewalls compose (NetworkPolicies UNION)

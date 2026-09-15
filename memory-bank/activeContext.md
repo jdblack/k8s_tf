@@ -2,13 +2,18 @@
 
 ## Current state (as of 2026-09-15, late)
 
-- Branch `main`, **6 unpushed commits** ahead of `origin/main` (baseline
-  `5f0f582`): the CA migration (3), its memory-bank note, the CA-retirement
-  commit, and the memory-bank update at the end of the session. Nothing pushed.
-- **2026-09-15 (later) — the two dead `ai` apps are alive.** `corsless` is
-  deployed and serving `https://corsless.vn.linuxguru.net`; `llm-embedder` is
-  repointed but its image is still being rebuilt. Three chained bugs, in the
-  order they bit:
+- Branch `main`, **all pushed** (baseline `5f0f582` → `7c24e81`): the CA
+  migration (3), its memory-bank note, the CA-retirement commit, two memory-bank
+  updates, plus a root-README host-table update. Working tree clean.
+- **2026-09-15 (later) — both dead `ai` apps are alive and serving.**
+  `https://corsless.vn.linuxguru.net` (`/health` → `200 {"status":"ok"}`, proxy
+  returns `access-control-allow-origin: *`) and
+  `https://llm-embedder.vn.linuxguru.net` (`/health` →
+  `{"name":"llm-embedder","status":"ok"}`, 5/5 pods Running, Argo
+  Synced/Healthy, `library/llm-embedder-chart:0.0.77` +
+  `library/llm-embedder:v0.0.77` published). Both wire certs are now
+  `O=Let's Encrypt` with the right SAN and verify against stock roots. Three
+  chained bugs, in the order they bit:
   1. **Build**: `corsless/Dockerfile` built for the builder's platform, so the
      amd64 image was a qemu-emulated Go build that crashed. Now
      `FROM --platform=$BUILDPLATFORM` + `GOOS`/`GOARCH` cross-compile — builder
@@ -51,7 +56,28 @@
     `--extra-index-url https://pypi.org/simple` plus an explicit
     `torch==2.8.0+cpu` pin, so PyPI's CUDA build can never win. Note: this Mac's
     podman VM builds `linux/amd64` under emulation (verified), which is why the
-    python image build takes ~20 minutes.
+    python image build takes ~25 minutes — plan for it, don't run it inline.
+  - **TF held a landmine around the same Secret.** `argocd_repository.devops_helm`
+    in `modules/argo/mantle/argo-cd/repositories.tf` still said
+    `harbor.${var.domain}/linuxguru`, and its Terraform *id is the repo URL*. The
+    live Argo Secret had been hand-edited to `.../library`, so the provider could
+    not find an entry for the configured URL and **every `tofu plan` in the mantle
+    stack reported `1 to add`** — an apply would have (re)written that Secret as
+    `.../linuxguru` and 404'd both apps all over again. Config now says
+    `.../library`, the apply ran (`1 added, 0 changed, 0 destroyed`), and
+    `tofu plan` is back to **"No changes."** Notes: the ArgoCD provider names repo
+    Secrets `repo-<fnv32a(repo_url)>` (`repo-3272614039` = the *old* linuxguru
+    URL), but it resolves the resource by URL, so no duplicate Secret appeared and
+    the stale name is cosmetic. `library` is still *not* in
+    `var.deployment.harbor.projects` (TF-managing it needs an `import` first or
+    `apply` 409s), and the TF-managed `linuxguru` project now has zero consumers.
+  - **New finding — `llm-embedder`'s `/embed` is broken in the published image.**
+    `app.py` passed `task="retrival.query"` (typo) and jina-embeddings-v3
+    rejects it: `Unsupported task 'retrival.query'…`. Every `/embed` call 500s
+    no matter who calls it. Fixed in source and committed, but **the fix is not
+    in the 0.0.77 image** — `/embed` stays broken until the next
+    `./build publish` (~25 min under emulation). `/health` and `/spam` are
+    unaffected.
 - **2026-09-15 (evening) — CA migration FINISHED. All 17 hosts are on Let's
   Encrypt and nothing consumes `linuxguru-ca`.** The last four (`auth.vn`,
   `harbor`, `grafana`, `argo-wf`) flipped in **one apply per stack**, together

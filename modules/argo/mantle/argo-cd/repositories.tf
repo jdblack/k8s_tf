@@ -11,7 +11,7 @@ resource "argocd_repository" "devops_repo" {
 resource "argocd_repository" "devops_helm" {
   name       = "Linuxguru Helm Repo"
   type       = "helm"
-  repo       = "harbor.${var.domain}/linuxguru"
+  repo       = "harbor.${var.domain}/library"
   enable_oci = true
   depends_on = [module.auth]
 }
