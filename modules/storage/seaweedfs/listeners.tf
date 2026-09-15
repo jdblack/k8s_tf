@@ -11,7 +11,7 @@ module "expose_master" {
   namespace         = var.namespace
   domain            = var.domains[var.visibility]
   hostname          = local.master_host
-  cert_issuer       = local.issuer
+  cert_issuer       = var.cert_issuer
   gateway_name      = var.gateway_name
   gateway_namespace = var.gateway_namespace
   backend_name      = "seaweedfs-master"
@@ -24,7 +24,7 @@ module "expose_s3" {
   namespace         = var.namespace
   domain            = var.domains[var.visibility]
   hostname          = local.s3_host
-  cert_issuer       = local.issuer
+  cert_issuer       = var.cert_issuer
   gateway_name      = var.gateway_name
   gateway_namespace = var.gateway_namespace
   backend_name      = "seaweedfs-s3"

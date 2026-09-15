@@ -1,5 +1,5 @@
 variable "namespace" { type = string }
-variable "cert_issuers" { type = map(any) }
+variable "cert_issuer" { type = string }
 variable "name" { default = "seaweedfs" }
 variable "helm_repo" { default = "https://seaweedfs.github.io/seaweedfs/helm" }
 variable "chart" { default = "seaweedfs" }

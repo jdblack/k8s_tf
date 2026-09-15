@@ -13,7 +13,7 @@ module "argo_setup" {
   domain        = var.deployment.common.domain
   # Leaf cert only (argo-wf.vn's ListenerSet). The SSO clients in this module
   # validate authentik against the container's public roots -- no CA injection.
-  cert_issuer = var.deployment.cert_authorities.public
+  cert_issuer = var.deployment.cert_authorities.default
   deploy_key  = var.deployment.argocd_devops.deploy_key
   repo        = var.deployment.argocd_devops.deploy_repo
 }

@@ -1,7 +1,7 @@
 variable "prometheus_name" { default = "prometheus" }
 
 variable "namespace" {}
-variable "cert_issuer" {}
+variable "cert_issuer" { type = string }
 variable "domain" {}
 variable "grafana_name" { default = "grafana" }
 

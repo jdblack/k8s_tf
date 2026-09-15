@@ -12,7 +12,7 @@ module "vaultwarden" {
 
   namespace   = "vaultwarden"
   domain      = var.deployment.domains.public
-  cert_issuer = var.deployment.cert_authorities.public
+  cert_issuer = var.deployment.cert_authorities.default
 
   # Literal zone id: the deployment's AWS key is denied route53:GetHostedZone,
   # so the record cannot look the zone up by name.

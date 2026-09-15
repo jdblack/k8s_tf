@@ -1,10 +1,10 @@
 module "media" {
-  source           = "../../modules/media"
-  namespace        = "media"
-  domain           = var.deployment.common.domain
-  cert_authorities = var.deployment.cert_authorities
-  domains          = var.deployment.domains
-  plex_claim       = try(var.deployment.media.plex_claim, "")
+  source      = "../../modules/media"
+  namespace   = "media"
+  domain      = var.deployment.common.domain
+  cert_issuer = var.deployment.cert_authorities.default
+  domains     = var.deployment.domains
+  plex_claim  = try(var.deployment.media.plex_claim, "")
 
   # MetalLB IP the home router port-forwards qbittorrent torrent traffic to;
   # pinned so the webui/torrent Service split can't reassign it.

@@ -10,7 +10,7 @@ module "seaweedfs_admin" {
   domain    = var.deployment.domains.private
   # Leaf cert only: the authentik outpost in front validates auth.vn against
   # the private CA, not this host's cert.
-  cert_issuer = var.deployment.cert_authorities.public
+  cert_issuer = var.deployment.cert_authorities.default
 
   gateway_name      = "private"
   gateway_namespace = "kube-network"

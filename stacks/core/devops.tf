@@ -13,7 +13,7 @@ module "harbor" {
   # Leaf cert only: the gateway terminates TLS for harbor.vn and nothing
   # in-cluster validates harbor's own cert. Harbor's OIDC client trusts
   # authentik via the container's public roots, so it needs no CA bundle.
-  cert_issuer = var.deployment.cert_authorities.public
+  cert_issuer = var.deployment.cert_authorities.default
   domain      = var.deployment.common.domain
   depends_on  = [module.network, module.storage, module.cert_man]
 }
@@ -26,7 +26,7 @@ module "argo" {
   # annotation and nothing in-cluster validates argo-cd.vn's own cert. The SSO
   # side (modules/argo/mantle) no longer injects a CA either -- authentik has
   # a public chain, so argocd-server validates it against the container's roots.
-  cert_issuer = var.deployment.cert_authorities.public
+  cert_issuer = var.deployment.cert_authorities.default
 }
 
 

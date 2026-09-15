@@ -29,6 +29,6 @@ module "prometheus" {
   domain = var.deployment.common.domain
   # Leaf cert only. Grafana's OIDC client trusts authentik through the
   # container's public roots, so it mounts no CA bundle.
-  cert_issuer = var.deployment.cert_authorities.public
+  cert_issuer = var.deployment.cert_authorities.default
 }
 
