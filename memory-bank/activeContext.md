@@ -39,6 +39,11 @@
   5. **`.terraform` caches pruned, 2.5 GB → 1.5 GB** — only versions absent from
      each stack's lock file, plus module dirs nothing enabled references (which is
      where the orphaned 81 MB `fuckbatz_website` cache lived). See `progress.md`.
+  6. **The `fuckbatz` wordpress module was deleted outright** (the sibling stays
+     parked): `stacks/apps/notbatz.com_website.tf.disabled` is gone, along with
+     the last of its traces. `notbatz.com` is not a Route53 zone in this account
+     (only `linuxguru.net` and `emtho.com` are), so the site could never have
+     resolved. See `progress.md`.
 - **2026-09-15 (night) — the issuer plumbing collapsed onto one key.** A
   post-migration audit found the (already single-valued) issuer reachable three
   different ways: a direct `cert_authorities.public` lookup (9 stack sites), a

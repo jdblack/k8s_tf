@@ -25,8 +25,8 @@ stacks/
 ├── core/     # platform: network, storage, certs, identity, monitoring, harbor, argo-cd, vpn
 ├── mantle/   # workloads + config owned by a provider core just created:
 │             # media, blender, vaultwarden, seaweedfs-admin, whisker, grafana/harbor/argo SSO
-└── apps/     # ArgoCD app-of-apps (the `ai` deployment; two wordpress deployments
-              # are parked as *.tf.disabled)
+└── apps/     # ArgoCD app-of-apps (the `ai` deployment; a wordpress deployment
+              # is parked as *.tf.disabled)
 ```
 
 State Secrets in `kube-system` are `tfstate-default-{core,mantle,deployment}`.

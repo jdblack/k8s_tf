@@ -150,6 +150,15 @@
   means porting to `gateway/expose` and passing `cert_authorities.default`
   (`letsencrypt`, DNS-01 — `letsencrypt-http` is long gone and `linuxguru-ca` is
   dormant).
+- **One of the two wordpress modules was deleted outright 2026-09-15**, not just
+  parked: `notbatz.com_website.tf.disabled` (module `fuckbatz_website`, namespace
+  `fuckbatz`, `www.notbatz.com`/`notbatz.com`). `notbatz.com` has **no Route53
+  zone in this account** — only `linuxguru.net` and `emtho.com` are hosted here —
+  so it could never have resolved, and its config was dead on arrival anyway
+  (dead issuer, dead ingress class). Its state Secret, lock Lease, 81 MB module
+  cache and `.terraform/modules/modules.json` entry all went with it. The sibling
+  `ngoc_website.tf.disabled` (`www.emtho.com`) is deliberately **kept**: that zone
+  does exist here, so the file is the only record of the site's definition.
 
 - Harbor's `library` project is **not TF-managed, on purpose** (2026-09-15): it's
   Harbor's *default* project, and the only thing TF needs from it is the name, to

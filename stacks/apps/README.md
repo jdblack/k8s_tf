@@ -43,16 +43,26 @@ That host has **no authentik in front of it**; see the main README's hostname
 table. Deleting the module here would drop the ArgoCD Application, not the
 cluster objects (`prune` on the app-of-apps handles those).
 
-## Parked: the wordpress deployments
+## Parked: the wordpress deployment
 
-`ngoc_website.tf.disabled` and `notbatz.com_website.tf.disabled` are the origin
-of this stack. Both were module calls into
+`ngoc_website.tf.disabled` is the origin of this stack: a module call into
 `git::https://github.com/Linuxgurus/wordpress.git//terraform` — a module that
-takes `ingress_class` and expects the old nginx ingress classes — so they were
-disabled when the cluster moved to Gateway API. Reviving one means porting that
+takes `ingress_class` and expects the old nginx ingress classes — so it was
+disabled when the cluster moved to Gateway API. Reviving it means porting that
 module to `gateway/expose` (ListenerSet + HTTPRoute) and passing a working cert
 issuer — `cert_authorities.default` (`letsencrypt`, DNS-01; the old
 `letsencrypt-http` is long gone and `linuxguru-ca` is dormant).
+
+There was a **second** one, `notbatz.com_website.tf.disabled` (module
+`fuckbatz_website`, `fuckbatz` namespace, `www.notbatz.com`). It was deleted
+2026-09-15: `notbatz.com` has no Route53 zone here at all (only `linuxguru.net`
+and `emtho.com` do), so the site never had a working DNS path in this account,
+and its config would have been dead on arrival anyway — dead issuer, dead ingress
+class. Its state Secret, lock Lease and 81 MB module cache went with it.
+
+By contrast `emtho.com` **is** a zone in this account, so the `ngoc_website`
+file above is left parked rather than deleted — it's the only record of that
+site's definition.
 
 The module repo's own `./build` script (bump chart version → commit/push →
 package and push the chart) still applies if you go back to it.

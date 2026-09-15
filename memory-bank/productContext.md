@@ -18,7 +18,7 @@ its own state, applied in order:
 |---|---|---|
 | `stacks/core` | network, storage, certs, authentik, monitoring, Harbor, Argo CD, VPN, Gateway API CRDs | `tfstate-default-core` |
 | `stacks/mantle` | everything needing a provider core just built: media, blender, vaultwarden, seaweedfs-admin, whisker, Grafana/Harbor/Argo SSO | `tfstate-default-mantle` |
-| `stacks/apps` | ArgoCD app-of-apps (`ai`; two wordpress deployments parked as `*.tf.disabled`) | `tfstate-default-deployment` |
+| `stacks/apps` | ArgoCD app-of-apps (`ai`; a wordpress deployment parked as `*.tf.disabled`) | `tfstate-default-deployment` |
 
 Order matters on a fresh cluster: `core` installs the Gateway API CRDs, and
 `mantle`'s HTTPRoutes are `kubernetes_manifest`s that need those CRDs at **plan**
