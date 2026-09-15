@@ -19,3 +19,11 @@ moved {
   from = module.listener_set
   to   = module.expose.module.listener_set
 }
+
+# The bare host intentionally serves the chart's own login page. A
+# `redirect_route` hijacking `Exact /` into /auth/login was tried and removed:
+# argocd-server's OIDC callback falls back to the base href (`/`) when no
+# return_url is supplied (util/oidc verifyAppState), which is the hijacked path,
+# so the rule loops the browser until ERR_TOO_MANY_REDIRECTS. Argo CD ships no
+# setting to skip its login page -- the SSO button is the entrypoint. Rationale
+# and failure mode: memory-bank/progress.md.

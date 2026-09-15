@@ -15,6 +15,20 @@
   auto-provisioned from the ListenerSet annotation. No hand-written
   `Certificate`s. Public/private gateway data planes pinned to
   `192.168.0.101`/`.100`.
+- **IdP-first login (2026-09-15) — Harbor only; the Argo apps keep their login
+  pages, deliberately.** Harbor uses its native `primary_auth_mode`. Argo CD and
+  Argo Workflows were given a `gateway/redirect_route` HTTPRoute hijacking
+  `Exact /` at their OIDC entrypoint, which worked until Argo CD's target lost
+  its `return_url` and the callback (falling back to the base href, `/`)
+  re-entered the same rule: an instant loop whose only symptoms were Chrome's
+  ERR_TOO_MANY_REDIRECTS and Argo CD's `data length is less than nonce size`
+  (its own `util/crypto` decrypting the just-emptied state cookie). Removed
+  rather than repaired — no native auto-redirect switch exists for either app,
+  so the whole thing was a facade with a sharp edge. Both hosts serve their own
+  login page (`/` → 200 `text/html`) and the SSO entrypoints (`/auth/login`,
+  `/oauth2/redirect?redirect=/workflows`) still hand off to authentik, so a
+  bookmark still gives one click. Verified: one route destroyed in each of
+  `core` and `mantle`, both stacks plan empty afterwards.
 - **mantle workloads** — media (sonarr/radarr/prowlarr/bazarr/plex/qbittorrent,
   all outpost-fronted except the torrent port), blender (Samba + mDNS Bonjour
   advertiser macOS Finder needs), whisker (flow-log UI, SSO-gated),
@@ -169,6 +183,35 @@
   a from-scratch rebuild still needs `library` to exist — which it does, by default,
   so nothing to do; what it can't recreate is the hand-made `robot$jblack` permission
   on it.
+
+- **How the IdP-first attempt went, and why it's gone (2026-09-15; reversed the
+  same day).** Harbor's `primary_auth_mode` is the only *native* lever, and the
+  UI acts on it **client-side**, so `curl /` still answers 200 — verify via
+  `/api/v2.0/systeminfo` (`primary_auth_mode:true`), *not* the `harbor-core` cm,
+  which never carries that key (an empty cm value is a false alarm). Argo CD's
+  nearest native lever is `admin.enabled: "false"` in `argocd-cm`; rejected,
+  because the mantle stack's `argocd` provider authenticates as `admin`, so it
+  would break every later apply (the real fix is a named `iac` apiKey account +
+  RBAC `role:admin` + token, plus no UI break-glass — deferred as its own
+  change). Workflows has no lever at all: its login page is hardcoded and
+  `--auth-mode=sso` only means no password form. Faking it at the gateway was
+  possible (`redirect_route`: one redirect-only `Exact /` rule, no `backendRefs`,
+  so it outranks the app's own `PathPrefix /` route by match specificity) and it
+  did work — but it pushed another program's OIDC callback semantics into a
+  routing string, where no `plan` can see them break, and that is exactly how it
+  looped. Module and both call sites deleted. If it is ever rebuilt: the match
+  type must be `Exact` (`PathExact` fails CRD validation — not a Gateway API
+  type), the route needs a distinct name (`<name>-sso-redirect`; the app already
+  owns one named `<name>`), and `replaceFullPath` **must** carry the app's
+  post-login target, because a callback without one falls back to `/` and closes
+  the loop.
+- **State lives in the Kubernetes backend** (`kube-system`, `secret_suffix =
+  core|mantle|deployment`), so an interrupted command leaves no local lock file —
+  it leaves `tfstate-default-<stack>-lock`, and a local `ls` for
+  `*.tfstate.lock.info` proves nothing. Clear it with
+  `tofu -chdir=stacks/<stack> force-unlock -force <ID>` once `ps` shows no live
+  `tofu` client (an interrupted `plan` holds it with `OperationTypePlan` and has
+  written no state).
 
 ## How to tell you're still on track
 

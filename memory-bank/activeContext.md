@@ -5,6 +5,23 @@
 - Branch `main`, ahead of `origin/main` (baseline `5f0f582` → `7c24e81` →
   `92469da` → `226ba04` → `bbe94f4`), plus the 2026-09-15 orphan/dead-config
   sweep below. **Not pushed as of this writing.**
+- **2026-09-15 (later) — IdP-first login was tried, judged not worth its failure
+  mode, and removed.** Harbor keeps its native `primary_auth_mode`. Argo CD and
+  Argo Workflows got a gateway rule hijacking `Exact /` into their OIDC
+  entrypoints; it worked, then looped the moment the Argo CD target lacked a
+  return URL — `redirectURL := a.baseHRef`, i.e. back to `/`, the hijacked path
+  — showing as ERR_TOO_MANY_REDIRECTS plus argocd-server's `data length is less
+  than nonce size` (its own `util/crypto` decrypting the state cookie the
+  previous callback had just emptied). 604 log lines in 3h, **all `level=info`,
+  not one error**; nothing about it was visible in a plan. Net: both apps serve
+  their own login page again, the `redirect_route` module and both call sites are
+  deleted, and the one-click SSO paths (`/auth/login`,
+  `/oauth2/redirect?redirect=/workflows`) are untouched for bookmarks. Deletion
+  was chosen over a corrected redirect because no native switch exists for either
+  app (grep of Argo CD v3.2.3: no auto-redirect setting; its only built-in SSO
+  bounce is the UI's 401 handler, `app.tsx subscribeUnauthorized`, which needs a
+  session to expire first) — so IdP-first there is a facade by construction, and
+  the click it saves isn't worth a silent loop.
 - **2026-09-15 (night, cleanup session) — orphans and dead config removed, plans
   still empty.** Four separate messes, each confirmed by a plan that came back
   empty (core and mantle):

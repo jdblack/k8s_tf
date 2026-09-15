@@ -12,8 +12,11 @@ module "oauth2" {
 
 
 resource "harbor_config_auth" "oidc" {
-  auth_mode          = "oidc_auth"
-  primary_auth_mode  = false
+  auth_mode = "oidc_auth"
+  # Skip the "Authentik vs local DB" login page and bounce straight to the OIDC
+  # provider. Local DB login still exists -- the admin has to type the login url
+  # (/account/sign-in) by hand. Harbor >= 2.8 (chart is unpinned, so fine).
+  primary_auth_mode  = true
   oidc_name          = "Authentik"
   oidc_endpoint      = "https://${var.oauth2_server}/application/o/${var.name}/"
   oidc_client_id     = module.oauth2.client_id
