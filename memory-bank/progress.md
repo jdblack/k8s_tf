@@ -93,7 +93,9 @@
   (`signups_allowed = true` → register → back to `false`).
 - **Chart pinning debt** — Harbor, external-dns,
   snapshot-controller, metrics-server, prometheus-smartctl-exporter, argo-cd,
-  argo-events all float today.
+  argo-events all float today, as does plex (whose chart "repository" is a
+  `raw.githubusercontent.com` gh-pages path — pinning it means checking the
+  chart still resolves, not just picking a version).
 - **Optional**: a `posture` wrapper so a namespace states egress+ingress in one
   call instead of 2-4 module calls (deferred until after the rollout).
 - **Accepted risks**: `goldmane:7443` readable by any pod (unfixable from TF);
@@ -109,9 +111,12 @@
   guest list, typed instead of `kubectl_manifest`.
 - ntfy alerting was added and then removed (2026-09); Alertmanager runs stock
   `null`.
-- `.vn` hosts move to Let's Encrypt on demand via a per-app `cert_issuers`
-  override (`modules/media`) or the module's `cert_issuer`/`cert_issuers`
-  argument: DNS-01 needs no inbound reachability and no new Route53 zone.
+- `.vn` hosts moved to Let's Encrypt on demand: DNS-01 needs no inbound
+  reachability and no new Route53 zone. At the time that was driven by a per-app
+  `cert_issuers` override (`modules/media`) plus a module-level
+  `cert_issuer`/`cert_issuers` pair — **both override maps were deleted
+  2026-09-15**: a host now moves by changing `cert_authorities.default`, and a
+  genuine per-host exception would be new plumbing, not a map.
   2026-09-15 went from one host (`sonarr`) to **12 of 17 certs**, with
   `modules/media`'s default flipped to the public issuer and a 9-host batch
   applied in a single pass — proving the "one host at a time" caution was
@@ -122,12 +127,17 @@
   separated from the flip in either direction. The `ca_name` split that was
   planned for that turned out to be unnecessary — deleting the wiring in the same
   apply is what removes the coupling.
-- The `modules/security/trivy` module was removed 2026-09; the `kube-security`
-  namespace lingers in state only.
+- The `modules/security/trivy` module was removed 2026-09, leaving three empty
+  namespace shells (nothing but `kube-root-ca.crt` + the `default` ServiceAccount):
+  `trivy-system` and `trivy-temp` unmanaged, `kube-security` still declared in
+  `stacks/mantle/security.tf` for no reason. All three deleted 2026-09-15 (the
+  declared one via `apply`), along with the orphaned `tfstate-default-fuckbatz`
+  state Secret and its `lock-tfstate-default-fuckbatz` Lease.
 - WordPress deployments in `stacks/apps` were disabled when the cluster moved
   from ingress-nginx to Gateway API (they expect `ingress_class`); reviving them
-  means porting to `gateway/expose` and using `letsencrypt`/`linuxguru-ca`
-  (`letsencrypt-http` no longer exists).
+  means porting to `gateway/expose` and passing `cert_authorities.default`
+  (`letsencrypt`, DNS-01 — `letsencrypt-http` is long gone and `linuxguru-ca` is
+  dormant).
 
 - Harbor's `library` project is **not TF-managed, on purpose** (2026-09-15): it's
   Harbor's *default* project, and the only thing TF needs from it is the name, to

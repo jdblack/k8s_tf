@@ -1,7 +1,8 @@
 # Longhorn snapshot schedule for the vault volume. Snapshots are CLUSTER-LOCAL
 # (they belong to the volume), and the longhorn StorageClass is
 # reclaimPolicy: Delete -- so losing the cluster or destroying this module takes
-# them too. Accepted v1 posture; see the module README and TODO.md.
+# them too. Accepted v1 posture; see the module README and
+# memory-bank/progress.md.
 #
 # kubectl_manifest, not kubernetes_manifest: longhorn.io's CRD is installed by
 # core's Longhorn release, and kubectl_manifest plans fine regardless (same as

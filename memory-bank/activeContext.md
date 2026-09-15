@@ -2,11 +2,35 @@
 
 ## Current state (as of 2026-09-15, late)
 
-- Branch `main`, one commit ahead of `origin/main` (baseline `5f0f582` →
-  `7c24e81` → `92469da`, then `226ba04`): the CA migration (3), its memory-bank
-  note, the CA-retirement commit, two memory-bank updates, a root-README
-  host-table update, and the issuer-plumbing refactor plus its docs commit.
-  **Not pushed as of this writing.**
+- Branch `main`, ahead of `origin/main` (baseline `5f0f582` → `7c24e81` →
+  `92469da` → `226ba04` → `bbe94f4`), plus the 2026-09-15 orphan/dead-config
+  sweep below. **Not pushed as of this writing.**
+- **2026-09-15 (night, cleanup session) — orphans and dead config removed, plans
+  still empty.** Four separate messes, each confirmed by a plan that came back
+  empty (core and mantle):
+  1. **The `ai` namespace had two owners** — `stacks/core/ai.tf` created it
+     (genesis-era) *and* `stacks/apps`'s `aoa_deployment` did
+     (`ai_create_namespace` defaults `true`), so both states held the same object
+     and destroying either stack would have deleted it under the other. Core
+     released it: `state rm` **first**, then the file, so no plan could ever
+     destroy the live namespace. Apps keeps ownership — its state already had
+     `module.ai_deployment.kubernetes_namespace_v1.namespace`, so nothing needed
+     importing and the namespace itself was never touched.
+  2. **Dead tfenv blocks deleted**: `deployment.keycloak` and `deployment.ldap`
+     (see the dead-keys bullet above). `dyndns_host` deliberately kept.
+  3. **Orphan namespaces gone**: `trivy-system` + `trivy-temp` were unmanaged
+     empty shells (`kubectl delete`); `kube-security` was declared in
+     `stacks/mantle/security.tf`, so it was removed from TF and `apply` destroyed
+     it — the plan's *only* change (0 add / 0 change / 1 destroy). The same sweep
+     took the `tfstate-default-fuckbatz` Secret and its lock Lease.
+  4. **`stacks/apps` is still unplannable** — its `lock-tfstate-default-deployment`
+     Lease has held `70683ac4-6618-f61e-2ad7-52a54ae77110` since **2026-08-29**
+     (`Who: jblack@MacBook-Pro.local`, no tofu process alive; the k8s backend
+     locks through a `coordination.k8s.io` Lease, which is why the lock is not in
+     the state Secret). Core's and mantle's equivalent Leases are empty/released.
+     Clear it with `tofu -chdir=stacks/apps force-unlock 70683ac4-…` —
+     **deliberately left in place**, so the apps stack has had no drift check
+     since August.
 - **2026-09-15 (night) — the issuer plumbing collapsed onto one key.** A
   post-migration audit found the (already single-valued) issuer reachable three
   different ways: a direct `cert_authorities.public` lookup (9 stack sites), a
@@ -102,6 +126,13 @@
     plan` re-run in **both** core and mantle → `No changes`. The trap that hid
     them: the tfvars files are symlinks into `~/.tfenvs/`, and `grep -r` does not
     follow symlinked files — see `techContext.md`.
+    The same audit later that night killed `deployment.keycloak` (all four keys)
+    and `deployment.ldap`: nothing in the `.tf` tree mentioned either, and
+    authentik had replaced keycloak long before — there is no keycloak namespace
+    in the cluster, only a stale `keycloak/keycloak` provider download in
+    mantle's `.terraform`. Deleting them also re-exposed a formatting artifact
+    (deleting the longest key left the `argocd_devops` block over-padded; `tofu
+    fmt` fixed it).
   - **`llm-embedder`'s `/embed` — broken by a typo in 0.0.77, fixed and verified
     live 2026-09-15 (later).** `app.py` passed `task="retrival.query"` (typo) and
     jina-embeddings-v3 rejects it (`Unsupported task 'retrival.query'…`), so every
@@ -386,16 +417,21 @@ Note `argo` also has **no egress fence** (`enable_egress_firewall=false`).
   ServiceMonitor on `kube-certificates/cert-manager:9402` plus a
   `certmanager_certificate_expiration_timestamp_seconds < 21d` alert.
 - **Orphan ClusterIssuer `letsencrypt-http`** (+ `letsencrypt-http-key` secret)
-  is live in `kube-certificates` but appears in no `.tf` — HTTP-01 leftover from
-  ingress-nginx (`ingressClassName: public`, which no longer exists). Delete it,
-  or bring it under management.
+  was live in `kube-certificates` but appeared in no `.tf` — HTTP-01 leftover from
+  ingress-nginx (`ingressClassName: public`, which no longer exists).
+  **Resolved by 2026-09-15**: both are gone from the cluster, so only
+  `letsencrypt` (DNS-01) and the dormant `linuxguru-ca` remain, and the two live
+  Secrets (`certman-route53-letsencrypt` — TF-created; `certman-letsencrypt` —
+  cert-manager's own ACME account key) are both expected.
 - **external-dns never published `certtest.vn.linuxguru.net`** from its HTTPRoute
   annotation — understand why before relying on automatic `.vn` DNS.
 - **Longhorn has no Grafana dashboard** — ship it the SeaweedFS way next to
   `modules/storage/longhorn.tf`.
 - **Whisker UI**: confirm the flow list populates *through the authentik proxy*.
-- Leftovers to delete: the `kube-security` namespace (kept only because it's in
-  state) and the orphaned `tfstate-default-fuckbatz` Secret.
+- Leftovers to delete: ~~the `kube-security` namespace (kept only because it's in
+  state) and the orphaned `tfstate-default-fuckbatz` Secret~~ — **both deleted
+  2026-09-15** (plus `trivy-system`/`trivy-temp` and the fuckbatz lock Lease; see
+  the cleanup bullet at the top).
 
 ## Decisions that are settled — don't relitigate
 

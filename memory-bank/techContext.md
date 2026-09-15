@@ -40,8 +40,8 @@ backend "kubernetes" {
 
 `stacks/<stack>/terraform.tfvars` is a **symlink to `/Users/jblack/.tfenvs/k8s.tfenv`**
 (outside the repo, so the secret-bearing file is single-sourced). Structure:
-`deployment = { common, harbor, storage, network_ingress, network, ldap, auth,
-keycloak, metal, vpn, internal_dns, dyndns_host, media, cert,
+`deployment = { common, harbor, storage, network_ingress, network, auth,
+metal, vpn, internal_dns, dyndns_host, media, cert,
 cert_authorities, domains, argocd_devops, ... }`.
 
 tfvars is the single source of truth for the LAN CIDR, pod/service CIDRs and the
@@ -64,17 +64,24 @@ MetalLB IPs, so renumbering the network is a one-line change, not a code edit.
 - **`grep -r` cannot see this file** (it's a symlink, and recursive grep skips
   symlinked files), so a key here looks unreferenced even when it drives a
   resource. Confirm with an explicit path: `grep -n '<key>' stacks/*/terraform.tfvars`.
-  Known dead keys: `deployment.dyndns_host` (no `.tf` references it), and
-  `argocd_devops.repo_name` / `argocd_devops.harbor_project` plus
-  `cert.pub_cert_issuer` — all deleted 2026-09-15 (the module hardcodes the repo
-  display name and `…/library`; the ACME issuer name is `external_issuer_name`'s
-  default).
+  Dead keys found and **deleted 2026-09-15**: `deployment.keycloak` (credentials,
+  namespace, realm, realm_display) and `deployment.ldap` (org, dn) — nothing in
+  the `.tf` tree read either, and authentik long ago replaced keycloak (there is
+  no keycloak namespace in the cluster); plus `argocd_devops.repo_name` /
+  `argocd_devops.harbor_project` and `cert.pub_cert_issuer` (the module hardcodes
+  the repo display name and `…/library`; the ACME issuer name is
+  `external_issuer_name`'s default). **Still dead, deliberately kept:**
+  `deployment.dyndns_host` (FQDN + a copy of `cert`'s AWS keys) — it may be read
+  by something outside this repo, so it stays until you're sure.
 - **The tfenv is not under git**, so a bad edit there is unrecoverable — back it
   up first (`~/.tfenvs/k8s.tfenv.bak-*`). And **check for an open editor before
-  editing**: `ps -eo command | grep '[v]im'`. vim's swap file lives in
-  `~/.tfenvs/`, so an outside edit lands under a stale buffer and the next `:w`
-  silently reverts it — the failure is loud (`default` disappears → every plan
-  errors), but it is avoidable.
+  editing**: `ps -eo command | grep '[v]im'` is **not sufficient** — vim shows
+  the *last* file it opened, so a session sitting on `vpn.tf` can still be
+  holding the tfenv as an earlier buffer. Check the swap instead:
+  `lsof -p <pid> | grep k8s.tfenv.swp` (or just look for
+  `~/.tfenvs/.k8s.tfenv.swp`). An outside edit lands under that stale buffer and
+  the next `:w` silently reverts it — the failure is loud (`default` disappears →
+  every plan errors), but it is avoidable. `:e!` that buffer before writing.
 
 ## Run / validate
 

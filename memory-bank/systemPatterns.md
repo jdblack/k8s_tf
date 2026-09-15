@@ -109,7 +109,9 @@ Outpost-fronted apps point `route_name = "<app>-auth"` at the outpost service.
   90.1.1, Longhorn 1.12.1, SeaweedFS 4.40.0 + CSI 0.2.35, authentik 2025.10.3,
   wireguard-operator 0.3.0, cert-manager v1.21.1, media charts.
   **Unpinned/float:** Harbor, external-dns, snapshot-controller, metrics-server,
-  prometheus-smartctl-exporter, argo-cd, argo-events. Bump one at a time.
+  prometheus-smartctl-exporter, argo-cd, argo-events, plex (whose "repo" is a
+  `raw.githubusercontent.com` gh-pages path, so a bump is also a check that the
+  chart still resolves). Bump one at a time.
 - **Dashboards ship from the owning module** as `grafana_dashboard: "1"`
   ConfigMaps (mirrors ServiceMonitors); Grafana keys them by `uid`.
 - **`checksum/config`** on pod templates when a Secret/ConfigMap should roll the

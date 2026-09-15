@@ -22,8 +22,14 @@ its own state, applied in order:
 
 Order matters on a fresh cluster: `core` installs the Gateway API CRDs, and
 `mantle`'s HTTPRoutes are `kubernetes_manifest`s that need those CRDs at **plan**
-time. A stale `tfstate-default-fuckbatz` Secret also sits in `kube-system`
-(unreferenced, safe to delete).
+time. (The stale `tfstate-default-fuckbatz` Secret that used to sit in
+`kube-system` was deleted 2026-09-15; `stacks/apps`'s own state lock is still
+stuck — see `stacks/apps/README.md`.)
+
+The `ai` namespace briefly had **two owners**: `core` created it (genesis-era) and
+`apps`'s `aoa_deployment` also declared it. Core's copy was removed from config
+and state on 2026-09-15, so `apps` owns it — destroying one stack can no longer
+delete the namespace out from under the other.
 
 ## UX / access model
 

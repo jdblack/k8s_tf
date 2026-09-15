@@ -6,10 +6,16 @@ OpenTofu stack whose only job is to hand deployments to ArgoCD. It creates an
 then syncs everything the referenced repo path contains.
 
 - State: Kubernetes secret backend in `kube-system`, `secret_suffix =
-  "deployment"` — the Secret is `tfstate-default-deployment`. A **stale
-  `tfstate-default-fuckbatz` Secret** also sits there from the parked wordpress
-  deployment below: unreferenced, and safe to delete with
-  `kubectl -n kube-system delete secret tfstate-default-fuckbatz`.
+  "deployment"` — the Secret is `tfstate-default-deployment`. The **stale
+  `tfstate-default-fuckbatz` Secret** from the parked wordpress deployment below
+  was deleted on 2026-09-15, along with its `lock-tfstate-default-fuckbatz` Lease.
+- **This stack's state carries a stale lock** (2026-09-15): the
+  `lock-tfstate-default-deployment` Lease has held a `plan` lock from
+  2026-08-29 in the k8s backend's `coordination.k8s.io` Lease (not in the state
+  Secret, which is why it isn't visible in `kubectl get secret`), so `plan` and
+  `apply` both fail with "state is already locked". Clear it with
+  `tofu -chdir=stacks/apps force-unlock 70683ac4-6618-f61e-2ad7-52a54ae77110`
+  once you're satisfied no run is live.
 - Providers: `argocd` (pointed at `argo-cd.<domain>:443`, or `var.argo_cd_server`
   when set) plus `kubernetes`/`helm`. The ArgoCD admin password comes from the
   `argocd-initial-admin-secret` in the `argo` namespace.
