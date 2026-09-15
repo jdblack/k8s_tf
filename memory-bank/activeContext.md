@@ -68,16 +68,39 @@
     `tofu plan` is back to **"No changes."** Notes: the ArgoCD provider names repo
     Secrets `repo-<fnv32a(repo_url)>` (`repo-3272614039` = the *old* linuxguru
     URL), but it resolves the resource by URL, so no duplicate Secret appeared and
-    the stale name is cosmetic. `library` is still *not* in
-    `var.deployment.harbor.projects` (TF-managing it needs an `import` first or
-    `apply` 409s), and the TF-managed `linuxguru` project now has zero consumers.
-  - **New finding — `llm-embedder`'s `/embed` is broken in the published image.**
-    `app.py` passed `task="retrival.query"` (typo) and jina-embeddings-v3
-    rejects it: `Unsupported task 'retrival.query'…`. Every `/embed` call 500s
-    no matter who calls it. Fixed in source and committed, but **the fix is not
-    in the 0.0.77 image** — `/embed` stays broken until the next
-    `./build publish` (~25 min under emulation). `/health` and `/spam` are
-    unaffected.
+    the stale name is cosmetic. `library` is deliberately *not* in
+    `var.deployment.harbor.projects` and should stay that way: it's Harbor's
+    default project (public, 7 artifacts) and the only thing TF needs from it is
+    the *name*, to build the OCI URL — an imported `harbor_project` would be a
+    resource whose only valid state is "the default". The TF-managed `linuxguru`
+    project now has zero consumers (0 artifacts; dropping it from tfvars destroys
+    it, so it's still there pending a call).
+  - **Dead keys in the tfenv, removed 2026-09-15 (later).**
+    `argocd_devops.repo_name` and `argocd_devops.harbor_project` were read by
+    nothing — `modules/argo/mantle/argo-cd/repositories.tf` hardcodes both the
+    display name (`"linuxguru github repo"`) and `harbor.${var.domain}/library` —
+    and the second named the retired project, so a wiring "fix" tempts the next
+    reader into a knob with one legal value. Both deleted instead; backup at
+    `~/.tfenvs/k8s.tfenv.bak-20260915` (the tfenv is **not** under git). `tofu
+    plan` re-run in **both** core and mantle → `No changes`. The trap that hid
+    them: the tfvars files are symlinks into `~/.tfenvs/`, and `grep -r` does not
+    follow symlinked files — see `techContext.md`.
+  - **`llm-embedder`'s `/embed` — broken by a typo in 0.0.77, fixed and verified
+    live 2026-09-15 (later).** `app.py` passed `task="retrival.query"` (typo) and
+    jina-embeddings-v3 rejects it (`Unsupported task 'retrival.query'…`), so every
+    `/embed` call 500'd regardless of caller. Source fix `e1ff46f` shipped as
+    **0.0.79** (`library/llm-embedder-chart:0.0.79` +
+    `library/llm-embedder:v0.0.79`; chart-bump release commit `6d66a9b`) and Argo
+    auto-synced `0.0.*` → a clean 5/5 rollout. **The build was seconds, not ~25
+    min**: podman reused every layer except `COPY app.py`, so the emulation cost
+    only applies to a cold cache. Verified through the live gateway:
+    `/embed?text=hello+world&prompt=retrieval.query` → **HTTP 200, 1024-dim**
+    embedding in 1.9s, no `error` key, no exceptions in the pod logs, and the
+    running image is `…/library/llm-embedder:v0.0.79`.
+    Note for whoever wires it next: `prompt` is accepted but **ignored** —
+    `EmbedService.embedding()` hardcodes `task`/`prompt_name` to
+    `retrieval.query`, so a passage-side caller can't yet ask for
+    `retrieval.passage` (that's a real design gap, not a bug).
 - **2026-09-15 (evening) — CA migration FINISHED. All 17 hosts are on Let's
   Encrypt and nothing consumes `linuxguru-ca`.** The last four (`auth.vn`,
   `harbor`, `grafana`, `argo-wf`) flipped in **one apply per stack**, together
@@ -131,7 +154,9 @@
     merge trap, Harbor's Secret-not-ConfigMap quirk, the replace-vs-add table,
     the same-apply rule, and the sweep one-liners). Root `README.md` host table
     now shows `letsencrypt` for every host.
-  - **Still open after this**: retire the CA outright — ClusterIssuer
+  - **Retiring the CA outright is deliberately deferred (2026-09-15, operator
+    call: keep the private CA around in case it's wanted back — don't "finish"
+    this without asking)**: ClusterIssuer
     `linuxguru-ca`, the `kube-certificates/linuxguru-ca` Secret, the
     `default/linuxguru-ca` ConfigMap, and the module's `ca_certfile`/`ca_keyfile`
     `file()` inputs; then `~/.ssl/ca.crt` and the node trust store

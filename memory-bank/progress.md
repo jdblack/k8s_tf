@@ -25,8 +25,9 @@
   `limited_ingress`, `allow_api`. Media namespace locked down (2026-09-12).
   Staged/preview mechanism proven on `argo`.
 - **apps stack** — ArgoCD `AppProject` + app-of-apps `Application` for `ai`
-  (`ollama` and `corsless` live from the external deployments dir;
-  `llm-embedder` repointed and rebuilding).
+  (all three live from the external deployments dir, all Synced/Healthy on
+  `library` charts: `ollama` `1.78.0`, `corsless` `0.0.26`, `llm-embedder`
+  `0.0.79`).
 
 ## What's left / open
 
@@ -45,7 +46,9 @@
   apply as the last four flips (`auth.vn`, `harbor`, `grafana`, `argo-wf`). See
   `activeContext.md` for the verification evidence (SSO hand-offs, in-cluster
   trust probe, cluster-wide CA sweep).
-- **Retire the CA** (the migration's last step): drop the `linuxguru-ca`
+- **Retire the CA** (the migration's last step) — **deliberately deferred as of
+  2026-09-15: the private CA is kept on purpose, in case it's wanted back, so
+  don't "finish" this without asking.** When it does happen: drop the `linuxguru-ca`
   ClusterIssuer + the `kube-certificates/linuxguru-ca` Secret + the
   `default/linuxguru-ca` ConfigMap + the module's `ca_certfile`/`ca_keyfile`
   `file()` inputs, then `~/.ssl/ca.crt` and the node trust store in
@@ -66,13 +69,14 @@
   repointed at `library`, helm's credential store is seeded, both charts render
   `extraObjects`, and `library/corsless-helm:0.0.26` is published. `corsless` is
   **verified serving** (stock-trust TLS, app answers; cert re-issued from the old
-  CA to `letsencrypt`). **`llm-embedder` is live too** (2026-09-15, later):
-  `library/llm-embedder-chart:0.0.77` + `library/llm-embedder:v0.0.77`, 5/5 pods
-  Running, Argo Synced/Healthy, `/health` answers through the gateway. Two
-  follow-ups: `/embed` is broken in the published image (a `retrival.query` typo
-  fixed in source but not yet rebuilt), and the TF `argocd_repository.devops_helm`
-  had to be repointed at `/library` or the next `tofu apply` would have written
-  the dead project URL back. See `activeContext.md` for the full bug chain.
+  CA to `letsencrypt`). **`llm-embedder` is live *and* correct**: Argo
+  Synced/Healthy on `library/llm-embedder-chart:0.0.79` +
+  `library/llm-embedder:v0.0.79`, 5/5 pods on the new tag after a clean rollout,
+  `/health` answers through the gateway, and `/embed` → `200` with a 1024-dim
+  vector (the `retrival.query` typo that 500'd every call is gone from the
+  *shipped* image — the source fix had to be republished to count). The TF
+  `argocd_repository.devops_helm` repoint at `/library` is applied and both stacks
+  plan `No changes`. See `activeContext.md` for the full bug chain.
 - ~~Orphan ClusterIssuer `letsencrypt-http`~~ — HTTP-01/ingress-nginx leftover,
   in no `.tf` and referenced by no Certificate. **Deleted 2026-09-15**, along with
   its `letsencrypt-http-key` account key.
@@ -120,6 +124,16 @@
   from ingress-nginx to Gateway API (they expect `ingress_class`); reviving them
   means porting to `gateway/expose` and using `letsencrypt`/`linuxguru-ca`
   (`letsencrypt-http` no longer exists).
+
+- Harbor's `library` project is **not TF-managed, on purpose** (2026-09-15): it's
+  Harbor's *default* project, and the only thing TF needs from it is the name, to
+  build the OCI URL in `modules/argo/mantle/argo-cd/repositories.tf`. Parameterizing
+  it would add a knob whose one legal value is "the default", so the dead
+  `argocd_devops.harbor_project` tfvars key was deleted instead of wired. Same call
+  for `argocd_devops.repo_name` (the module hardcodes the display name). Consequence:
+  a from-scratch rebuild still needs `library` to exist — which it does, by default,
+  so nothing to do; what it can't recreate is the hand-made `robot$jblack` permission
+  on it.
 
 ## How to tell you're still on track
 

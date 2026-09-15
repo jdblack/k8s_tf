@@ -57,7 +57,14 @@ MetalLB IPs, so renumbering the network is a one-line change, not a code edit.
   `secret_access_key` — `AWS_REGION`, `R53_ZONEID`).
 - `stacks/apps` has **no** tfvars committed; create one locally:
   `deployment = { common = { domain = "vn.linuxguru.net" } }`.
-- `deployment.dyndns_host` in `k8s.tfenv` is dead config — no `.tf` references it.
+- **`grep -r` cannot see this file** (it's a symlink, and recursive grep skips
+  symlinked files), so a key here looks unreferenced even when it drives a
+  resource. Confirm with an explicit path: `grep -n '<key>' stacks/*/terraform.tfvars`.
+  Known dead keys: `deployment.dyndns_host` (no `.tf` references it), and
+  `argocd_devops.repo_name` / `argocd_devops.harbor_project`, both deleted
+  2026-09-15 — the module hardcodes the repo display name and `…/library`.
+  Pre-edit backup: `~/.tfenvs/k8s.tfenv.bak-20260915` (the tfenv is **not**
+  under git, so a bad edit there is unrecoverable).
 
 ## Run / validate
 
