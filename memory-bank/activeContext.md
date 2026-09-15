@@ -23,14 +23,22 @@
      `stacks/mantle/security.tf`, so it was removed from TF and `apply` destroyed
      it — the plan's *only* change (0 add / 0 change / 1 destroy). The same sweep
      took the `tfstate-default-fuckbatz` Secret and its lock Lease.
-  4. **`stacks/apps` is still unplannable** — its `lock-tfstate-default-deployment`
-     Lease has held `70683ac4-6618-f61e-2ad7-52a54ae77110` since **2026-08-29**
+  4. **`stacks/apps` was unplannable** — its `lock-tfstate-default-deployment`
+     Lease had held `70683ac4-6618-f61e-2ad7-52a54ae77110` since **2026-08-29**
      (`Who: jblack@MacBook-Pro.local`, no tofu process alive; the k8s backend
      locks through a `coordination.k8s.io` Lease, which is why the lock is not in
-     the state Secret). Core's and mantle's equivalent Leases are empty/released.
-     Clear it with `tofu -chdir=stacks/apps force-unlock 70683ac4-…` —
-     **deliberately left in place**, so the apps stack has had no drift check
-     since August.
+     the state Secret — `kubectl get secret` looked perfectly innocent). Core's
+     and mantle's equivalent Leases were empty/released. Cleared that night with
+     `force-unlock`, after which apps planned `No changes` **and** refreshed
+     `module.ai_deployment.kubernetes_namespace_v1.namespace[0] [id=ai]` — a live
+     confirmation that apps owns the `ai` namespace (see item 1). Note it needs
+     `-var-file=~/.tfenvs/k8s.tfenv` explicitly: unlike core/mantle there is no
+     `terraform.tfvars` symlink in this stack. This was the **first drift check on
+     `stacks/apps` since August**, so its clean plan is new information, not a
+     formality.
+  5. **`.terraform` caches pruned, 2.5 GB → 1.5 GB** — only versions absent from
+     each stack's lock file, plus module dirs nothing enabled references (which is
+     where the orphaned 81 MB `fuckbatz_website` cache lived). See `progress.md`.
 - **2026-09-15 (night) — the issuer plumbing collapsed onto one key.** A
   post-migration audit found the (already single-valued) issuer reachable three
   different ways: a direct `cert_authorities.public` lookup (9 stack sites), a

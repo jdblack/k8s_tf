@@ -9,13 +9,15 @@ then syncs everything the referenced repo path contains.
   "deployment"` — the Secret is `tfstate-default-deployment`. The **stale
   `tfstate-default-fuckbatz` Secret** from the parked wordpress deployment below
   was deleted on 2026-09-15, along with its `lock-tfstate-default-fuckbatz` Lease.
-- **This stack's state carries a stale lock** (2026-09-15): the
-  `lock-tfstate-default-deployment` Lease has held a `plan` lock from
-  2026-08-29 in the k8s backend's `coordination.k8s.io` Lease (not in the state
-  Secret, which is why it isn't visible in `kubectl get secret`), so `plan` and
-  `apply` both fail with "state is already locked". Clear it with
-  `tofu -chdir=stacks/apps force-unlock 70683ac4-6618-f61e-2ad7-52a54ae77110`
-  once you're satisfied no run is live.
+- **This stack's state lock was stuck** (2026-09-15): the
+  `lock-tfstate-default-deployment` Lease in the k8s backend (a
+  `coordination.k8s.io` Lease — which is why it is *not* visible in the state
+  Secret, and why `kubectl get secret` looked innocent) held a `plan` lock from
+  2026-08-29, so `plan` and `apply` both failed with "state is already locked".
+  `force-unlock` cleared it that night; all three stacks now plan `No changes`,
+  and this stack's refresh is what proves it owns the `ai` namespace:
+  `module.ai_deployment.kubernetes_namespace_v1.namespace[0]  [id=ai]` (core's
+  duplicate declaration of that namespace was removed the same night).
 - Providers: `argocd` (pointed at `argo-cd.<domain>:443`, or `var.argo_cd_server`
   when set) plus `kubernetes`/`helm`. The ArgoCD admin password comes from the
   `argocd-initial-admin-secret` in the `argo` namespace.
@@ -57,9 +59,15 @@ package and push the chart) still applies if you go back to it.
 
 ## Inputs
 
-No `terraform.tfvars` is committed here (`terraform.tfvars` is in `.gitignore`,
-and `stacks/apps`'s copy was never force-added like core/mantle's). Create one
-locally before planning:
+There is no `terraform.tfvars` here — it's in `.gitignore` and this stack's copy
+was never force-added, unlike core/mantle's (both of which are symlinks into
+`~/.tfenvs/k8s.tfenv`). So pass the tfenv explicitly:
+
+```sh
+tofu -chdir=stacks/apps plan -var-file=~/.tfenvs/k8s.tfenv
+```
+
+Only `deployment` is read from it, so a hand-rolled tfvars would need just:
 
 ```hcl
 deployment = {

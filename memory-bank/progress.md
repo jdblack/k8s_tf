@@ -133,6 +133,18 @@
   `stacks/mantle/security.tf` for no reason. All three deleted 2026-09-15 (the
   declared one via `apply`), along with the orphaned `tfstate-default-fuckbatz`
   state Secret and its `lock-tfstate-default-fuckbatz` Lease.
+- **`.terraform` caches trimmed, 2.5 GB → 1.5 GB (2026-09-15).** Only provably
+  dead things were deleted — provider versions absent from the stack's
+  `.terraform.lock.hcl`, and module dirs no enabled `.tf` references. That caught
+  every stale duplicate left by version bumps (three old `argoproj-labs/argocd`
+  versions in mantle, `helm` 3.0.2/3.1.0, `kubernetes` 2.35.1, `kubectl` 1.18.0,
+  `random` 3.7.2, plus core's `loafoe/htpasswd` and `goharbor/harbor`, which no
+  config requires any more), both cached `keycloak/keycloak` versions (dead
+  provider for a retired app), and `stacks/apps/.terraform/modules/fuckbatz_website`
+  (81 MB) + `ngoc_website`, orphaned since those two modules were parked as
+  `.tf.disabled`. All three stacks still plan `No changes` afterwards. The
+  remaining 1.5 GB is live and pinned — a full wipe would just re-download it, so
+  don't bother unless disk pressure demands it.
 - WordPress deployments in `stacks/apps` were disabled when the cluster moved
   from ingress-nginx to Gateway API (they expect `ingress_class`); reviving them
   means porting to `gateway/expose` and passing `cert_authorities.default`
