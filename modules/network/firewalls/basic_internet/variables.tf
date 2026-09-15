@@ -18,6 +18,21 @@ variable "allow_to_services" { default = false }
 # cert-generator/controller.
 variable "allow_to_k8sapi" { default = false }
 
+# The apiserver's endpoint IPs (control-plane nodes), post-DNAT -- normally read
+# from the `kubernetes` Endpoints object by this module (data.tf). Pass them in
+# when this module sits under a module-level `depends_on`, which covers data
+# sources too: any pending change in the depended-on module otherwise defers the
+# read to apply time, the NetworkPolicy then plans a *guessed* peer-block count,
+# and the apply dies with "inconsistent final plan". See the identical variable
+# in ../allow_api/variables.tf for the full mechanism and the evidence.
+#
+# null (the default) = read here, which is what every caller passing
+# allow_to_k8sapi = true normally wants.
+variable "api_peer_ips" {
+  type    = list(string)
+  default = null
+}
+
 # Private / RFC1918 ranges pods may NOT egress to. Keeps a compromised workload
 # from trampolining into cluster nodes, nodePorts/LBs or the LAN: kube-proxy SNATs
 # nodePort/remote-backend service traffic, which would bypass the pod-IP

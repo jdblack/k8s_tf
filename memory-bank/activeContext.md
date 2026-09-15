@@ -1,10 +1,45 @@
 # Active Context
 
-## Current state (as of 2026-09-15, late)
+## Current state (as of 2026-09-16, early)
 
 - Branch `main`, ahead of `origin/main` (baseline `5f0f582` → `7c24e81` →
   `92469da` → `226ba04` → `bbe94f4`), plus the 2026-09-15 orphan/dead-config
   sweep below. **Not pushed as of this writing.**
+- **2026-09-16 (early) — Longhorn snapshots became one cluster-wide, TF-owned
+  scheme, and the restore path was verified end to end.** The per-app job in
+  `modules/vaultwarden/backup.tf` (retain 7, group `vaultwarden`, the
+  `source: enabled` PVC labels) is retired: `modules/storage/longhorn_jobs.tf`
+  owns three jobs (daily 03:00, weekly Sun 04:00, monthly 28th 05:00, all UTC,
+  uniform `retain: 2`) plus the enrolment table (8 volumes covered, 7 explicit
+  `skip`), and `snapshot_labeler.tf` writes the group labels onto the **Volume
+  CRs** — the only writer of those labels in the repo. Verified live on a
+  throwaway volume + throwaway 2-minute job in a throwaway group (all deleted
+  afterwards, nothing production was reverted): the join fires from a Volume-CR
+  label alone (`status.executionCount: 1`), a new volume is born in the `default`
+  group, revert is refused with `failed to revert snapshot ... with frontend
+  enabled` (http 500) both while attached **and** while merely detached,
+  patching the Volume CR's `disableFrontend` is reverted by the controller,
+  patching the VolumeAttachment ticket's `parameters.disableFrontend` works (no
+  detach needed), the revert returns 200 and the remounted data really is the
+  pre-snapshot content, and the no-ticket path (`attach` +
+  `attacherType: longhorn-api` + `disableFrontend: true`) works too. The manager
+  API is **in-cluster only**: `kubectl exec` into a `longhorn-manager` pod +
+  `http://longhorn-backend:9500` (port-forward and the apiserver service-proxy
+  both fail). Docs: `modules/storage/README.md`,
+  `modules/storage/disaster_recovery.md` (canonical runbook + coverage audit),
+  plus `disaster_recovery.md` in vaultwarden, auth/authentik/core,
+  monitoring/prometheus, harbor/core, storage/seaweedfs,
+  storage/seaweedfs_admin, media/prowlarr and media/bazarr. Core and mantle both
+  plan **No changes** and the audit is clean. Still no `backupTarget`: this is
+  recovery, not backup. In the same session the long-standing core-apply
+  landmine was root-caused and fixed: any pending change in a module under a
+  caller's `depends_on` (cert-manager as readily as storage) deferred the
+  `kubernetes` Endpoints read inside authentik's `allow_api` netpol, and the
+  apply aborted with a provider "inconsistent final plan" error. The read now
+  happens in the stack root (`stacks/core/core.tf`) and is passed down as
+  `api_peer_ips`, so nothing can defer it. Verified with a deliberate pending
+  storage change applying clean; mechanism in `.clinedocs/calico-netpols.md`,
+  full evidence in `progress.md`.
 - **2026-09-15 (later) — IdP-first login was tried, judged not worth its failure
   mode, and removed.** Harbor keeps its native `primary_auth_mode`. Argo CD and
   Argo Workflows got a gateway rule hijacking `Exact /` into their OIDC
@@ -316,9 +351,11 @@ Note `argo` also has **no egress fence** (`enable_egress_firewall=false`).
 
 ## Immediate follow-ups owed (the old `TODO.md` list)
 
-- **vaultwarden backups are cluster-local** → point Longhorn `backupTarget` at
-  the SeaweedFS S3 endpoint + flip the RecurringJob to `task = "backup"`. Until
-  then: export from a client before any destroy.
+- **Backups are cluster-local for *every* volume, not just vaultwarden** → point
+  Longhorn `backupTarget` at the SeaweedFS S3 endpoint + add/flip jobs to
+  `task = "backup"`. The snapshot scheme itself is now cluster-wide
+  (`modules/storage/longhorn_jobs.tf`). Until then: treat the cluster as one
+  failure domain, and export vaultwarden from a client before any destroy.
 - **`modules/cert_manager` ACME config** — `zoneid` → `hostedZoneID` and the
   public-resolver DNS-01 args are **done**, and 12 of 17 certs are now on
   `letsencrypt` (2026-09-15). What is left to finish the move:

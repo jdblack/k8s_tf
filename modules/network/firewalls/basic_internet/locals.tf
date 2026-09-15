@@ -1,5 +1,16 @@
 locals {
 
+  # Endpoint IPs of the apiserver (control-plane nodes), post-DNAT: handed in by
+  # the caller (var.api_peer_ips) or read from the `kubernetes` Endpoints object
+  # here. `one()` is null when the read is disabled in data.tf and try() turns
+  # that into an empty list -- correct, since a caller passing api_peer_ips gets
+  # its peers from the first branch.
+  api_peer_ips = var.api_peer_ips != null ? var.api_peer_ips : flatten([
+    for s in try(one(data.kubernetes_endpoints_v1.kubernetes).subset, []) : [
+      for a in s.address : a.ip
+    ]
+  ])
+
   egress = {
     to_internet = {
       peers = [
@@ -64,13 +75,11 @@ locals {
         # kubernetes.default.svc ClusterIP (first host of the service CIDR)
         [{ ip_block = { cidr = format("%s/32", cidrhost(var.service_cidr, 1)) } }],
         # the apiserver's actual endpoint IPs (control-plane nodes), post-DNAT
-        flatten([
-          for s in try(one(data.kubernetes_endpoints_v1.kubernetes).subset, []) : [
-            for a in s.address : {
-              ip_block = { cidr = format("%s/32", a.ip) }
-            }
-          ]
-        ]),
+        [
+          for ip in local.api_peer_ips : {
+            ip_block = { cidr = format("%s/32", ip) }
+          }
+        ],
       )
       ports = [
         {

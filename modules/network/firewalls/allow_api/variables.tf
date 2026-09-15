@@ -25,3 +25,25 @@ variable "service_cidr" {
   type    = string
   default = "10.96.0.0/12"
 }
+
+# The apiserver's endpoint IPs (control-plane nodes), post-DNAT -- normally read
+# from the `kubernetes` Endpoints object by this module (data.tf).
+#
+# Pass them in when this module sits under a module-level `depends_on`. A
+# module-level `depends_on` covers everything inside the module, *data sources
+# included*: any pending change in the depended-on module defers this read to
+# apply time, the NetworkPolicy then plans a *guessed* peer-block count
+# (ClusterIP only = 1), the apply reads the real one (2), and the apply dies
+# with "inconsistent final plan" -- `spec.egress[1].to: block count changed
+# from 1 to 2`. Reading the endpoints in the caller's ROOT module (nothing
+# depends on it there) keeps the peer list known and the plan consistent.
+# Putting the read here is what keeps it dynamic; hardcoding control-plane IPs
+# instead would trade a loud, retry-converges plan error for a silent 6443
+# deny after a re-IP.
+#
+# null (the default) = read here; nobody else is affected. Callers that own the
+# read should always pass the same value, never a filtered subset.
+variable "api_peer_ips" {
+  type    = list(string)
+  default = null
+}

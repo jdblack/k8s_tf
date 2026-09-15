@@ -28,5 +28,10 @@ module "allow_api" {
     "app.kubernetes.io/component" = "worker"
   }
 
+  # Read one level up: this module is called under a module-level depends_on
+  # (stacks/core/auth.tf), which would defer the firewall's own endpoints read to
+  # apply time and abort the apply (see var.api_peer_ips).
+  api_peer_ips = var.api_peer_ips
+
   depends_on = [helm_release.helm]
 }

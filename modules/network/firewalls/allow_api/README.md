@@ -65,6 +65,34 @@ It does **not** render same-namespace/internet/kube-network rules — run it
 *alongside* a `basic_internet` (or equivalent) policy that provides the
 namespace's general egress.
 
+## `api_peer_ips` — when the caller is under a module-level `depends_on`
+
+The control-plane endpoint IPs are read by this module
+(`data.kubernetes_endpoints_v1`), *unless* the caller passes `api_peer_ips`.
+
+Pass them whenever this module is reached through a module-level `depends_on`
+(e.g. `authentik`, pulled in by `stacks/core/auth.tf` with
+`depends_on = [module.cert_man, module.storage, ...]`). A module-level
+`depends_on` covers the module's **data sources too**, so any pending change in
+the depended-on module defers that read to apply time: the policy then plans a
+*guessed* peer-block count (ClusterIP only, 1), the apply reads the real 2, and
+the apply aborts with
+
+```
+Provider produced inconsistent final plan ...
+  .spec[0].egress[1].to: block count changed from 1 to 2
+```
+
+Reading the endpoints in the **stack root** and passing them down keeps the peer
+list known during plan, so the plan is consistent. `null` (the default) = read
+here, which is what every caller without a module-level `depends_on` wants
+(`media` does this).
+
+Never "fix" this by hardcoding the control-plane IPs instead: the endpoint entry
+is the peer that actually authorizes the API connection post-DNAT, so a
+control-plane re-IP would turn into a silent 6443 denial instead of an error.
+Invariant + evidence: `.clinedocs/calico-netpols.md`.
+
 ## See also
 
 - [`basic_internet` → "Allowing the Kubernetes API"](../basic_internet/README.md#allowing-the-kubernetes-api) — the namespace-wide alternative; read both before choosing.

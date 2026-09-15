@@ -34,8 +34,20 @@
   advertiser macOS Finder needs), whisker (flow-log UI, SSO-gated),
   seaweedfs-admin (SSO-gated), Grafana/Harbor/Argo OIDC + deploy keys.
 - **vaultwarden** — deployment + PVC + Service + Route53 A record, publicly
-  trusted cert on a private gateway, admin panel disabled, nightly Longhorn
-  snapshot. Drift test documented and passing (2026-09-14).
+  trusted cert on a private gateway, admin panel disabled; snapshots come from
+  the cluster-wide policy below (2026-09-16, per-app `backup.tf` retired). Drift
+  test documented and passing (2026-09-14).
+- **Longhorn snapshot policy is cluster-wide, TF-owned and audited (2026-09-16)**
+  — `modules/storage/longhorn_jobs.tf` holds three jobs (`snapshot-daily` 03:00,
+  `snapshot-weekly` Sun 04:00, `snapshot-monthly` 28th 05:00, all UTC, `retain: 2`)
+  and the enrolment table (8 PVCs covered, 7 deliberately `skip`);
+  `modules/storage/snapshot_labeler.tf` is the **only** writer of the
+  `recurring-job-group.longhorn.io/*` labels, and it writes them onto the Volume
+  CRs because a labelled PVC *replaces* the volume's whole group set rather than
+  merging (that trap cost the vaultwarden volume its enrolment mid-migration, and
+  is why no PVC in this repo carries those labels). No job may ever list the
+  `default` group — Longhorn stamps every new unlabelled volume into it. Coverage
+  audit + verified restore runbook: `modules/storage/disaster_recovery.md`.
 - **Firewall library** — `policy` renderer + `basic_internet`,
   `limited_ingress`, `allow_api`. Media namespace locked down (2026-09-12).
   Staged/preview mechanism proven on `argo`.
@@ -48,7 +60,55 @@
 
 - **Namespace ingress rollout** for every namespace except `media` (see
   `activeContext.md`). This is the main thread of work.
-- **vaultwarden off-cluster backups** (Longhorn `backupTarget` → SeaweedFS S3).
+- **Off-cluster backups: nothing has one.** No Longhorn `backupTarget` exists, so
+  every snapshot (all 8 covered volumes) shares the failure domain with its
+  volume, and a lost cluster takes all of it. The intended target is SeaweedFS S3
+  (`s3.vn.linuxguru.net`, TLS trusted in-cluster): add a `backupTarget`/`BackupTarget`
+  CR, then either flip the three snapshot jobs to `task = "backup"` or add
+  parallel `backup` jobs, and update `modules/storage/disaster_recovery.md`'s
+  "recovery, not backup" banner and its Gaps section when it lands.
+- **Snapshot enrolment asymmetry: `sonarr-config` and `radarr-config` are
+  skipped while `prowlarr-config`/`bazarr-config` get a monthly** (2026-09-16
+  judgement call, not a principle — same kind of volume). One line in
+  `snapshot_groups` each to fix.
+- **`modules/storage/backup.yaml` is orphaned** — a hand-applied `VolumeSnapshot`
+  of `sonarr-config`; no `.tf` or doc references it, and its
+  `sonarr-config-snap` object still sits in `media` (14d old, `ReadyToUse`) on
+  top of a now-`skip` volume. Delete both, or adopt the file properly.
+- **Plex plugin volume**: `media/pms-config-plex-plex-media-server-0` is a
+  VCT-driven volume holding the Plex plugin/config tree; switching plex to a
+  `configExistingClaim` (one PVC, longhorn-backed) would make it snapshottable
+  like the rest instead of `skip`.
+- **`signups_allowed` must go back to `false`** after any first-account
+  bootstrap (`stacks/mantle/vaultwarden.tf`); see the vaultwarden README.
+- ~~**Core-apply landmine**~~ **FIXED 2026-09-16.** Was: a core apply aborting
+  with `Provider produced inconsistent final plan ... .spec[0].egress[1].to:
+  block count changed from 1 to 2`, triggered by **any pending change in a module
+  listed in the caller's `depends_on`** — `module.cert_man` fired it just as
+  easily as `module.storage` — because a module-level `depends_on` covers every
+  resource *and data source* in the module: the `kubernetes` Endpoints read
+  inside authentik's `allow_api` (and cert_man's `basic_internet`) was deferred
+  to apply time, so the policy planned a *guessed* `to` block count (1 =
+  ClusterIP) while the apply read the real 2 (ClusterIP + endpoint). Evidence of
+  the old behaviour: `/tmp/core.apply.log` (2026-09-15 01:14, `Plan: 0 to add, 5
+  to change`, cert_man only, storage clean) + `/tmp/core-apply.txt` +
+  `/tmp/relabel.txt` (2026-09-16).
+  **Fix:** the read moved to the stack root — `stacks/core/core.tf` declares
+  `data.kubernetes_endpoints_v1.kubernetes` + `local.api_peer_ips` and passes it
+  down through a new optional `api_peer_ips` variable on `allow_api`,
+  `basic_internet`, `modules/auth/authentik/core` and `modules/cert_manager`.
+  Setting it disables the module's own counted read (`count = ... &&
+  var.api_peer_ips == null`), so no `depends_on` can defer it; the `null` default
+  leaves mantle's media call untouched. Hardcoding control-plane IPs was
+  considered and rejected — see `.clinedocs/calico-netpols.md`.
+  **Verified:** core plan = No changes (identical peers, netpol UIDs unchanged,
+  no recreate); a deliberate pending change in `module.storage` then planned
+  `1 to change` and **applied clean** (this is the case that used to abort),
+  with 0 `will be read during apply` lines; reverted → No changes; mantle =
+  No changes with media's in-module read still working.
+  **Residual:** a *new* module-level `depends_on` on a caller of a firewall with
+  `allow_to_k8sapi = true` (argo today — it has none) re-arms this; the invariant
+  is written up in `.clinedocs/calico-netpols.md`.
 - **vaultwarden has nothing to scrape** — 1.37.3 dropped its metrics build
   feature (no `/metrics`, no `PROMETHEUS_ENABLED`, only `GET /alive`), so the
   module ships no ServiceMonitor. Re-check upstream; if it returns, add

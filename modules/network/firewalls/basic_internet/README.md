@@ -45,6 +45,22 @@ namespace), this namespace-wide grant leaks an API line to every app pod.
 selector, and composes additively with this module (keep
 `allow_to_k8sapi = false` here).
 
+### `api_peer_ips` — needed under a module-level `depends_on`
+
+The endpoint IPs come from this module's own
+`data.kubernetes_endpoints_v1.kubernetes` read *unless* the caller passes
+`api_peer_ips`. Pass them whenever this module is reached through a module-level
+`depends_on` (as `cert_manager` is: `core.tf` has
+`depends_on = [module.network]`). A module-level `depends_on` covers the module's
+**data sources too**, so any pending change in the depended-on module defers the
+read to apply time, the policy plans a *guessed* peer-block count, and the apply
+aborts with `Provider produced inconsistent final plan`. Read the endpoints in
+the stack root and hand them down instead — never hardcode the control-plane IPs,
+since the endpoint entry is the peer that actually authorizes the API connection
+post-DNAT. Full mechanism:
+[`allow_api`](../allow_api/README.md#api_peer_ips--when-the-caller-is-under-a-module-level-depends_on)
+and `.clinedocs/calico-netpols.md`.
+
 ## Example
 
 ```hcl

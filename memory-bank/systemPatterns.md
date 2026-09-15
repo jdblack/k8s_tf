@@ -92,6 +92,12 @@ Outpost-fronted apps point `route_name = "<app>-auth"` at the outpost service.
 ## Hard Calico invariants (expensive to get wrong)
 
 - Egress is evaluated **POST-DNAT** → allow rules match the *endpoint* IP.
+- A module-level `depends_on` covers a module's **data sources**, and a deferred
+  read makes its consumer's plan a lie: the API carve-out planned a guessed peer
+  count (ClusterIP only) and the apply died with `inconsistent final plan`.
+  Firewalls that read the `kubernetes` Endpoints object therefore take
+  `api_peer_ips`, read in the **stack root** (`stacks/core/core.tf`) and passed
+  down — never hardcode control-plane IPs. Fixed 2026-09-16.
 - k8s netpols only UNION → an operator-shipped netpol cannot be tightened.
   tigera's `goldmane` allows any source on 7443; unfixable from TF.
 - The apiserver calls webhooks/aggregation from a **remote node** → those paths
@@ -116,5 +122,17 @@ Outpost-fronted apps point `route_name = "<app>-auth"` at the outpost service.
   ConfigMaps (mirrors ServiceMonitors); Grafana keys them by `uid`.
 - **`checksum/config`** on pod templates when a Secret/ConfigMap should roll the
   pod (vaultwarden, blender mdns).
+- **Snapshots are cluster policy, joined by Volume-CR labels.** Longhorn matches a
+  `RecurringJob` to a volume by `recurring-job-group.longhorn.io/<group>` on the
+  **Volume CR** (`RecurringJob.spec` has `groups`; there is no volume list), so the
+  labels are written once — `modules/storage/snapshot_labeler.tf` — and *no PVC
+  carries them*: a PVC with those labels **replaces** its volume's entire group set
+  instead of merging, silently de-enrolling it. Never list the `default` group in a
+  job (every newly provisioned unlabelled volume lands in it), and re-run the
+  labeler (`-replace` of one address) after deleting a job or moving a volume
+  between tiers. Reverting a snapshot needs **maintenance mode**, because
+  `spec.disableFrontend` is derived from the VolumeAttachment tickets and not from
+  the Volume CR, and the manager API answers **in-cluster only**. Runbook with the
+  verified commands: `modules/storage/disaster_recovery.md`.
 - `.clinedocs/` holds deep, non-obvious operational notes (flow queries, netpol
   invariants) — load only when working that area.
