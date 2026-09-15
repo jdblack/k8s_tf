@@ -10,10 +10,6 @@ module "firewall" {
   namespace       = var.namespace
   allow_to_k8sapi = true
 
-  # Read one level up: this module is called under a module-level depends_on
-  # (stacks/core/core.tf: depends_on = [module.network]), which would defer the
-  # firewall's own endpoints read to apply time and abort the apply -- see
-  # var.api_peer_ips.
   api_peer_ips = var.api_peer_ips
 
   depends_on = [kubernetes_namespace_v1.namespace]

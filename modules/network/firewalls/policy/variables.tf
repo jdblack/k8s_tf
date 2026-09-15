@@ -18,7 +18,7 @@ variable "policy_types" {
   type = list(string)
 }
 
-# Rule lists, same shape in both directions:
+# Rules, same shape in both directions:
 #   {
 #     peers = [
 #       { namespace_selector = { "kubernetes.io/metadata.name" = "kube-network" } },
@@ -27,8 +27,8 @@ variable "policy_types" {
 #     ]
 #     ports = [{ protocol = "TCP", port = 6443 }]   # optional; omitted = any
 #   }
-# Typed `any`, not `list(any)`: peer shapes differ between entries and
-# `list(any)` would force every element to the same type.
+# Typed `any`, not `list(any)`: peer shapes differ and `list(any)` would force every
+# element to one type.
 variable "ingress_rules" {
   type    = any
   default = []

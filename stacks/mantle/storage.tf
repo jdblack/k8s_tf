@@ -1,6 +1,6 @@
-# The SeaweedFS admin UI behind an authentik proxy outpost. The release and its
-# Services are core's (stacks/core/storage.tf); the SSO gate has to live here because
-# only mantle has the authentik provider -- so apply core before mantle.
+# The SeaweedFS admin UI behind an authentik proxy outpost. The release and its Services
+# are core's; the SSO gate has to live here because only mantle has the authentik provider
+# -- so apply core before mantle.
 module "seaweedfs_admin" {
   source = "../../modules/storage/seaweedfs_admin"
 
@@ -12,7 +12,7 @@ module "seaweedfs_admin" {
   gateway_name      = "private"
   gateway_namespace = "kube-network"
 
-  # This module OWNS the "storage" group; add members in the authentik UI to grant
-  # access. Any future storage app joins this same group.
+  # This module OWNS the "storage" group; add members in the authentik UI. Any future
+  # storage app joins this same group.
   group_name = "storage"
 }

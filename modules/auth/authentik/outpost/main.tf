@@ -1,10 +1,9 @@
-# Manual outpost deployment: authentik chart 2025.10.x no longer embeds proxy
-# outposts. Terraform owns the pods so a rebuild stays tofu-driven and the
-# namespace's egress firewall applies to the outpost like every other pod.
+# Manual outpost deployment: authentik chart 2025.10.x no longer embeds proxy outposts.
+# Terraform owns the pods so a rebuild stays tofu-driven and the namespace's egress
+# firewall applies like any other pod.
 #
-# Runs in the namespace hosting the protected apps, so the gateway's data plane and
-# the protected apps are both reached same-namespace; the only cross-namespace
-# traffic is to authentik core (kube-auth), allowed at the bottom of this file.
+# Runs alongside the protected apps, so the gateway data plane and those apps are both
+# reached same-namespace; only core (kube-auth) is cross-namespace, allowed at the bottom.
 locals {
   outpost_labels = {
     "app.kubernetes.io/name"     = "authentik-outpost"
@@ -95,10 +94,9 @@ resource "kubernetes_service_v1" "outpost" {
   }
 }
 
-# Egress carve-out for the outpost only: reach authentik core (kube-auth). The
-# service is `authentik-server:80` but Calico evaluates egress post-DNAT, so the
-# allow targets the pod's real HTTP port (9000). Additive to the namespace-wide
-# firewall.
+# Egress carve-out for the outpost only. The Service is authentik-server:80 but Calico
+# evaluates egress post-DNAT, so the allow targets the pod's real HTTP port (9000).
+# Additive to the namespace-wide firewall.
 module "core_egress" {
   source       = "../../../network/firewalls/policy"
   name         = "authentik-outpost-core"

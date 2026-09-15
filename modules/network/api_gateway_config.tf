@@ -1,8 +1,8 @@
-# The NGF chart does not ship the Gateway API CRDs, so install them here: cluster-
-# scoped, installed exactly once. Idempotent; re-runs only when triggers_replace
-# changes. NGF's own CRDs (gateway.nginx.org/*) come from the chart's crds/.
+# The NGF chart does not ship the Gateway API CRDs, so install them here: cluster-scoped,
+# installed exactly once, re-run only when triggers_replace changes. NGF's own CRDs
+# (gateway.nginx.org/*) come from the chart's crds/.
 #
-# Fresh cluster: apply core BEFORE any stack that creates Gateway API resources.
+# Fresh cluster: apply core BEFORE any stack creating Gateway API resources.
 resource "terraform_data" "gateway_api_crds" {
   provisioner "local-exec" {
     command = <<-EOT

@@ -3,8 +3,7 @@ locals {
   master_host = "master.${local.fqdn}"
   s3_host     = "s3.${var.domains[var.visibility]}"
 
-  # admin.<fqdn> is published by modules/storage/seaweedfs_admin (mantle), behind
-  # an authentik outpost -- not here.
+  # admin.<fqdn> is published by seaweedfs_admin (mantle), behind the outpost.
 
   helm_values = {
     global = {
@@ -12,9 +11,8 @@ locals {
       replicationPlacement = "001"
       seaweedfs = {
         image = {
-          # Registry/name only: the chart's helper reads
-          # `default .Chart.AppVersion .Values.image.tag`, so a tag given here is
-          # silently ignored -- the tag goes in the top-level `image` block.
+          # Registry/name only: the chart helper reads AppVersion, so a tag here is
+          # ignored -- the tag goes in the top-level `image` block.
           name = "ghcr.io/jdblack/jblack-seaweedfs"
         }
       }
@@ -26,25 +24,19 @@ locals {
     admin = {
       enabled  = true
       grpcPort = "33646"
-      # No admin credentials on purpose: leaving admin.secret unset makes the chart
-      # omit WEED_ADMIN_USER/WEED_ADMIN_PASSWORD, so the admin API itself is
-      # unauthenticated -- access is gated entirely by the authentik outpost.
+      # admin.secret unset on purpose: the admin API is then unauthenticated and the
+      # outpost is the only gate.
       #
-      # Admin state (task configs, job history, session key) lives under
-      # `weed admin -dataDir`, which the chart defaults to emptyDir: without this
-      # PVC block the admin silently reverts to defaults on every restart.
+      # The chart defaults -dataDir to emptyDir, so admin state would revert on every
+      # restart without this PVC.
       data = {
         type         = "persistentVolumeClaim"
         size         = "2Gi"
         storageClass = ""
       }
-      # The custom 4.46 image added `weed admin -ip`, which defaults to 127.0.0.1
-      # and refuses a non-loopback bind unless a password or https.admin mTLS is
-      # set -- -allowInsecureBind is what lets -ip=0.0.0.0 through. Neither knob
-      # exists on the chart, hence extraArgs.
-      #
-      # The cost: an unauthenticated admin API on 23646 reachable from
-      # kube-storage / kube-network / monitoring (only the gateway path is SSO-gated).
+      # `weed admin -ip` defaults to 127.0.0.1 and refuses a non-loopback bind without a
+      # password or mTLS; -allowInsecureBind is what lets -ip=0.0.0.0 through. Neither
+      # knob exists on the chart. Cost: an unauthenticated admin API on 23646.
       extraArgs = ["-ip=0.0.0.0", "-allowInsecureBind"]
       ingress = {
         enabled = false

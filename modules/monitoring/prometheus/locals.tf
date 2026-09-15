@@ -1,16 +1,13 @@
 locals {
-  # Grafana + Prometheus values.
   helm_values = {
     grafana = {
       enabled = true
       "grafana.ini" = {
-        # Grafana builds the OAuth redirect_uri from root_url; authentik matches it
-        # strictly.
+        # root_url builds the OAuth redirect_uri, which authentik matches strictly.
         server = {
           root_url = "https://${var.grafana_name}.${var.domain}/"
         }
-        # Login form off, basic auth stays ON: the chart's dashboard sidecars use the
-        # latter to call the provisioning-reload API.
+        # Form off, basic auth on: the chart's dashboard sidecars use the latter.
         auth = {
           disable_login_form = true
         }
@@ -26,9 +23,8 @@ locals {
           token_url            = "https://auth.${var.domain}/application/o/token/"
           api_url              = "https://auth.${var.domain}/application/o/userinfo/"
           signout_redirect_url = "https://auth.${var.domain}/application/o/${var.grafana_name}/end-session/"
-          # `<name>-admin` or the superuser group => Admin, else Viewer. The
-          # parentheses are load-bearing: JMESPath binds && tighter than ||, and
-          # Grafana rejects a non-role result.
+          # <name>-admin or the superuser group => Admin, else Viewer. The parens are
+          # load-bearing: JMESPath binds && tighter than ||.
           role_attribute_path = "(contains(groups[*], '${var.grafana_name}-admin') || contains(groups[*], '${var.admin_group}')) && 'Admin' || 'Viewer'"
         }
       }
@@ -36,8 +32,7 @@ locals {
         enabled = true
         size    = "1Gi"
       }
-      # RWO volume: RollingUpdate deadlocks (the new pod cannot attach while the old
-      # one holds it), so terminate first.
+      # RWO volume: RollingUpdate deadlocks, so terminate first.
       deploymentStrategy = {
         type = "Recreate"
       }
@@ -55,18 +50,14 @@ locals {
       }
     }
 
-    # Control-plane scrapers are OFF. kubeadm binds scheduler, controller-manager,
-    # etcd and kube-proxy to loopback while Prometheus scrapes the node IP, so every
-    # target is a permanent connection-refused that fires alarming nonsense. The
-    # matching defaultRules groups must go with them: they are `absent(up{job=...})`
-    # and fire the moment the targets vanish. Enabling those metrics is a kubeadm
-    # extraArgs/patches change, not a chart one.
+    # OFF: kubeadm binds these to loopback while Prometheus scrapes the node IP, so
+    # every target is a permanent connection-refused. The matching defaultRules are
+    # `absent(up{...})` and would fire as soon as the targets vanish.
     kubeEtcd              = { enabled = false }
     kubeScheduler         = { enabled = false }
     kubeControllerManager = { enabled = false }
     kubeProxy             = { enabled = false }
 
-    # Only the four groups above are overridden; helm deep-merges the rest.
     defaultRules = {
       rules = {
         etcd                  = false
@@ -76,10 +67,8 @@ locals {
       }
     }
 
-    # Helm never upgrades CRDs from a chart's crds/ dir -- it only creates them when
-    # absent. This pre-install/pre-upgrade hook server-side-applies them with
-    # --force-conflicts and is the only thing that keeps them in lockstep with future
-    # chart bumps.
+    # Helm only creates a chart's crds/ when absent; this hook server-side-applies
+    # them, which is the only thing keeping them in step with chart bumps.
     crds = {
       upgradeJob = {
         enabled = true

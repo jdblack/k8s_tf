@@ -1,7 +1,6 @@
 variable "namespace" { type = string }
 
-# Namespaced, so it only has to differ when several firewall modules target the
-# same namespace (a namespace-wide policy plus a pod-scoped one).
+# Only has to differ when two firewall modules share a namespace.
 variable "policy_name" { default = "namespace-firewall" }
 
 variable "network_namespace" { default = "kube-network" }
@@ -11,42 +10,35 @@ variable "allow_dns" { default = true }
 variable "allow_to_ns" { default = true }
 variable "allow_to_services" { default = false }
 
-# Carve-out from blocked_egress_cidrs: the API server is reachable via the
-# kubernetes.default.svc ClusterIP and the apiserver's endpoint IPs, both of which
-# fall inside those exclusions. Used by workloads like the NGF cert-generator.
+# Carve-out: the apiserver ClusterIP and its endpoint IPs both fall inside
+# blocked_egress_cidrs.
 variable "allow_to_k8sapi" { default = false }
 
-# The apiserver's endpoint IPs (control-plane nodes), post-DNAT -- normally read
-# from the `kubernetes` Endpoints object by this module (data.tf). Pass them in
-# when this module sits under a module-level `depends_on`, which covers data
-# sources too: a pending change in the depended-on module otherwise defers the
-# read to apply time, the peer-block count is then guessed at plan and real at
-# apply, and the apply dies with "inconsistent final plan". See the identical
-# variable in ../allow_api/variables.tf for the full mechanism.
+# Pass these in when this module sits under a module-level `depends_on`, which covers data
+# sources too -- the peer count is then guessed at plan and real at apply, and the apply
+# dies with "inconsistent final plan". null = read here; see ../allow_api/variables.tf.
 variable "api_peer_ips" {
   type    = list(string)
   default = null
 }
 
-# Private ranges pods may NOT egress to. kube-proxy SNATs nodePort/remote-backend
-# traffic to a node IP, so the node/LAN ranges have to be excluded from the
-# 0.0.0.0/0 rule or a compromised workload could trampoline into the LAN.
+# kube-proxy SNATs nodePort/remote-backend traffic to a node IP, so the node and LAN
+# ranges must be excluded or a workload could trampoline into the LAN.
 variable "blocked_egress_cidrs" {
   type        = list(string)
   default     = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "169.254.0.0/16"]
   description = "CIDRs excluded from the 0.0.0.0/0 internet egress rule (cluster pod/service ranges + LAN + link-local)."
 }
 
-# Explicit carve-outs, e.g. a specific LAN tuner/NAS. Each entry becomes its own
-# egress rule, so it wins over the exclusions.
+# Each entry becomes its own rule, so it wins over blocked_egress_cidrs.
 variable "egress_allow_ip_blocks" {
   type        = list(string)
   default     = []
   description = "Specific CIDRs (e.g. 192.168.0.50/32) that pods may egress to despite blocked_egress_cidrs."
 }
 
-# The `kubernetes.default` ClusterIP is the first host of the service CIDR. Keep
-# in sync with the apiserver's --service-cluster-ip-range.
+# kubernetes.default is the first host of the service CIDR; keep in sync with
+# --service-cluster-ip-range.
 variable "service_cidr" {
   type    = string
   default = "10.96.0.0/12"

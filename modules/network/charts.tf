@@ -15,8 +15,8 @@ locals {
 
   }
 
-  # Terraform allows a local name only once per module, so every release in this
-  # module reads its own key out of the shared helm_values local.
+  # Terraform allows a local name only once per module, so every release here reads its
+  # own key out of the shared helm_values local.
   helm_values = {
     calico = {}
 
@@ -60,8 +60,8 @@ locals {
 
     metallb = {
       # Native BGP mode, not FRR: this cluster is L2-only (one IPAddressPool, no
-      # BGPPeers), so frr/frrk8s would be idle sidecars and CRDs. 0.16.0 deprecated
-      # FRR mode; switch to frrk8s.enabled = true if BGP is ever needed.
+      # BGPPeers), so frr/frrk8s would be idle sidecars and CRDs. 0.16.0 deprecated FRR
+      # mode; flip frrk8s.enabled if BGP is ever needed.
       speaker = {
         frr = {
           enabled = false

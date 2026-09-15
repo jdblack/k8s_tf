@@ -28,8 +28,7 @@ resource "kubernetes_manifest" "listener_set" {
           protocol = var.protocol
           hostname = local.fqdn
           # Accept routes from ANY namespace: charts that render their own route
-          # (e.g. harbor's expose.type = "route") attach cross-namespace via
-          # hostname matching, which the default allowedRoutes (Same) blocks.
+          # (harbor's expose.type = "route") attach cross-namespace by hostname match.
           allowedRoutes = {
             namespaces = {
               from = "All"
@@ -50,7 +49,7 @@ resource "kubernetes_manifest" "listener_set" {
 }
 
 # Cross-namespace ListenerSet -> Gateway attachment needs a ReferenceGrant in the
-# ListenerSet's namespace; same-namespace attachment needs none.
+# ListenerSet's namespace; same-namespace needs none.
 resource "kubernetes_manifest" "reference_grant" {
   count = var.gateway_namespace != var.namespace ? 1 : 0
 
@@ -80,8 +79,8 @@ resource "kubernetes_manifest" "reference_grant" {
   }
 }
 
-# Charts that render their own HTTPRoute against the Gateway reference it
-# directly, so that direction needs a second grant.
+# Charts that render their own HTTPRoute reference the Gateway directly, so that
+# direction needs its own grant.
 resource "kubernetes_manifest" "reference_grant_httproute" {
   count = var.gateway_namespace != var.namespace ? 1 : 0
 

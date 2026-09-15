@@ -12,9 +12,9 @@ resource "kubernetes_deployment_v1" "qbittorrent" {
   spec {
     replicas = 1
 
-    # Recreate, not the RollingUpdate default: 1 replica + a ReadWriteOnce config
-    # PVC means a surge pod can start on another node and deadlock waiting for
-    # the volume (the arr charts set Recreate for the same reason).
+    # Recreate, not the RollingUpdate default: 1 replica + a ReadWriteOnce config PVC means
+    # a surge pod can start on another node and deadlock waiting for the volume (the arr
+    # charts set Recreate for the same reason).
     strategy {
       type = "Recreate"
     }
@@ -35,8 +35,7 @@ resource "kubernetes_deployment_v1" "qbittorrent" {
       spec {
         container {
           name = var.name
-          # Pinned tag, so IfNotPresent -- upstream `latest` moves on every
-          # linuxserver build.
+          # Pinned tag, so IfNotPresent -- upstream `latest` moves on every linuxserver build.
           image             = "${var.image}:${var.image_tag}"
           image_pull_policy = "IfNotPresent"
 

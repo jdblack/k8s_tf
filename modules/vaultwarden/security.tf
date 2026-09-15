@@ -1,6 +1,5 @@
-# Egress: cluster DNS + the public internet, nothing else. Vaultwarden fetches
-# icons/CDN assets and has no business reaching the Kubernetes API or any other
-# in-cluster service.
+# Egress: cluster DNS + the public internet, nothing else. Vaultwarden fetches icons/CDN
+# assets and has no business reaching the API or any other in-cluster service.
 module "firewall" {
   source = "../network/firewalls/basic_internet"
 
@@ -10,14 +9,12 @@ module "firewall" {
 }
 
 # Ingress: same namespace + the gateway data plane, and NO CIDRs -- there is no
-# LoadBalancer here, so the gateway is the only path in. The gateway proxies from
-# kube-network.
+# LoadBalancer here, so the gateway is the only path in.
 module "firewall_ingress" {
   source = "../network/firewalls/limited_ingress"
 
   namespace = kubernetes_namespace_v1.this.metadata[0].name
-  # module.firewall above (basic_internet) already owns "namespace-firewall";
-  # NetworkPolicy names are per-namespace.
+  # basic_internet above already owns "namespace-firewall"; NetPol names are per-namespace.
   policy_name = "namespace-ingress"
 
   allowed_ingress_namespaces = [

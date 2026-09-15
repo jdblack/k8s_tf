@@ -1,14 +1,7 @@
-# SSO gate for the SeaweedFS admin UI (`weed admin`).
-#
-# The admin UI speaks no OIDC, so authentik fronts it as a proxy outpost: an HTTPS
-# listener + HTTPRoute on the shared private gateway targeting the outpost. The
-# outpost is co-located in var.namespace so the outpost -> admin hop is
-# same-namespace and needs no cross-namespace policy.
-#
-# Lives in the MANTLE stack: only mantle has the authentik provider configured
-# (core creates authentik, so it cannot talk to its API in the same apply). The
-# SeaweedFS release stays in core; this module is what publishes
-# admin.<release>.<domain> now.
+# SSO gate for the SeaweedFS admin UI: an HTTPS listener + HTTPRoute on the private
+# gateway targeting a co-located authentik proxy outpost (so that hop is
+# same-namespace). MANTLE only: core creates authentik and cannot talk to its API in
+# the same apply.
 
 variable "namespace" {
   type        = string
@@ -32,7 +25,7 @@ variable "app_name" {
   description = "SeaweedFS release name; used for the hostname and the admin pod selector."
 }
 
-# Full hostname override; defaults to admin.<app_name>.<domain>.
+# Defaults to admin.<app_name>.<domain>.
 variable "admin_host" {
   type    = string
   default = null
@@ -60,7 +53,6 @@ variable "gateway_namespace" {
   default = "kube-network"
 }
 
-# authentik wiring
 variable "auth_namespace" {
   type    = string
   default = "kube-auth"
@@ -82,8 +74,7 @@ variable "group_name" {
   description = "authentik group bound to the app; add members in the UI."
 }
 
-# dashboard-icons (the set the media apps use) has no seaweedfs entry, so this
-# comes from the selfh.st set via jsDelivr instead.
+# dashboard-icons has no seaweedfs entry, so this comes from selfh.st via jsDelivr.
 variable "icon" {
   type        = string
   default     = "https://cdn.jsdelivr.net/gh/selfhst/icons/svg/seaweedfs.svg"

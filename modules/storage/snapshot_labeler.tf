@@ -1,13 +1,8 @@
-# The one writer of recurring-job labels -- see longhorn_jobs.tf for why they live
-# on the Volume CR and nowhere else.
+# The only writer of the Volume-CR recurring-job labels (see longhorn_jobs.tf).
 #
-# kubectl in a local-exec because the target is a CR created by the CSI
-# provisioner: owning it via kubernetes_manifest would fight Longhorn's own
-# controllers.
-#
-# Runs from stacks/core, BEFORE the stacks that create the PVCs, so a missing PVC
-# is a warning rather than a failure. Re-run core once those are up; until then
-# the coverage audit fails loudly, which is the point.
+# local-exec kubectl: the CR is created by the CSI provisioner, so owning it through
+# kubernetes_manifest would fight Longhorn's controllers. Runs from stacks/core before
+# the PVCs exist, so a missing PVC warns instead of failing -- re-run core after.
 resource "terraform_data" "snapshot_group" {
   for_each = local.snapshot_groups
 
@@ -21,9 +16,7 @@ resource "terraform_data" "snapshot_group" {
         echo "WARN: $ns/$pvc has no Longhorn volume yet -- re-run after its stack is applied" >&2
         exit 0
       fi
-      # Add the wanted groups FIRST, then strip the leftovers: the other order
-      # leaves the volume briefly group-less, which is when Longhorn re-adds its
-      # built-in `default` group.
+      # Add first, then strip: a group-less moment lets Longhorn re-add `default`.
       kubectl -n ${var.longhorn_namespace} label "volumes.longhorn.io/$pv" \
         ${join(" ", [for g in each.value : "recurring-job-group.longhorn.io/${g}=enabled"])} --overwrite
       kubectl -n ${var.longhorn_namespace} label "volumes.longhorn.io/$pv" \
@@ -31,7 +24,6 @@ resource "terraform_data" "snapshot_group" {
     EOT
   }
 
-  # Only re-runs when the desired groups change.
   triggers_replace = [join(",", sort(each.value))]
 
   depends_on = [helm_release.longhorn]

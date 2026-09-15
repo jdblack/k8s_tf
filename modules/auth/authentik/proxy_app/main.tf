@@ -1,14 +1,8 @@
-# Reverse-proxy ("single application") providers for apps that don't speak
-# OIDC/SAML natively (the arr stack, whisker, the SeaweedFS admin UI): the outpost
-# authenticates the user then proxies to the app's internal service, so the gateway
-# routes the public hostname to the outpost instead of the app.
+# Reverse-proxy providers for apps with no OIDC/SAML: the outpost authenticates, then
+# proxies, so the gateway routes the public host to the outpost, not the app.
 #
-# Access control: each application is bound to a single group (var.group_name) via
-# authentik_policy_binding. No bindings, no access -- group membership is managed by
-# hand in the authentik UI (TF owns structure, UI owns people).
-#
-# The outpost service account + token created here are consumed by
-# modules/auth/authentik/outpost.
+# Each application is bound to one group; no binding, no access. Membership is hand-managed
+# in the authentik UI (TF owns structure, the UI owns people).
 
 data "authentik_flow" "authorization" {
   slug = "default-provider-authorization-implicit-consent"
@@ -40,8 +34,7 @@ resource "authentik_application" "app" {
   open_in_new_tab   = true
 }
 
-# No `count` here, and the address must not change: this group's members are managed
-# by hand in the authentik UI, so destroy/recreate would drop them.
+# No `count`: members are managed by hand in the UI, so a destroy/recreate drops them.
 resource "authentik_group" "access" {
   name = var.group_name
 }
@@ -49,7 +42,7 @@ resource "authentik_group" "access" {
 resource "authentik_policy_binding" "app" {
   for_each = var.apps
 
-  # target expects the application's UUID -- .id is the slug.
+  # target wants the application's UUID -- .id is the slug.
   target = authentik_application.app[each.key].uuid
   group  = authentik_group.access.id
   order  = 0
@@ -61,10 +54,9 @@ resource "authentik_outpost" "outpost" {
   protocol_providers = [for p in authentik_provider_proxy.app : p.id]
 }
 
-# authentik auto-creates a per-outpost service account named
-# ak-outpost-<uuid-without-hyphens>, but the provider does not expose the
-# auto-generated token key -- so mint our own non-expiring API token for that service
-# account and hand it to the Kubernetes deployment as AUTHENTIK_TOKEN.
+# authentik auto-creates a service account ak-outpost-<uuid-without-hyphens> but does not
+# expose its token key, so mint our own non-expiring API token for it and hand that to the
+# deployment as AUTHENTIK_TOKEN.
 data "authentik_user" "outpost_sa" {
   username = "ak-outpost-${replace(authentik_outpost.outpost.id, "-", "")}"
 }

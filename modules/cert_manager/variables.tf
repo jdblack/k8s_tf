@@ -31,11 +31,10 @@ variable "helm_version" {
   default = "v1.21.1"
 }
 
-# The apiserver's endpoint IPs, read by the CALLER (stack root) and passed through to
-# the firewall's API carve-out. Required whenever this module is called under a
-# module-level `depends_on`: `depends_on` defers data sources inside the module to
-# apply time, the API netpol then plans a guessed peer count, and the apply dies with
-# "inconsistent final plan". See ../network/firewalls/basic_internet/data.tf.
+# The apiserver's endpoint IPs, read by the CALLER (stack root) and passed to the
+# firewall's API carve-out. Required whenever this module is called under a module-level
+# `depends_on`: that defers data sources inside the module to apply time, so the API netpol
+# plans a guessed peer count and the apply dies with "inconsistent final plan".
 #
 # null = let the firewall module read the endpoints itself.
 variable "api_peer_ips" {

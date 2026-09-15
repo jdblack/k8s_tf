@@ -1,7 +1,7 @@
 locals {
   fqdn = coalesce(var.fqdn, "${var.name}.${var.domain}")
-  # The ListenerSet name and the chart route's parentRef must not drift apart, hence
-  # one local. Deliberately not var.name.
+  # One local so the ListenerSet name and the chart route's parentRef cannot drift
+  # apart. Deliberately not var.name.
   listener_name = "auth"
   helm_values = {
     global = {
@@ -38,9 +38,9 @@ locals {
       }
     }
     server = {
-      # Chart-native Gateway API route: the chart renders the HTTPRoute against our
-      # ListenerSet (NGF only attaches routes to ListenerSet listeners via a
-      # ListenerSet parentRef). TLS terminates at the gateway; backend is plain HTTP.
+      # Chart-native Gateway API route, rendered against our ListenerSet (NGF attaches
+      # routes to ListenerSet listeners only via a ListenerSet parentRef). TLS terminates
+      # at the gateway; backend is plain HTTP.
       route = {
         main = {
           enabled   = true

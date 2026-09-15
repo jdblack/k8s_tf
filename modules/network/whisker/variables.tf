@@ -1,5 +1,5 @@
 # Calico Whisker flow-log UI, in calico-system (where Whisker and Goldmane run; the
-# outpost is co-located so the outpost -> whisker hop is same-namespace).
+# outpost is co-located so that hop is same-namespace).
 
 variable "namespace" {
   type        = string
@@ -38,7 +38,6 @@ variable "whisker_port" {
   default = 8081
 }
 
-# authentik wiring
 variable "auth_namespace" {
   type    = string
   default = "kube-auth"
@@ -60,8 +59,7 @@ variable "group_name" {
   description = "authentik group bound to the app; add members in the UI."
 }
 
-# No whisker-specific tile exists (Calico ships only a React component, and
-# dashboard-icons has no calico entry), so use the brand mark from selfh.st.
+# No whisker-specific tile exists, so use the brand mark from selfh.st.
 variable "icon" {
   type        = string
   default     = "https://cdn.jsdelivr.net/gh/selfhst/icons/svg/calico.svg"

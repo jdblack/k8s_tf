@@ -34,9 +34,8 @@ terraform {
       source  = "hashicorp/random"
       version = "3.8.1"
     }
-    # Route53 for the vaultwarden A record (modules/vaultwarden/dns.tf). The only
-    # AWS use in this repo, and deliberately narrow: one record in one zone, via
-    # the least-privilege lg-route53 key already in var.deployment.cert.
+    # Route53 for the vaultwarden A record only: one record in one zone, via the
+    # least-privilege lg-route53 key in var.deployment.cert.
     aws = {
       source  = "hashicorp/aws"
       version = "~> 6.0"
@@ -58,13 +57,10 @@ provider "kubectl" {
   config_path = "~/.kube/config"
 }
 
-# Credentials come from tfvars, not the ambient environment: the shell's default
-# AWS identity is a different (broad) principal and this key is scoped to a
-# single hosted zone. Inherited by child modules.
-#
-# NOTE the v6 rename: `secret_key`, NOT the v5-era `secret_access_key`. The tfvars
-# value keeps its historical AWS_SECRET_ACCESS_KEY name (cert-manager's DNS-01
-# solver Secret reads it).
+# Credentials come from tfvars, not the ambient environment: the shell's default AWS
+# identity is a different, broader principal. NOTE the v6 rename -- `secret_key`, not
+# the v5-era `secret_access_key`; the tfvars key keeps its historical
+# AWS_SECRET_ACCESS_KEY name (cert-manager's DNS-01 solver Secret reads it).
 provider "aws" {
   access_key = var.deployment.cert.AWS_ACCESS_KEY_ID
   secret_key = var.deployment.cert.AWS_SECRET_ACCESS_KEY
@@ -83,8 +79,7 @@ provider "harbor" {
 }
 
 provider "argocd" {
-  # Full FQDN so the gateway's ListenerSet (argo-cd.vn.linuxguru.net) matches the
-  # TLS SNI.
+  # Full FQDN so the gateway's ListenerSet TLS SNI matches.
   server_addr = "${var.deployment.argocd_devops.server}.${var.deployment.common.domain}:443"
   username    = "admin"
   password    = data.kubernetes_secret_v1.argocd_auth.data["password"]

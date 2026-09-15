@@ -1,5 +1,4 @@
-# authentik proxy provider + application for whisker, bound to var.group_name, plus
-# the outpost + its service-account token (see proxy_app/README.md).
+# authentik proxy app for whisker, plus the outpost and its service-account token.
 module "auth" {
   source = "../../auth/authentik/proxy_app"
 
@@ -15,8 +14,8 @@ module "auth" {
   group_name   = var.group_name
 }
 
-# The outpost lives in this namespace (calico-system), so the outpost -> whisker hop
-# needs no cross-namespace policy.
+# The outpost lives in calico-system too, so the outpost -> whisker hop is same-namespace
+# and needs no policy.
 module "outpost" {
   source = "../../auth/authentik/outpost"
 
@@ -42,11 +41,10 @@ module "expose" {
   backend_port      = 9000
 }
 
-# NOTE the tigera-operator ALREADY ships pod-scoped netpols for these pods:
-#   - `whisker` : deny-all POD ingress (port-forward still works -- host traffic)
-#   - `goldmane`: one ingress rule on 7443 with NO `from` -> any source, and
-#                 NetworkPolicies only UNION, so it cannot be tightened from here.
-# The only thing added here is the outpost's allowance.
+# The tigera-operator already ships pod-scoped netpols for these pods: whisker = deny-all
+# pod ingress (port-forward still works) and goldmane = one `from`-less rule on 7443, which
+# policies can only union -- untightenable from here. This adds only the outpost's
+# allowance.
 module "firewall_whisker" {
   source = "../firewalls/limited_ingress"
 
@@ -54,15 +52,13 @@ module "firewall_whisker" {
   policy_name  = "whisker-ingress"
   pod_selector = { "app.kubernetes.io/name" = "whisker" }
 
-  # The outpost, which lives in this namespace. Every other namespace stays denied
-  # by the operator's own `whisker` netpol.
+  # The outpost, in this namespace; the operator's own whisker netpol denies everything else.
   allowed_ingress_namespaces = [var.namespace]
 }
 
-# Unrelated to the module above: the outpost module ships an Egress-only,
-# default-deny policy, and calico-system deliberately has no namespace-wide
-# basic_internet posture (a namespace-wide egress default-deny there would break
-# Calico's control plane). So open exactly what the outpost needs: DNS and whisker.
+# The outpost module's policy is egress default-deny, and calico-system deliberately has
+# no namespace-wide posture (one would break Calico's control plane), so open exactly what
+# the outpost needs: DNS and whisker.
 module "outpost_egress" {
   source = "../firewalls/policy"
 

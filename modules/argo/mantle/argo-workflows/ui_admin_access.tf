@@ -1,24 +1,22 @@
-# SSO RBAC for the web UI: users whose token carries the '<name>-admin' group (the
-# Authentik group created by the oidc_provider module) are mapped to this
-# ServiceAccount, bound to the chart's aggregated admin ClusterRole.
+# SSO RBAC for the web UI: tokens carrying the '<name>-admin' group (created by
+# oidc_provider) map to this SA, bound to the chart's aggregated admin ClusterRole.
 resource "kubernetes_service_account_v1" "argo_wf_ui_admin" {
   metadata {
     name      = local.ui_admin_sa
     namespace = var.namespace
 
     annotations = {
-      # `authentik Admins` is the built-in superuser group, matched in addition to
-      # the app's own group so a global admin need not be hand-added per app group
-      # -- group membership only reaches the claims at login time, so every change
-      # costs a re-login.
+      # `authentik Admins` (built-in superuser) is matched too, so a global admin need not
+      # be hand-added per app group. Group membership only reaches the claims at login,
+      # so every change costs a re-login.
       "workflows.argoproj.io/rbac-rule"            = "'${var.name}-admin' in groups || '${var.admin_group}' in groups"
       "workflows.argoproj.io/rbac-rule-precedence" = "1"
     }
   }
 }
 
-# K8s >= 1.24 no longer auto-provisions a per-SA token secret; the server needs a
-# stable secret to read when acting as the user's SA.
+# K8s >= 1.24 no longer auto-provisions a per-SA token secret, and the server needs a
+# stable one to read when acting as the user's SA.
 resource "kubernetes_secret_v1" "argo_wf_ui_admin_token" {
   metadata {
     name      = local.ui_admin_token_secret
@@ -49,7 +47,6 @@ resource "kubernetes_cluster_role_binding_v1" "argo_wf_ui_admin" {
     name      = kubernetes_service_account_v1.argo_wf_ui_admin.metadata[0].name
   }
 
-  # The ClusterRole is rendered by the chart: on a cold install the binding must wait
-  # for it.
+  # The ClusterRole is chart-rendered, so wait for it on a cold install.
   depends_on = [helm_release.workflows]
 }

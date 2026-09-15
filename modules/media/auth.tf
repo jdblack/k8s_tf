@@ -1,23 +1,14 @@
-# Authentik proxy outpost in front of the arr apps + qbittorrent. Owned here, not
-# by the auth stack, because it protects media apps and runs in this namespace
-# (authentik chart 2025.10.x no longer embeds proxy outposts).
-#
-# Traffic: browser -> media gateway (TLS) -> this outpost (:9000) -> app svc.
+# authentik proxy outpost for the arr apps + qbittorrent: browser -> media gateway ->
+# this outpost (:9000) -> app Service.
 locals {
-  # Every arr HTTPRoute (each app module's route.tf) and the outpost module must
-  # agree on this name.
+  # Must match every arr route and the outpost module.
   auth_outpost_service = "authentik-outpost"
 
-  # Bookmark-tile icons from the dashboard-icons set: versionless CDN URLs, so they
-  # don't depend on the app's own web assets or on the app being reachable.
+  # Versionless CDN URLs: independent of the app's own assets.
   icon_cdn = "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg"
 
-  # external_host is the public URL (what the gateway serves); internal_host is the
-  # app's in-cluster Service. Ports differ (arr charts :80, hand-rolled qbittorrent
-  # :8080) -- keep in sync with arr_stack.tf.
-  #
-  # qbittorrent's torrent port (21010) is NOT here: peer traffic stays direct on its
-  # own LoadBalancer Service, never behind the outpost.
+  # external_host = public URL, internal_host = in-cluster Service. Ports differ (arr :80,
+  # qbittorrent :8080); torrent traffic (21010) never comes through here.
   auth_apps = {
     for app, port in {
       sonarr      = 80
@@ -34,9 +25,7 @@ locals {
   }
 }
 
-# authentik objects: proxy providers + applications per app, the "media" access
-# group (bindings gate who can reach the apps; membership is hand-managed in the
-# authentik UI), and the shared proxy outpost.
+# Proxy providers + applications per app, the "media" group, and the shared outpost.
 module "auth" {
   source       = "../auth/authentik/proxy_app"
   apps         = local.auth_apps
@@ -44,7 +33,6 @@ module "auth" {
   group_name   = "media"
 }
 
-# The outpost's Kubernetes deployment/service in this namespace.
 module "auth_outpost" {
   source       = "../auth/authentik/outpost"
   namespace    = var.namespace

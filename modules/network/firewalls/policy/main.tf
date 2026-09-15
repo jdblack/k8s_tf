@@ -1,9 +1,7 @@
-# One rendered kubernetes_network_policy_v1 from explicit rule lists. Typed
-# resource rather than kubectl_manifest so `tofu plan` diffs live state and flags
-# out-of-band drift, which for a NetPol means silent allow-all.
-#
-# A peer may carry ip_block, namespace_selector and/or pod_selector; only
-# namespace_selector means "any pod in that namespace".
+# One rendered kubernetes_network_policy_v1 from explicit rule lists: a typed resource,
+# not kubectl_manifest, so plan diffs live state and flags out-of-band drift -- for a
+# NetPol that means silent allow-all. A peer may carry ip_block, namespace_selector
+# and/or pod_selector.
 resource "kubernetes_network_policy_v1" "this" {
   metadata {
     name      = var.name
@@ -30,8 +28,8 @@ resource "kubernetes_network_policy_v1" "this" {
               for_each = lookup(from.value, "ip_block", null) != null ? [from.value.ip_block] : []
               content {
                 cidr = ip_block.value.cidr
-                # null omits `except`, so the API can't normalize an empty list
-                # into a perpetual diff.
+                # null omits `except`, so the API can't normalize an empty list into a
+                # perpetual diff.
                 except = try(ip_block.value.except, null)
               }
             }
@@ -43,8 +41,8 @@ resource "kubernetes_network_policy_v1" "this" {
               }
             }
 
-            # empty podSelector + namespaceSelector = "all pods in that ns",
-            # so omit it rather than emitting pod_selector {}
+            # empty podSelector + namespaceSelector = "all pods in that ns", so omit it
+            # rather than emitting pod_selector {}
             dynamic "pod_selector" {
               for_each = lookup(from.value, "pod_selector", null) != null && length(from.value.pod_selector) > 0 ? [from.value.pod_selector] : []
               content {

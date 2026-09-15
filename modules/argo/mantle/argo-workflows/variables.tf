@@ -37,7 +37,7 @@ variable "oauth2_server" {
   type = string
 }
 
-# authentik's built-in superuser group; matched in addition to the app's own
+# authentik's built-in superuser group, matched in addition to the app's own
 # `<name>-admin` group. Must match the `groups` claim exactly.
 variable "admin_group" {
   type    = string

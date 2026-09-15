@@ -26,18 +26,17 @@ locals {
       }
     }
     expose = {
-      # Chart-native Gateway API HTTPRoute (expose.type = "route"): the shared
-      # private gateway terminates TLS and the chart routes /api/, /service/,
-      # /v2/, /c/ to harbor-core and / to harbor-portal -- matching the old
-      # ingress path routing exactly.
+      # Chart-native Gateway API HTTPRoute (expose.type = "route"): the shared private
+      # gateway terminates TLS and the chart routes /api/, /service/, /v2/, /c/ to
+      # harbor-core and / to harbor-portal, matching the old ingress path routing.
       type = "route"
       tls = {
         enabled = false
       }
       route = {
-        # NGF only attaches routes to listeners contributed by ListenerSets
-        # when the route parentRefs the ListenerSet itself (not the Gateway),
-        # so point the chart-rendered HTTPRoute at our ListenerSet.
+        # NGF only attaches routes to ListenerSet-contributed listeners when the
+        # route parentRefs the ListenerSet itself (not the Gateway), so point the
+        # chart-rendered HTTPRoute at ours.
         parentRefs = [{
           name        = var.name
           namespace   = var.namespace

@@ -1,6 +1,6 @@
-# Chart version is pinned deliberately: the chart version and the bundled CRDs' are
-# not the same version line (see the crds/upgradeJob note in locals.tf), so bump on
-# purpose, one version at a time, reading the changelog for CRD/values breakage.
+# Chart version pinned deliberately: chart version and bundled-CRD version are different
+# lines (see the crds/upgradeJob note in locals.tf), so bump on purpose, one version at a
+# time, reading the changelog for CRD/values breakage.
 resource "helm_release" "prometheus" {
   name       = var.prometheus_name
   namespace  = var.namespace

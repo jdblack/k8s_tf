@@ -8,8 +8,8 @@ locals {
   ])
 
   # DNS plus the API server, and deliberately nothing else: this is a *targeted*
-  # supplement to a namespace-wide basic_internet policy. NetPols union, so pods
-  # matching var.pod_selector get both; other pods only the namespace-wide one.
+  # supplement to a namespace-wide basic_internet policy. NetPols union, so pods matched
+  # by var.pod_selector get both; other pods only the namespace-wide one.
   egresses = concat(
     var.allow_dns ? [local.egress.to_dns] : [],
     [local.egress.to_k8s_api],

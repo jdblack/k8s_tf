@@ -1,11 +1,10 @@
 locals {
-  # admin.<release>.<domain>; the outpost owns this host now.
+  # admin.<release>.<domain>; the outpost owns this host.
   host = var.admin_host != null ? var.admin_host : "admin.${var.app_name}.${var.domain}"
 }
 
-# authentik: proxy provider + application for the admin UI bound to
-# var.group_name, plus the outpost + its service-account token
-# (see ../../auth/authentik/proxy_app).
+# authentik: proxy provider + application for the admin UI, plus the outpost and its
+# service-account token.
 module "auth" {
   source = "../../auth/authentik/proxy_app"
 
@@ -21,8 +20,7 @@ module "auth" {
   group_name   = var.group_name
 }
 
-# The outpost deployment/service in the SeaweedFS namespace (same namespace as the
-# admin service, so the outpost -> admin hop needs no cross-namespace policy).
+# Co-located with the admin Service, so that hop needs no cross-namespace policy.
 module "outpost" {
   source = "../../auth/authentik/outpost"
 
@@ -34,10 +32,8 @@ module "outpost" {
   token        = module.auth.outpost_token
 }
 
-# HTTPS listener (admin.<app>.<domain>) on the shared private gateway
-# + HTTPRoute to the OUTPOST -- not the admin service. The ListenerSet name and
-# cert carry the names core's retired expose_admin used, so the cert and grants
-# are re-owned here.
+# Listener + HTTPRoute to the OUTPOST, not the admin Service. The names carry those of
+# core's retired expose_admin, so the cert and grants are re-owned here.
 module "expose" {
   source = "../../network/gateway/expose"
 
@@ -52,9 +48,9 @@ module "expose" {
   backend_port      = 9000
 }
 
-# The outpost module ships an Egress-only default-deny policy and the SeaweedFS
-# namespace firewall is INGRESS-only, so nothing else opens the outpost's egress.
-# Calico evaluates egress post-DNAT: the peer is the admin POD, not the Service IP.
+# The outpost module's policy is egress default-deny and the SeaweedFS namespace
+# firewall is ingress-only, so nothing else opens this egress. Peers are post-DNAT
+# pods, not Service IPs.
 module "outpost_egress" {
   source = "../../network/firewalls/policy"
 

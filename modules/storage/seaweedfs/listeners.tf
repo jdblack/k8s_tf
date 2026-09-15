@@ -1,8 +1,6 @@
-# Exposure via the shared private gateway (kube-network): HTTPS listeners for
-# master/s3 + HTTPRoutes to the chart's ClusterIP services.
-#
-# The ADMIN UI is deliberately not here: it is fronted by an authentik proxy
-# outpost, which lives in the mantle stack (modules/storage/seaweedfs_admin).
+# Exposure via the shared private gateway: HTTPS listeners for master/s3 plus HTTPRoutes
+# to the chart's ClusterIP services. The ADMIN UI is deliberately not here -- it is
+# outpost-protected, so it lives in the mantle stack (storage/seaweedfs_admin).
 module "expose_master" {
   source            = "../../network/gateway/expose"
   name              = "seaweedfs-master"

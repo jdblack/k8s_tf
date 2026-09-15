@@ -1,7 +1,7 @@
 locals {
 
-  # `one()` is null when data.tf disabled the read (caller-supplied IPs) and
-  # try() turns that into an empty list, which is the correct peer set.
+  # `one()` is null when data.tf disabled the read (caller-supplied IPs); try() turns
+  # that into an empty list, which is the correct peer set.
   api_peer_ips = var.api_peer_ips != null ? var.api_peer_ips : flatten([
     for s in try(one(data.kubernetes_endpoints_v1.kubernetes).subset, []) : [
       for a in s.address : a.ip
@@ -57,8 +57,8 @@ locals {
           protocol = "UDP"
           port     = 53
         },
-        # CoreDNS answers over TCP when UDP responses are truncated (large
-        # TXT/SRV/any records); without this, occasional lookups fail.
+        # CoreDNS answers over TCP when UDP responses are truncated (large TXT/SRV/any
+        # records); without this, occasional lookups fail.
         {
           protocol = "TCP"
           port     = 53

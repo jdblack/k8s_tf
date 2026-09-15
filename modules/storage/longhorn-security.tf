@@ -1,9 +1,7 @@
-# The chart ships its own NetworkPolicies, which admit only Longhorn's own
-# components (longhorn-manager pods carry the manager, webhook and
-# recovery-backend labels, so three chart policies select them). Prometheus
-# scraping app=longhorn-manager:9500 via the chart's ServiceMonitor therefore hits
-# the end-of-tier deny. Chart netpols can't be extended from values, so union in
-# the monitoring namespace here (NetworkPolicies are additive).
+# The chart ships its own NetworkPolicies, which admit only Longhorn's own components, so
+# Prometheus scraping app=longhorn-manager:9500 through the chart's ServiceMonitor hits the
+# end-of-tier deny. Netpols can't be extended from chart values, so union in the monitoring
+# namespace here (NetworkPolicies are additive).
 module "firewall_metrics" {
   source = "../network/firewalls/policy"
 

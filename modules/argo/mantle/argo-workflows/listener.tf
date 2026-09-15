@@ -1,5 +1,5 @@
-# Exposure via the shared private gateway (kube-network): HTTPS listener + HTTPRoute
-# to the ClusterIP service (plain HTTP backend on 2746).
+# Exposure via the shared private gateway: HTTPS listener + HTTPRoute to the ClusterIP
+# service (plain HTTP backend on 2746).
 module "expose" {
   source            = "../../../network/gateway/expose"
   name              = var.name

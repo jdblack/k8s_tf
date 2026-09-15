@@ -13,22 +13,20 @@ variable "create_namespace" {
   default = true
 }
 
-# Public endpoint baked into every peer config (e.g. home.linuxguru.net).
-# Empty string -> the operator falls back to the LoadBalancer/service address.
+# Public endpoint baked into every peer config (e.g. home.linuxguru.net); empty -> the
+# operator falls back to the LoadBalancer/service address.
 variable "external_address" {
   type    = string
   default = ""
 }
 
-# DNS server handed to peers (e.g. 192.168.0.2). Empty string -> the operator
-# defaults to kube-dns, falling back to a public resolver.
+# DNS server handed to peers (e.g. 192.168.0.2); empty -> kube-dns, then a public resolver.
 variable "dns" {
   type    = string
   default = ""
 }
 
-# Search domains handed to peers, joined into the operator's single
-# dnsSearchDomain string.
+# Joined into the operator's single dnsSearchDomain string.
 variable "dns_search_domains" {
   type    = list(string)
   default = []
