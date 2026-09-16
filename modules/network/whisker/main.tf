@@ -19,23 +19,6 @@ module "auth" {
   core_namespace = var.auth_namespace
 }
 
-# The outpost moved into the `auth` module above; these blocks carry its state across
-# (drop them once the move has been applied). A whole-module `moved` cannot do this: the
-# destination module already holds resources, so OpenTofu refuses the module-level mapping
-# ("could not move ... existing objects already at the intended addresses") and destroys.
-moved {
-  from = module.outpost.kubernetes_secret_v1.api
-  to   = module.auth.kubernetes_secret_v1.api
-}
-moved {
-  from = module.outpost.kubernetes_deployment_v1.outpost
-  to   = module.auth.kubernetes_deployment_v1.outpost
-}
-moved {
-  from = module.outpost.kubernetes_service_v1.outpost
-  to   = module.auth.kubernetes_service_v1.outpost
-}
-
 # Backend is the OUTPOST, not whisker itself: the route is authenticated.
 module "expose" {
   source = "../gateway/expose"
