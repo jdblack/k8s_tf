@@ -1,7 +1,12 @@
-# One call = one NetworkPolicy, egress only. Ingress is deliberately not a knob here: a policy
-# that types Ingress is deny-all-inbound for the pods it selects, so each app module writes its
-# own when it needs one -- there is no safe default to hand out.
-# Exists only to make the default naming unique; an explicit `name` needs no suffix.
+# One call = one NetworkPolicy, egress only, for the peers the base builder cannot express:
+# a namespace *and* the pods in it, on *named* ports. Same contract as `egress` otherwise --
+# callers state intent, this decides selectors and rule order -- and the two are meant to be
+# used together on one pod, since netpols only union.
+#
+# What it does NOT do, on purpose: no `allow_internet`, no `allow_k8s_api`, no `allow_cluster`,
+# no `to_cidrs`. Those are the base builder's curated knobs; this one is for a named peer. A
+# CIDR handed to either builder is dead for any in-cluster destination anyway (egress is
+# evaluated POST-DNAT -- see .clinedocs/calico-netpols.md).
 resource "random_id" "suffix" {
   count       = var.name == null ? 1 : 0
   byte_length = 4
@@ -38,8 +43,6 @@ resource "kubernetes_network_policy_v1" "this" {
           }
         }
 
-        # A `to` entry may carry more than one selector kind on purpose: the DNS rule needs
-        # namespaceSelector AND podSelector, which is an AND in a single peer.
         dynamic "to" {
           for_each = egress.value.to
 
@@ -60,15 +63,6 @@ resource "kubernetes_network_policy_v1" "this" {
 
               content {
                 match_labels = pod_selector.value
-              }
-            }
-
-            dynamic "ip_block" {
-              for_each = try(to.value.ip_block, null) != null ? [to.value.ip_block] : []
-
-              content {
-                cidr   = ip_block.value.cidr
-                except = try(ip_block.value.except, null)
               }
             }
           }

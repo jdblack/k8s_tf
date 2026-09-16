@@ -12,7 +12,37 @@ that lands on them. Applied from `stacks/core` (the `seaweedfs_admin` UI is a
 | `snapshot_labeler.tf` | writes the recurring-job group labels onto the Longhorn **Volume** CRs — the only writer of those labels in the repo |
 | `seaweedfs/` | SeaweedFS helm release, CSI driver, master/S3 listeners, Grafana dashboard |
 | `seaweedfs_admin/` | the `weed` admin UI, authentik-gated (called from `stacks/mantle`) |
+| `egress.tf` | **egress policy for the whole namespace**: the closed floor + three API exceptions (see below) |
 | `backup.yaml` | **orphaned** — a hand-applied `VolumeSnapshot` for `sonarr-config`; nothing references it (see `../../memory-bank/progress.md`) |
+
+## Egress: the namespace is closed, four policies (2026-09-17)
+
+`kube-storage` is the first namespace whose profile *is* the closed floor — own namespace + DNS, no
+internet, no LAN, no other namespace — because that is what its traffic actually is. Measured over a
+30-day Whisker window: 39 flows, all of them SeaweedFS-internal (`filer`/`volume`/`worker`/`csi-mount`
+→ `seaweedfs-volume:8080|:18080`, `→ seaweedfs-master:19333`, `→ seaweedfs-filer:18888`) or DNS to
+coredns, plus the outpost's one cross-namespace dial. The four calls in `egress.tf`:
+
+| Policy | Selects | Adds |
+|---|---|---|
+| `kube-storage-baseline-egress` | `podSelector: {}` — all 28 pods | nothing (self + DNS only) |
+| `seaweedfs-csi-controller-egress` | `app=seaweedfs-csi-controller` | the API server (leader-election Leases + watches) |
+| `seaweedfs-csi-node-egress` | `app=seaweedfs-csi-node` | the API server (`driver-registrar` writes CRDs + events) |
+| `snapshot-controller-egress` | `app.kubernetes.io/name=snapshot-controller` | the API server (VolumeSnapshot reconciliation) |
+
+plus `seaweedfs_admin/egress.tf` in `stacks/mantle` for the outpost → `kube-auth` `:9000` peer. The
+blunt version of why this shape is safe here: nothing in the namespace fetches anything off-cluster
+at runtime — images are the kubelet's traffic — and the three API grants come from the sidecars' own
+RBAC rather than from a flow log, which cannot see watches. What RBAC is *not*: the chart also binds
+a `pods` CRUD role to the SA master/volume/filer run as, and no pod in the namespace holds a socket
+to the apiserver — the role is shipped, not used. Full reasoning in `egress.tf`.
+
+**Verified on apply:** all 28 pods Running/Ready; `plan` back to `No changes` in both stacks; a fresh
+`seaweedfs-csi` PVC bound and round-tripped a file; a `longhorn-snapshot` VolumeSnapshot reached
+`ReadyToUse` (proving `snapshot-controller`); the CSI node pod restarted clean with
+`PluginRegistered:true` (proving the registrar grant); `/media` (8.5T RWX on `seaweedfs-filer:8888`)
+still lists from sonarr; SSO on `admin.seaweedfs.<domain>` still returns 302; and the 30-minute flow
+window after the change held 66 records with **zero Deny**.
 
 ## Snapshot policy in one paragraph
 

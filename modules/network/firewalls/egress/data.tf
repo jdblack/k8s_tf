@@ -1,6 +1,6 @@
 locals {
-  needs_cidrs   = var.to_cluster
-  needs_api_ips = var.to_k8s_api && length(var.api_peer_ips) == 0
+  needs_cidrs   = var.allow_cluster
+  needs_api_ips = var.allow_k8s_api
 }
 
 # kubeadm writes podSubnet/serviceSubnet here at bootstrap: the single source of truth the
@@ -19,7 +19,7 @@ data "kubernetes_config_map_v1" "kubeadm" {
 # Both are needed -- a rule with only the ClusterIP breaks clients that get reconciled to a
 # node, and a rule with only the endpoint breaks clients that never set a Host. Note `spec` is
 # a list *attribute*, not a block, in provider 3.x: hence `spec[0].cluster_ip`.
-# Deprecated Endpoints API, still served -- hence var.api_peer_ips as the escape hatch.
+# Deprecated Endpoints API, still served.
 data "kubernetes_service_v1" "kubernetes" {
   count = local.needs_api_ips ? 1 : 0
 

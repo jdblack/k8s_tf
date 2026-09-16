@@ -32,6 +32,7 @@ Credentials: user `jblack`, password
 | `storage.tf` | PV + PVC, `ReadWriteMany`, `seaweedfs-csi`, 1Pi, reclaim `Retain` |
 | `service.tf` | `LoadBalancer` 445 + the external-dns hostname annotation |
 | `mdns.tf` + `mdns.service` | the Bonjour advertisement — the rest of this README |
+| `egress.tf` | the share's `NetworkPolicy`: DNS plus its own namespace, nothing else |
 | `locals.tf` | `samba_name`, `samba_host`, `mdns_name`, `samba_vip` |
 
 ## Why `mdns.tf` exists, and why it is hostNetwork
@@ -100,10 +101,14 @@ It is an advertiser only: it never serves SMB, and the data path is untouched
 - **`disallow-other-stacks=yes`:** if a node ever runs its own mDNS stack this
   pod CrashLoops loudly instead of duelling over 5353. That is the signal to set
   `mdns_node_selector` and pin it somewhere clean.
-- **No netpol layer exists here any more** (the firewall system was deleted
-  2026-09-16), so the advertiser needs no allow-list. If policy comes back,
-  remember the SMB LoadBalancer is `etp=Cluster` and needs the node CIDR in its
-  guest list (`.clinedocs/calico-netpols.md`); the advertiser is unaffected.
+- **Egress policy: `blender-egress`** (`egress.tf`, via `../network/firewalls/egress`). The share
+  initiates nothing, so the policy is DNS plus this namespace and nothing else — no API, no
+  internet, no LAN. It selects `app = blender-samba` rather than the namespace, so it says
+  exactly what it covers; the advertiser is hostNetwork, where pod policy does not apply.
+  SMB, the VIP and the advert are all *inbound*, and replies ride the established flow, which
+  policy does not re-evaluate. The `etp=Cluster` caveat — a LAN client's connection can arrive
+  SNATed from a node IP — is a concern for an *ingress* allow-list, if one ever lands here; this
+  egress policy needs no node CIDR.
 - **subPath asymmetry:** changes to `smb.conf` need a pod restart (nothing hashes
   it), while the advertiser rolls itself when its ConfigMap changes.
 
@@ -120,7 +125,9 @@ kubectl -n blender logs deploy/blender-mdns | grep -E 'established|startup compl
 # the share itself (the path that never changed). The VIP floats -- read it back
 # with `dig +short samba-blender.vn.linuxguru.net` rather than trusting a literal.
 nc -vz 192.168.0.103 445
-smbutil view -N //samba-blender.vn.linuxguru.net
+smbutil view -N //samba-blender.vn.linuxguru.net   # "server rejected the authentication" IS
+                                                   # the pass: no creds sent, and `valid users`
+                                                   # means an anonymous list is refused anyway
 ```
 
 Finder caches discovery both ways: if the entry doesn't show up, `killall

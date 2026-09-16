@@ -50,12 +50,46 @@ every client. `/admin` is disabled instead (`ADMIN_TOKEN` unset — see
 | `service.tf` | ClusterIP `80` — no LoadBalancer, so no LAN path bypasses the gateway |
 | `listener.tf` | `expose`: ListenerSet on the `private` gateway + HTTPRoute to the Service |
 | `dns.tf` | the authoritative Route53 A record |
+| `egress.tf` | one `NetworkPolicy`: DNS plus this namespace, and nothing else |
 | `disaster_recovery.md` | what a restore costs here; mechanics in [`../storage/disaster_recovery.md`](../storage/disaster_recovery.md) |
 
 `strategy = Recreate` is required (RWO PVC; a rolling update deadlocks waiting
 for the old pod to release the volume), and the pod template carries a
 `checksum/config` annotation from the config Secret so a setting change actually
 rolls the pod — Kubernetes never restarts pods for a Secret alone.
+
+## Egress policy
+
+**`vaultwarden-egress`** (`egress.tf`, via [`../network/firewalls/egress`](../network/firewalls/egress/README.md))
+is two rules — this namespace, and `UDP+TCP/53` to kube-dns. No API server, no internet, no LAN,
+no cross-namespace peer. That is the measured shape, not an assumption: over a 30-day Whisker
+window the only flow the pod *originates* is `udp/53 -> coredns` (`Allow`, nothing pending).
+Everything else in that window is inbound — the private gateway's data plane dials this pod on
+`80` — which an egress policy does not see and does not need to grant.
+
+Verified live when the policy landed, probing from inside the pod: `getent hosts` resolves both a
+cluster host and `kube-dns.kube-system`, `curl http://vaultwarden.vaultwarden.svc.cluster.local/alive`
+returns **200** (the self rule), and the apiserver ClusterIP, `example.com` and the gateway VIP all
+time out. Whisker attributes each of those three denials to `vaultwarden-egress`. The last one
+reports as `kube-network/private-private-…:443` — a reporting quirk, not a namespace grant: the VIP
+belongs to a Service in `kube-network`, so the flow log names a namespace for what is only an
+address, while the policy compares an address it does not permit.
+
+The "nothing else" holds for structural reasons worth keeping in mind before widening it:
+
+- **No push relay.** `PUSH_ENABLED` is unset, so there is no dial to `push.bitwarden.com`. Turning
+  mobile push on makes this policy wrong — it would need `allow_internet = true`.
+- **No mail.** `SMTP_*` is unset and mail is off by design (no hints, no invitations), so no
+  outbound to a relay.
+- **No API watches.** Nothing in the pod talks to the apiserver, so `allow_k8s_api` stays false.
+- **No `/admin`.** `ADMIN_TOKEN` is unset (`secret.tf`), which disables the panel outright, so
+  there is no admin-API egress to account for.
+
+The policy selects the Deployment's own labels (`local.labels` = `app.kubernetes.io/name`) rather
+than the whole namespace, so it covers exactly the pods `deployment.tf` owns. Pods no policy
+selects are unrestricted, so this tightens this workload without walling off the namespace.
+Nothing here needs an **ingress** policy: the only inbound caller is the gateway, and a policy
+typing `Ingress` would be a deny-all-inbound for the pod.
 
 ## Configuration (env, in `secret.tf`)
 

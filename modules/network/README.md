@@ -30,16 +30,29 @@ own namespaces.
 | [`gateway/expose/`](gateway/expose/README.md) | One call to publish an app: HTTPS ListenerSet (+ cert/grants) and optional HTTPRoute |
 | [`gateway/listener_set/`](gateway/listener_set/README.md) | App-owned HTTPS listener on a Gateway + auto cert + ReferenceGrants (used by `expose`) |
 | [`gateway/http_route/`](gateway/http_route/README.md) | App-owned hostname → Service route with external-dns annotation (used by `expose`) |
+| [`firewalls/`](firewalls/README.md) | `NetworkPolicy` builders, one call = one object. Hand-written **ingress** stays in the app module that needs it |
+| [`firewalls/egress/`](firewalls/egress/README.md) | **Egress**: DNS always, own-namespace by default, plus namespace / API-server / cluster / internet / raw-CIDR peers. Call sites: `media` (4), `kube-storage` (4), `harbor` (3), `seaweedfs_admin` (1), `blender` (1), `vaultwarden` (1) |
 | [`wireguard/`](wireguard/README.md) | VPN operator + peers (own namespace `kube-network-vpn`) |
 | [`whisker/`](whisker/README.md) | Calico Whisker flow-log UI: authentik outpost + listener + the tier CRs the operator's own policy forces — instantiated by `stacks/mantle`, because it needs the authentik provider |
 | [`dns/route53_record/`](dns/route53_record/README.md) | Terraform-authoritative Route53 record, for hosts external-dns cannot publish |
 
-## NetworkPolicy: none, on purpose
+## NetworkPolicy: egress only, and only where asked for
 
-There is **no NetworkPolicy layer in this repo** (the `firewalls/` library and every
-per-app netpol were deleted 2026-09-16): every namespace reaches every other
-namespace, the internet, and the API. Anything below that reads like a policy
-rationale is history kept for the rebuild.
+`firewalls/egress/` renders every policy this repo owns — one call, one pod selector, `Egress`
+only. Nothing here restricts **ingress**, which is why a LAN client can still reach Plex or SMB
+after a namespace is "locked down". Call sites so far:
+
+| Where | Policies | Profile |
+|---|---|---|
+| [`../media/egress.tf`](../media/egress.tf) | 4 | One namespace-wide call (`podSelector: {}`) = own namespace + DNS + the public internet, plus three pod-scoped exceptions: the NGF control plane and its cert-generator hook pod get the API server, the outpost gets one pod in `kube-auth` on one port. |
+| [`../storage/egress.tf`](../storage/egress.tf) | 4 | The **closed floor** used namespace-wide (28 pods): own namespace + DNS, no internet, no LAN, no other namespace. Plus the API server for `seaweedfs-csi-controller`, `seaweedfs-csi-node` (registrar) and `snapshot-controller`. |
+| [`../storage/seaweedfs_admin/egress.tf`](../storage/seaweedfs_admin/egress.tf) | 1 | The co-located outpost's single peer: authentik's server pod in `kube-auth`, :9000. |
+| [`../harbor/core/egress.tf`](../harbor/core/egress.tf) | 3 | DNS + own namespace for all seven chart pods, `+ allow_internet` for `component=trivy`, `+` the private gateway peer for `component=core`. |
+| [`../blender/egress.tf`](../blender/egress.tf) | 1 | DNS + own namespace. The share initiates nothing. |
+| [`../vaultwarden/egress.tf`](../vaultwarden/egress.tf) | 1 | Same two-rule shape, selected by the Deployment's labels. |
+
+Every other namespace still reaches every other namespace, the internet, and the API.
+Anything that reads like a policy rationale for those is history kept for the migration.
 
 One exception is not ours: the tigera-operator (v3.32.2+) enforces its own tier
 `calico-system` (`defaultAction: Deny`), so pods in `calico-system` are dropped

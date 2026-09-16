@@ -30,10 +30,13 @@ the ListenerSet isn't double-owned.
   so authentik's outpost is the *only* gate. The flip side: anything that can
   reach the pod on 23646 — kube-storage, kube-network, monitoring — gets an
   unauthenticated admin API, bypassing the outpost. Only the gateway path is
-  SSO-gated.
+  SSO-gated. (Egress policy does not change this: it is *inbound* that is
+  unpoliced here, deliberately — see `../../network/firewalls/README.md`.)
 - **The outpost is co-located** in the SeaweedFS namespace, so the outpost → admin hop
-  is same-namespace and needs no allow-list: there is no netpol layer in this repo any
-  more (deleted 2026-09-16).
+  is same-namespace and needs no allow-list of its own: `egress.tf` grants the single
+  thing the namespace profile cannot — the identity peer into `kube-auth` on
+  `:9000` — and the profile in `../egress.tf` carries the self rule that covers the
+  23646 hop (`../../network/firewalls/egress_peer/README.md`).
 - **Access is the `storage` group**: this module creates it (via `proxy_outpost`) and
   binds the app to it — there is no shared-group lookup. Add people in the
   authentik UI; any future storage app joins this same group.

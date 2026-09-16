@@ -26,7 +26,9 @@ locals {
 }
 
 # Proxy providers + applications per app, the "media" group, and the outpost (Deployment/
-# Service/Secret + core egress) that fronts them in this namespace.
+# Service/Secret) that fronts them in this namespace. The outpost's own egress policy is in
+# egress.tf below, not in the module: proxy_outpost is shared with harbor and the seaweedfs
+# admin UI, and those namespaces have not been through this yet.
 module "auth" {
   source         = "../auth/authentik/proxy_outpost"
   apps           = local.auth_apps
@@ -40,23 +42,7 @@ module "auth" {
   depends_on = [kubernetes_namespace_v1.namespace]
 }
 
-# The outpost moved into the `auth` module above; these blocks carry its state across
-# (drop them once the move has been applied). A whole-module `moved` cannot do this: the
+# The outpost moved into the `auth` module above in an ordinary apply; the `moved` blocks that
+# carried its state across have since been dropped. A whole-module `moved` cannot do the job: the
 # destination module already holds resources, so OpenTofu refuses the module-level mapping
-# ("could not move ... existing objects already at the intended addresses") and destroys.
-moved {
-  from = module.auth_outpost.kubernetes_secret_v1.api
-  to   = module.auth.kubernetes_secret_v1.api
-}
-moved {
-  from = module.auth_outpost.kubernetes_deployment_v1.outpost
-  to   = module.auth.kubernetes_deployment_v1.outpost
-}
-moved {
-  from = module.auth_outpost.kubernetes_service_v1.outpost
-  to   = module.auth.kubernetes_service_v1.outpost
-}
-moved {
-  from = module.auth_outpost.module.core_egress
-  to   = module.auth.module.core_egress
-}
+# ("could not move ... existing objects already at the intended addresses") and destroys instead.

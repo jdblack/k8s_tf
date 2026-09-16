@@ -32,4 +32,10 @@ locals {
       agentTLSSecretName  = "${var.release_name}-agent-tls"
     }
   }
+
+  # `nginx-gateway.fullname` from the chart's _helpers.tpl: the release name when it already
+  # contains the chart name, otherwise `<release>-<chart>`. The cert-generator Job is
+  # `<fullname>-cert-generator`, and its pod carries no chart labels -- only `job-name` -- so a
+  # caller that closes a namespace needs this name to grant that pod API access.
+  ngf_fullname = strcontains(var.release_name, "nginx-gateway-fabric") ? var.release_name : "${var.release_name}-nginx-gateway-fabric"
 }
