@@ -16,13 +16,18 @@ plane are **not** managed here.
   order, with no hand-run `kubectl apply` step for anything this repo owns.
 - `tofu plan` is the drift check. Resources are typed (`kubernetes_*`) rather
   than `kubectl_manifest` on purpose, so out-of-band edits show as diffs.
-- **Egress policy is per-pod, opt-in, and one module: `network/firewalls/egress`.** The whole
-  firewall layer was deleted 2026-09-16 and rebuilt narrower on 2026-09-17: one call renders one
-  `policyTypes: ["Egress"]` NetworkPolicy, with DNS and own-namespace always on and everything
-  else behind an explicit switch (`allow_k8s_api`, `allow_cluster`, `allow_internet`,
-  `to_namespaces`, `to_cidrs`). A namespace is covered only when its **observed** flows
-  (Whisker) justify a profile, so this tightens named pods rather than walling anything off —
-  pods no policy selects stay open. Ingress is deliberately not built. Whisker's tier CRs are
+- **Policy is per-pod, opt-in, and lives in `network/firewalls/`: `egress`, `egress_peer`,
+  `ingress`.** The whole firewall layer was deleted 2026-09-16 and rebuilt narrower from
+  2026-09-17: one call renders one typed `kubernetes_network_policy_v1`, so `plan` sees drift.
+  Egress has DNS and own-namespace always on, everything else behind an explicit switch
+  (`allow_k8s_api`, `allow_cluster`, `allow_internet`, `to_namespaces`, `to_cidrs`); ingress has
+  own-namespace and **the node addresses** always on — kubelet probes and the apiserver's own calls
+  into a pod arrive from the node, so that one is a floor, not a switch — and every guest named
+  explicitly. A namespace is covered only when its **observed** traffic justifies a profile
+  (Whisker flows; plus, for ingress, the live HTTPRoutes and Prometheus's `up{}`, because a scrape
+  holds its connection open and never appears in a flow), so this tightens named pods rather than
+  walling anything off — pods no policy selects stay open. Ingress went live in `kube-storage`
+  (2026-09-17) and is the only namespace with one. Whisker's tier CRs are
   separate and load-bearing, not a restriction (`modules/network/whisker/tier.tf`).
 - Version-pin every chart you touch.
 

@@ -11,7 +11,8 @@ modules/
 │   │               http_route, expose (= listener_set + http_route)
 │   ├── whisker/    flow-log UI; tier.tf = the Calico CRs that work around the
 │   │               operator's own deny tier (not a restriction on whisker)
-│   ├── firewalls/  NetworkPolicy builders -- egress/ = one Egress policy per call
+│   ├── firewalls/  NetworkPolicy builders, one policy per call: egress/ (per pod
+│   │               profile), egress_peer/ (ns + pod + port), ingress/ (Ingress-only)
 │   └── dns/route53_record/
 ├── storage/        Longhorn (+VolumeSnapshotClasses), SeaweedFS
 │                   (helm, CSI, listeners, dashboard), seaweedfs_admin
@@ -66,24 +67,36 @@ Outpost-fronted apps point `route_name = "<app>-auth"` at the outpost service.
   `1 to add` in `tofu plan`, and hand-editing the Secret's `url` desyncs it.
 - `hostname` overrides for sub-subdomains (`admin.seaweedfs.<domain>`).
 
-## Pattern: egress is per-pod, one call = one policy
+## Pattern: policy is opt-in, one call = one policy, guests read off measured traffic
 
-`modules/network/firewalls/egress` is the only builder: one call renders one
-`kubernetes_network_policy_v1`, `policyTypes: ["Egress"]` (typed, so `plan` sees drift). DNS
-(`UDP+TCP/53` → `kube-system`/`k8s-app=kube-dns`) and the pod's own namespace are on by default;
-every other peer is an explicit switch (`allow_k8s_api`, `allow_cluster`, `allow_internet`) or an
-explicit list (`to_namespaces`, `to_cidrs`). A caller passes `pod_selector` so a policy scopes
-named pods — pods no policy selects stay open, which is what keeps this a tightening rather than
-a fence.
+Three builders in `modules/network/firewalls/`, each rendering exactly one
+`kubernetes_network_policy_v1` (typed, so `plan` sees drift): **`egress`** (`policyTypes: ["Egress"]`,
+per pod profile), **`egress_peer`** (one namespace + pod selector + port, the shape `to_namespaces`
+cannot say), and **`ingress`** (`policyTypes: ["Ingress"]`, added 2026-09-17). Egress defaults: DNS
+(`UDP+TCP/53` → `kube-system`/`k8s-app=kube-dns`) and the pod's own namespace on; every other peer an
+explicit switch (`allow_k8s_api`, `allow_cluster`, `allow_internet`) or list (`to_namespaces`,
+`to_cidrs`). Ingress defaults: that same self rule **plus the node addresses** (`allow_nodes`) —
+kubelet probes and the apiserver's own calls into a pod arrive from the node, so without it every
+governed pod goes NotReady. A caller passes `pod_selector` so a policy scopes named pods — pods no policy selects
+stay open, which is what keeps this a tightening rather than a fence; a namespace *profile* omits it
+deliberately (`media`, `kube-storage`).
 
-- **Coverage is earned, not assumed.** A namespace gets a policy only after its real flows are
-  read (`module`'s README + `.clinedocs/flow-logs.md`); one call per pod profile, and a namespace
-  with two very different profiles gets two calls with different `pod_selector`s.
-- **Ingress is not built, on purpose.** A policy that types `Ingress` is deny-all-inbound for the
-  pods it selects, and there is no safe default shape for that.
-- **Port-scoped cross-namespace peering does not exist** in the module: `to_namespaces` grants the
-  whole namespace on every port, so e.g. media's outpost holds a wider grant against `kube-auth`
-  than the `:9000` it uses. Recorded in `modules/network/firewalls/README.md`, not hidden.
+- **Coverage is earned, not assumed.** A namespace gets a policy only after its guests are read off
+  real traffic (`module`'s README + `.clinedocs/flow-logs.md`); one call per pod profile, and a
+  namespace with two very different profiles gets two calls with different `pod_selector`s. **A scrape
+  breaks the recipe:** a connection held open is never emitted, so Prometheus is found in
+  `up{namespace=...}`, not in a flow (measured 2026-09-17 — 13/13 targets up, zero flow records on
+  `:9327`).
+- **Ingress has no safe default shape, so the first one took three sources.** A policy that types
+  `Ingress` is deny-all-inbound for the pods it selects, and `kube-storage-baseline-ingress` was
+  written only after its guests came from the flows, the live HTTPRoutes (peer *and* ports) and `up{}`
+  — and it has **no CIDR peer**, because every Service in that namespace is ClusterIP, which makes the
+  gateway pod the only door an off-cluster client can come through and lets a pod selector name that
+  door exactly.
+- **Port-scoped cross-namespace peering is `egress_peer`** (`{namespace, pod_selector, port}`);
+  `to_namespaces` on its own still grants the whole namespace on every port, so e.g. media's outpost
+  holds a wider grant against `kube-auth` than the `:9000` it uses. Recorded in
+  `modules/network/firewalls/README.md`, not hidden.
 - **Reaching the LAN is a CIDR peer**, `to_cidrs = [var.deployment.network.host_cidr]` — the only
   declaration of the LAN anywhere; a published hostname resolves to the gateway VIP inside it, not
   to a namespace peer.
@@ -93,7 +106,13 @@ a fence.
 
 ## Hard Calico invariants (expensive to get wrong)
 
-- Egress is evaluated **POST-DNAT** → allow rules match the *endpoint* IP.
+- Both directions are evaluated **POST-DNAT**: an egress rule matches the *endpoint* IP (a ClusterIP is
+  never a peer), and an ingress rule's `ports` are the **destination pod's** own ports — the gateway
+  reaches the authentik outpost on `:9000`, never its TLS `:9443`, and the pod selector on the peer is
+  the *gateway's* data-plane pod, not a VIP.
+- **A scrape is a guest you cannot see.** Prometheus holds its connection open, so no flow record is
+  ever emitted for it: `up{namespace=...}`, not Whisker, is where scrape guests are found
+  (`.clinedocs/flow-logs.md`).
 - **Guests come from real flow data** (Goldmane/Whisker), never from guessing: see
   `.clinedocs/flow-logs.md`, and note the result set is capped, so a widened time window
   under-reports instead of over-reporting.

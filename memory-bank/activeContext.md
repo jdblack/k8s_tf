@@ -46,6 +46,22 @@ State and in-flight work; the open list is `progress.md`.*
   CSI registrar writes CRDs, so it needs the API" from "the chart ships a `pods` CRUD role nothing
   uses".
 
+- **The inbound direction has its first policy, and it closed a namespace without a CIDR peer
+  (2026-09-17).** `kube-storage-baseline-ingress` (`modules/storage/ingress.tf`): namespace-wide, four
+  rules — self, the node floor, the private gateway's data plane on the three backend ports its own
+  HTTPRoutes name (s3 `:8333`, master `:9333`, authentik outpost `:9000`), and Prometheus on `:9327`.
+  Verified live: `s3.vn` 403 AccessDenied, `master.seaweedfs.vn` 200, `admin.seaweedfs.vn` 302, 0 Deny
+  after, and Whisker names the guest as `kube-network/private-private-*` on `:9333` and `:9000`.
+  Two lessons worth keeping: **the S3 consumers outside this repo are covered without being enumerated**
+  — every Service in the namespace is ClusterIP, so the gateway pod is the only door a LAN or VPN client
+  can arrive through, and a pod selector can name that door exactly; and **the scrape guest is invisible
+  in Whisker** (Prometheus holds the connection open, so there is no flow record — it was found in
+  `up{namespace="kube-storage"}`, 13/13). Reading flows alone would have denied the scrape on the next
+  reconnect, minutes later, and it would have looked like a dead exporter rather than like policy.
+  **Re-checked a day later, still green:** 13/13 `up`, zero `Deny` into the namespace, and a 32 MiB
+  write into the 2Pi RWX share (`movies-archive`, the `media` apps' claim) read back with an **identical
+  sha256 from four pods on four different nodes** — so the whole CSI path (pod → mount pod → filer →
+  volume server) is untouched.
 
 - **Egress policy is back, per-pod and opt-in, through two modules:
   `network/firewalls/egress` + `network/firewalls/egress_peer`** (`1912b7c`, the second added
@@ -65,8 +81,35 @@ State and in-flight work; the open list is `progress.md`.*
   gets none — no pods there, and that is now the documented rule for config-only modules
   (`network/firewalls/README.md`). The per-pod tables and the evidence per peer are in
   `modules/media/README.md`, `modules/vaultwarden/README.md` and a one-line note on each call;
-  wiring in `modules/network/firewalls/README.md`. Ingress is deliberately absent, so this tightens
-  egress on named pods instead of walling off a namespace.
+  wiring in `modules/network/firewalls/README.md`. The two directions are separate rollouts: this one
+  tightens egress on named pods instead of walling off a namespace, and the ingress half followed a day
+  later — one namespace deep, below.
+- **The ingress half is ONE module, and one namespace already uses it (2026-09-17).**
+  `network/firewalls/ingress` renders a whole `policyTypes: ["Ingress"]` policy from one call: the same
+  contract as `egress` (callers state intent, `kubernetes.io/metadata.name` for namespace guests) plus
+  `from_peers` — `{namespace, pod_selector, ports}`, one guest per rule, each carrying its own ports —
+  which is the shape `egress` splits into a second module. `kube-storage` is its first call site (the
+  bullet at the top of this file); **nothing else has one yet**, which is the point: an ingress policy
+  that selects a pod *is* that pod's deny-all-inbound until every guest is named, and no other
+  namespace's inbound guests have been measured. Divergences from egress, all
+  direction-driven: the **node floor** (`allow_nodes`, on by default — kubelet probes and the
+  apiserver's calls into a pod originate on a node's host network, so only an `ipBlock` per node
+  `InternalIP` read live from `data.kubernetes_nodes`, v4-only, can admit them; drop it and probes die),
+  no service-CIDR peer (DNAT rewrites the destination, so a guest's port is the pod's port),
+  `allow_internet` = `0.0.0.0/0` minus RFC1918 + link-local, and an empty call renders `ingress = []` =
+  deny-all rather than "empty means anywhere". **Verified by plan against the live cluster** (scratch
+  root in `/tmp/ingressplan`, `kubernetes` 3.0.1): render order self → from_namespaces → nodes → cluster
+  → internet → from_cidrs → from_peers, duplicates collapse, peer guests keep their own ports.
+  **The `ingress_peer` module was built first and deleted the same day** — see below.
+- **A duplicated renderer is a security bug waiting, measured (2026-09-17).** `ingress_peer` was written
+  as the mirror of `egress_peer` before any caller existed, and within the hour the two `from` renderers
+  had diverged: `ingress_peer`'s had no `ip_block` block, so its node floor rendered as six **empty
+  `from {}` peers**, which in NetworkPolicy means *from anywhere* — an allow-all-inbound where a floor
+  was intended. The plan against the live cluster is what caught it. Folded instead: `from_peers` lives
+  in `ingress`, where there is exactly one place for a rule's peer blocks to go wrong. `egress_peer`
+  stays (five live call sites; moving applied objects buys nothing), but the same fold is the shape to
+  reach for if egress is revisited. **Rule for both: a rule's peer block must render, or the peer means
+  everything.**
 - **Per-pod closing is not namespace closing — and `media` now does it at the namespace (2026-09-16 →
   2026-09-17).** An unselected pod falls through to the Kubernetes default-allow namespace profile
   (`kns.media`: `egress: [{action: Allow}]`): LAN, gateway VIP, API server, internet. The hand-made
@@ -280,7 +323,8 @@ State and in-flight work; the open list is `progress.md`.*
 
 The first attempt was a namespace-ingress rollout (staged policies → soak → enforce, `media` as
 the model) that had been running for four days; it was deleted outright on 2026-09-16 and the
-replacement is **egress-only, per-pod, and opt-in**. Two lessons survived, and the second one is
+replacement is **opt-in and per-pod, measured before it is written — egress first, with the ingress
+half returning only on 2026-09-17** (`kube-storage`). Two lessons survived, and the second one is
 a standing instruction:
 
 - **Staging previews only where the staged policy is the deciding one** — a namespace with any
@@ -335,6 +379,17 @@ should be read off.
   still use it. Its Certificate CR is gone, so it will never renew — delete when sure.
 
 ## Durable facts and quirks
+
+- **"SeaweedFS is fine" is not a question `up{}` answers** (recipe verified 2026-09-17). Its exporter's
+  metric names are **`SeaweedFS_*` with a capital S** — leader/layout (`is_leader`, `leader_changes`,
+  `volume_layout_crowded`), volume health (`read_only_volumes`, `io_quarantine`, `disk_error_status`,
+  `storage_io_error_total`, `file_read_failures`, `file_write_failures`), EC vacuum, and
+  `s3_bucket_object_count`/`_size_bytes` per bucket. `up` was 13/13 the whole time
+  `master_pick_for_write_error` climbed (~2–5/6h, pre-dating the ingress policy — open item in
+  `progress.md`). For the data path, the proof is a write through a mounted RWX share plus a **sha256
+  read-back from a pod on another node** — same node and the page cache answers instead of the volume
+  server; the same PVC is mounted at different paths per app (`/movies`, `/media`, `/downloads`), so a
+  reader that "cannot see" the file is usually just looking in the wrong path.
 
 - **Route53 is the public authority for the whole `linuxguru.net` tree.**
   `vn.linuxguru.net` has no NS delegation, so an ACME TXT written into `Z3FM4Y4P2572E4`
@@ -427,9 +482,11 @@ should be read off.
 - Typed `kubernetes_*` resources over `kubectl_manifest`, so `plan` sees drift.
 - Terraform owns groups/apps/bindings; the authentik UI owns membership.
 - No `-target` / `-exclude`.
-- **Egress policy is per-pod, opt-in and egress-only** — one module call per pod profile, guests
-  read off measured flows, never namespace-wide and never `Ingress`. Whisker's tier CRs are the
-  exception that is not an exception: they exist so the operator's own tier stops breaking whisker.
+- **Policies are opt-in, one call per namespace, guests read off measured traffic** — egress per pod
+  profile *or* as a namespace-wide floor (`media`, `kube-storage`), plus a namespace-wide **ingress**
+  profile in `kube-storage` since 2026-09-17; never a blanket allow, and never for a namespace nobody
+  measured. Whisker's tier CRs are the exception that is not an exception: they exist so the operator's
+  own tier stops breaking whisker.
 - Parse the **narrowest doc first**: root README → module README → `.clinedocs/`.
 - **Code comments: rare, one line max, only for the most important details and traps**
   (rule lives in `.clinerules/behavior.md`, loaded every session). Swept repo-wide 2026-09-17

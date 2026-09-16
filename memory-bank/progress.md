@@ -23,10 +23,35 @@ not current state.*
   `.107` — are assignments, not config. The only two addresses DNS cannot cover are the
   router NAT rules (WAN 443 → public gateway, WAN 21010 → torrent); see
   `modules/network/gateways.tf`.
+- **Ingress has one builder, and its first policy is live (2026-09-17).**
+  `modules/network/firewalls/ingress` renders a whole `Ingress`-only NetworkPolicy from one call:
+  `allow_namespace` + `allow_nodes` on by default, `allow_cluster` / `allow_internet` / `from_namespaces`
+  / `from_cidrs` as the curated switches, and `from_peers`
+  (`{namespace, pod_selector, ports}` — one guest per rule, its own ports) for the narrow shape that the
+  egress direction splits into `egress_peer`. That split is not worth repeating: `ingress_peer` was
+  written first, before any caller existed, and inside the hour its duplicated `from` renderer had
+  diverged — the node floor rendered as empty `from {}` peers, i.e. *from anywhere*, an allow-all-inbound
+  where a floor was intended (caught by the live-cluster plan). Folded into `ingress` and the peer module
+  deleted; `egress_peer` stays only because five call sites use it. The direction's one real divergence is
+  the **node `ipBlock` floor** (kubelet probes and the apiserver's calls into a pod come from the node's
+  host network, so no `namespaceSelector` can match them — the ingress answer to losing DNS).
+  **`kube-storage` is the first caller and the first live ingress policy: `kube-storage-baseline-ingress`
+  (`modules/storage/ingress.tf`, applied 2026-09-17).** Namespace-wide, because the guest list is the same
+  for every role; four rules — self, the node floor, the private gateway's data plane (the three HTTPRoutes
+  this namespace owns: s3 `:8333`, master `:9333`, authentik outpost `:9000`) and Prometheus on `:9327`.
+  **No CIDR peer on purpose:** every Service here is ClusterIP, so the gateway pod is the only door a LAN
+  or VPN client can come through — which is what makes the guest list *closed* rather than "unknown
+  external clients", and covers the off-repo S3 consumers without naming a single one. Verified live:
+  `s3.vn` → 403 AccessDenied (S3 XML ⇒ the pod answered), `master.seaweedfs.vn` → 200, `admin.seaweedfs.vn`
+  → 302 to the outpost, 0 Deny in the window after, and Whisker names the guest as
+  `kube-network/private-private-*` on `:9333` and `:9000`. The scrape guest was found in
+  `up{namespace="kube-storage"}`, **not** in a flow (keep-alive ⇒ no record; `.clinedocs/flow-logs.md`).
+  Detail:
+  `modules/network/firewalls/ingress/README.md`, index in `modules/network/firewalls/README.md`.
 - **Egress policy is per-pod and opt-in: `modules/network/firewalls/egress` (2026-09-17).** One call
   renders one `Egress`-only NetworkPolicy; DNS and own-namespace always, every other peer an
   explicit switch. A second builder, `network/firewalls/egress_peer`, joined it the same day for
-  the one shape the first cannot say: **namespace + pod selector + port**. **14 policies live** —
+  the one shape the first cannot say: **namespace + pod selector + port**. **14 egress policies live** —
   `blender` (DNS + self), `vaultwarden` (DNS + self), `media` (4: the **namespace profile**
   `media-baseline-egress` — `podSelector: {}` with own namespace + DNS + the public internet — plus
   three exceptions, the gateway and its cert-generator hook pod for the API server and the outpost for
@@ -36,8 +61,9 @@ not current state.*
   peer)**, and
   `devops-harbor` (3: DNS + self for all seven chart pods,
   `+ allow_internet` for `component=trivy`, and the private gateway's data plane on 443 for
-  `component=core` — that last one is the only `egress_peer` call). Nothing types `Ingress`, so this
-  tightens egress rather than fencing a namespace — and where a per-pod list leaves a hole, a
+  `component=core` — that last one is the only `egress_peer` call). None of these types `Ingress`, so they
+  tighten egress rather than fencing a namespace (inbound is the bullet above) — and where a per-pod list
+  leaves a hole, a
   namespace-wide call closes it (the `media` section below argues both shapes: closed floor vs
   namespace profile).
   **Separate and load-bearing:**
@@ -529,12 +555,14 @@ cannot cover — `modules/network/gateways.tf`.
 Invariants that made the old layer expensive are kept as a post-mortem in
 `.clinedocs/calico-netpols.md`; flow-query recipes in `.clinedocs/flow-logs.md`.
 
-**Reversed the next day — see the next section.** What came back is egress-only and per-pod; the
-namespace-ingress rollout stayed cancelled.
+**Reversed the next day — see the next section.** What came back is opt-in and per-pod, egress first;
+the staged namespace-ingress rollout stayed cancelled, and the ingress direction returned only on
+2026-09-17, one namespace at a time (`kube-storage`).
 
 ## The egress layer came back narrower (2026-09-17)
 
-The replacement for everything above is **egress-only, per-pod, opt-in**:
+The replacement for everything above is **opt-in and per-pod, egress first** (the ingress direction
+followed the same day, into § What works):
 `modules/network/firewalls/egress`, one call = one `policyTypes: ["Egress"]` NetworkPolicy (typed
 `kubernetes_network_policy_v1`, so `plan` sees drift). Callers state intent — `pod_selector`,
 `to_namespaces`, `to_cidrs`, `allow_k8s_api`, `allow_cluster`, `allow_internet` — and the module
@@ -667,6 +695,15 @@ peer set comes from the module's own Service + Endpoints reads).
 
 ## What's left / open
 
+- **SeaweedFS's master has been failing to pick a write volume for days — pre-existing, and open
+  (2026-09-17).** `SeaweedFS_master_pick_for_write_error` was already climbing *before* the ingress
+  policy (28 → 35 over 2026-09-16 09:00 → 21:00 UTC, ~2–5 per 6h on both sides of the change), while
+  `file_write_failures`, `file_read_failures`, `storage_io_error_total`, `read_only_volumes` and
+  `io_quarantine` are all **0**. So these are placement retries, not corruption. First suspects when
+  someone picks it up: `volume_layout_crowded` (2), `max_volumes` 8852 vs `volumes` 3706, and any
+  client writing with a replication/EC setting the layout cannot satisfy. Related trap: the exporter's
+  metric names are `SeaweedFS_*` with a **capital S** (leader, volume, disk, EC, `s3_bucket_object_count`)
+  — `up{}` alone says nothing about any of this.
 - **The 2026-09-17 comment sweep is committed (`a799916`, 2026-09-17) — nothing open.** 55 files:
   53 `.tf` (`+320/−685`), the rule in `.clinerules/behavior.md` and one module README; the memory-bank
   record and two stale cert-manager version lines (`ce24ded`) followed as docs-only commits. Comment
