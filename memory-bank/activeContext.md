@@ -5,7 +5,8 @@
 ## Current state
 
 - Branch `main`, **ahead of `origin/main`, not pushed** (`5f0f582` → `226ba04` →
-  `bbe94f4` → the 2026-09-15/16 sweeps).
+  `bbe94f4` → `985c334` → the 2026-09-16 sweep, five commits: pin/bump backlog, whisker
+  Calico tier, authentik signing key, NGF hook egress, docs).
 - **VIP policy: everything floats, names are the interface.** `gateway_ips` is deleted
   from `modules/network` (with tfvars `network_ingress` and the `stacks/core/core.tf`
   argument, its only consumers); `qbittorrent_torrent_lb_ip` is unset (variable kept as
@@ -14,10 +15,108 @@
   `stacks/mantle/vaultwarden.tf`). MetalLB keeps an assigned IP when
   `spec.loadBalancerIP` is cleared, but a **recreated** Service gets a different pool IP
   — so only the two router NAT rules (WAN 443 → public gateway, WAN 21010 → torrent) ever
-  need re-pointing, and only on a recreate. Plans: core 0/17/2, mantle 0/10/0, in-place,
-  **not applied**. Unpinning evidence + current assignments: `progress.md`.
+  need re-pointing, and only on a recreate. **Applied 2026-09-16** (core 0/17/2; post-apply
+  plan `No changes`; both gateways kept `.101`/`.100` with `loadBalancerIP` now cleared,
+  data-plane pods not rolled). Unpinning evidence + current assignments: `progress.md`.
+- **All charts are version-pinned (2026-09-16).** Nine releases were unversioned; all now
+  carry a `version` equal to what is deployed — `modules/network/{calico,external_dns}.tf`
+  (`helm_calico_version = v3.32.2`, `helm_external_dns_version = 1.22.0`), smartctl
+  (`0.17.1`), and harbor `1.19.2` / metrics-server `3.14.0` / snapshot-controller `5.2.0` /
+  argo-cd `10.9.1` / argo-events `2.4.27` / plex `1.9.0`. The pins came from the *unpinned*
+  core plan, which was silently dragging tigera-operator `v3.32.2`, external-dns `1.22.0`
+  and smartctl `0.17.1` along with the `timeout` bumps. The six late pins cost **no apply**
+  (state already recorded those versions; core replans `No changes`). **Five of them have
+  since been upgraded, one apply each (2026-09-16):** cert-manager `v1.21.2`, argo-events
+  `2.4.27`, external-dns `1.22.0`, kube-prometheus-stack `91.4.1`, argo-cd `10.9.1`; both
+  stacks re-plan `No changes`. Two things learned the hard way and worth not rediscovering:
+  **external-dns 1.22.0 made `policy` required** (bump-only = schema-validation failure, so
+  `charts.tf` now sets `policy = "upsert-only"`), and **argo-cd `10.0.0` ships
+  `global.networkPolicy.create: true`** (six new ingress netpols in a namespace that has
+  none — set `false` in `locals.tf`, which makes 10.9.1 render the same 54 objects as
+  `9.2.4`). **The rest of that backlog has since been cleared too (2026-09-16, still one
+  apply each):** smartctl `0.17.1`, the four arr patches (bazarr `2.3.1`, sonarr `2.2.3`,
+  prowlarr `3.8.4`, radarr `3.6.4` — image-tag-only moves), tigera-operator `v3.32.2`,
+  argo-workflows `2.0.6` (app `v4.1.3`) and authentik `2026.8.2` (+ its provider
+  `2026.8.0`). Three traps in that batch are worth knowing before the *next* chart bump:
+  **calico 3.32 deleted the chart's whole `crds/`** (CRDs now come from the separate
+  `crd.projectcalico.org.v1` chart and must be applied *before* the operator, which needs
+  `--force-conflicts` because the helm provider owns `.spec.versions`); **argo-workflows
+  1.x/2.x moved its CRDs out of the manifest into a pre-upgrade hook Job**, so helm would
+  have deleted all 8 — they are now `helm.sh/resource-policy: keep`; and **authentik refuses
+  major version skips**, which is the crash this repo pinned it for — 2025.10.3 → 2026.8.2
+  had to go `2025.12.4` → `2026.2.3` → `2026.5.6` → `2026.8.2`, four applies. **NGF `2.7.1`
+  is done too** (see the NGF entry below). Still open from it: **seaweedfs `4.47.0` + CSI
+  `0.2.38`**.
+- **Whisker was killed by that same tier change and is fixed (2026-09-16).** tigera-operator
+  `v3.32.2` moved its own rules into tier `calico-system`
+  (`order: 100`, `defaultAction: Deny`), which outranks the `default` tier every k8s
+  NetworkPolicy here compiles into, so the UI returned `code=000` with the gateway healthy.
+  The fix is `modules/network/whisker/tier.tf` — three pod-scoped Calico `NetworkPolicy` CRs
+  at `spec.tier: calico-system`, `order: 10`. They were `kubectl apply`ed first (mantle's apply
+  was blocked by the keypair below) and are now **in state** — imported, since a plan otherwise
+  offers 3 creates that 409; kubectl-provider import id is
+  `crd.projectcalico.org/v1//NetworkPolicy//<name>//<namespace>`. **Verified**: `302` → outpost →
+  authentik flow page `200` (`ak-flow-executor` in the body); the outpost's DNS timeouts went to
+  0; flow records name `whisker-outpost-ingress-tier` the deciding policy for gateway →
+  outpost:9000. Two things to carry: an in-tier CR needs an explicit `order` to beat the
+  operator's *unset-order* deny-alls (`.clinedocs/calico-netpols.md`), and **the outpost must be
+  restarted once the tier lands** — exponential backoff had left it with no `:9000` listener, so
+  the gateway served `502` (upstream RST, policy already passing) until `rollout restart`.
+  Open: one browser sign-in for the logged-in UI hop.
+- **The authentik keypair that blocked every mantle plan is gone — replaced by a TF-owned
+  signing key (2026-09-16).** `data.authentik_certificate_key_pair { name = "tls" }` stopped
+  resolving, and it was never ours to resolve: authentik's cert-discovery task imports whatever
+  it finds under `/certs` (where the chart mounts the TLS secret) and stamps it
+  `managed: goauthentik.io/crypto/discovered/<name>`. Through 2025.10 that name came from the
+  **file** (`tls.crt` → `tls`); **2026.8 added `tls.crt`/`tls.key` to the parent-DIRECTORY
+  branch and renames the match in place**, so the `2026.8.2` chart bump alone renamed the object
+  to `auth.vn.linuxguru.net`. Same pk, so the four OIDC providers kept working and only the name
+  lookup broke — the reason this looked like a whisker/authentik mystery is that it blocked
+  *every* mantle apply, whisker's included. `modules/auth/authentik/oidc_provider` now generates
+  its own `tls_private_key` + `tls_self_signed_cert` + `authentik_certificate_key_pair` per
+  caller (`<name>-signing`, RSA 4096, 10y, `digital_signature`) and references the resource
+  directly: no name lookup, nothing for an upstream rename to break, and token signing no longer
+  rotates with cert-manager's web cert (`kid` derives from the private key). Applied in mantle
+  (`12 added / 8 changed / 0 destroyed`, post-apply plan `No changes`, four distinct kids on
+  `/application/o/<slug>/jwks/`); the old discovered keypair stays, unused. **2026.8 renamed the
+  API field `signing_kp` → `signing_key`** — a verification query on the old name reads `null`
+  for every provider and looks like a missing reference. `hashicorp/tls` is
+  pinned in `stacks/mantle/providers.tf`. Same apply carried the `goauthentik`
+  `2025.10.1 → 2026.8.0` bump and its rewritten `.terraform.lock.hcl` — both **applied and
+  committed, not reverted**.
+  - **NGF `2.6.7` → `2.7.1` (2026-09-16, core + mantle).** Three releases in one apply.
+    Two traps, both worth carrying forward: **helm applies `crds/` on install only** — this
+    repo's Gateway API bootstrap existed, but NGF's own `gateway.nginx.org/*` CRDs did NOT,
+    so `api_gateway_config.tf` now carries a second `terraform_data` (`ngf_crds`, tag pinned
+    to the chart's `helm_version` via `triggers_replace`). That is safe on a live controller
+    because 2.7.1's `filterControllersByCRDExistence` leaves new kinds
+    (`ExternalLoadBalancer`, `PayloadProcessor`) inert until their CRDs exist. Verified after:
+    all three NGF releases `2.7.1`, all data-plane pods `1/1 Running` 0 restarts, every
+    `Gateway` `Programmed`, and the media gateway now reports the new
+    `ClientSettingsPolicyAffected` condition (proof the 2.7.x controllers are live). A few
+    benign `worker_processes is duplicate` / `Config apply failed, rolling back` lines appear
+    in the controller log for ~4 seconds *during the data-plane roll* only, then
+    `NGINX configuration was successfully updated`. Charts 2.7.1 requires k8s >= `1.32.0-0`
+    (cluster is `1.35.8`) and upgrades the Gateway API to `v1.6.1`.
+  Plan-reading traps, the audit one-liner, the empty-vs-empty `diff` trap and the stale
+  `finalizers` key that was deleted from argo-cd's values: `progress.md`.
 - **All 28 `moved` blocks are deleted** — every one was spent, and both stacks plan
   **No changes** without them. Rule and per-refactor detail: `progress.md` → Traps.
+- **Mantle's hygiene batch is applied too (2026-09-16)** — exit 0, `0 added / 10 changed /
+  0 destroyed`, post-apply plan `No changes`, **every chart version unmoved**. Real deltas:
+  bazarr/radarr/sonarr gained `runAsGroup: 1000`, qbittorrent pinned
+  (`…qbittorrent:5.2.3_v2.0.14-ls475`, `Recreate`), samba pinned, torrent VIP `.105`
+  retained. It was *not* a clean run — see the next bullet.
+- **NGF's cert-generator hook is invisible to media's API carve-out — fixed 2026-09-16.**
+  The media gateway's helm upgrade hung `Still modifying [id=ngf]` (`pending-upgrade`), its
+  `cert-generator` Job pods `Error`-looping on `dial tcp 10.96.0.1:443: i/o timeout`: a
+  **Job's pods carry only the Job controller's labels** (`job-name`, …), never the chart's
+  `app.kubernetes.io/name`, so media's `allow_api` selector missed them. Second pod-scoped
+  policy + a `cert_generator_job_name` output on `network/gateway` now cover it (imported,
+  not recreated). Latent since the netpols landed 2026-09-09, i.e. *after* the last NGF
+  upgrade — so this batch was the first to hit it. Only `media` is exposed (`kube-network`
+  has no netpols at all); the `allow_api` README that asserted the false claim is corrected.
+  Detail: `progress.md`.
 - **Longhorn snapshots are one cluster-wide, TF-owned scheme and the restore path is
   verified end to end.** Jobs, enrolment table and the label trap: `progress.md` and
   `modules/storage/longhorn_jobs.tf`. Verified on throwaway objects: a revert is refused

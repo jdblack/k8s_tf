@@ -111,7 +111,7 @@ Outpost-fronted apps point `route_name = "<app>-auth"` at the outpost service.
 
 - **Terraform owns structure (groups, apps, bindings); the UI owns people.**
   Rebuild needs group members re-added by hand.
-- **Pin charts.** Pinned: MetalLB 0.16.1, NGF 2.6.7, kube-prometheus-stack
+- **Pin charts.** Pinned: MetalLB 0.16.1, NGF 2.7.1, kube-prometheus-stack
   90.1.1, Longhorn 1.12.1, SeaweedFS 4.40.0 + CSI 0.2.35, authentik 2025.10.3,
   wireguard-operator 0.3.0, cert-manager v1.21.1, media charts.
   **Unpinned/float:** Harbor, external-dns, snapshot-controller, metrics-server,
