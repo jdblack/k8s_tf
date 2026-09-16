@@ -30,17 +30,17 @@ own namespaces.
 | [`gateway/expose/`](gateway/expose/README.md) | One call to publish an app: HTTPS ListenerSet (+ cert/grants) and optional HTTPRoute |
 | [`gateway/listener_set/`](gateway/listener_set/README.md) | App-owned HTTPS listener on a Gateway + auto cert + ReferenceGrants (used by `expose`) |
 | [`gateway/http_route/`](gateway/http_route/README.md) | App-owned hostname → Service route with external-dns annotation (used by `expose`) |
-| [`firewalls/`](firewalls/README.md) | `NetworkPolicy` builders, one call = one object. Hand-written **ingress** stays in the app module that needs it |
+| [`firewalls/`](firewalls/README.md) | `NetworkPolicy` builders, one call = one object: **`egress`** per pod profile, **`egress_peer`** for one namespace + pod + port, **`ingress`** for the inbound direction |
 | [`firewalls/egress/`](firewalls/egress/README.md) | **Egress**: DNS always, own-namespace by default, plus namespace / API-server / cluster / internet / raw-CIDR peers. Call sites: `media` (4), `kube-storage` (4), `harbor` (3), `seaweedfs_admin` (1), `blender` (1), `vaultwarden` (1) |
+| [`firewalls/ingress/`](firewalls/ingress/README.md) | **Ingress**: own namespace and the node addresses always, every other guest named explicitly, with its own ports. Call site so far: `kube-storage` (1) |
 | [`wireguard/`](wireguard/README.md) | VPN operator + peers (own namespace `kube-network-vpn`) |
 | [`whisker/`](whisker/README.md) | Calico Whisker flow-log UI: authentik outpost + listener + the tier CRs the operator's own policy forces — instantiated by `stacks/mantle`, because it needs the authentik provider |
 | [`dns/route53_record/`](dns/route53_record/README.md) | Terraform-authoritative Route53 record, for hosts external-dns cannot publish |
 
-## NetworkPolicy: egress only, and only where asked for
+## NetworkPolicy: egress first, ingress only where the guests have been measured
 
-`firewalls/egress/` renders every policy this repo owns — one call, one pod selector, `Egress`
-only. Nothing here restricts **ingress**, which is why a LAN client can still reach Plex or SMB
-after a namespace is "locked down". Call sites so far:
+`firewalls/egress/` renders every **egress** policy this repo owns — one call, one pod selector,
+`Egress` only. Call sites so far:
 
 | Where | Policies | Profile |
 |---|---|---|
@@ -53,6 +53,14 @@ after a namespace is "locked down". Call sites so far:
 
 Every other namespace still reaches every other namespace, the internet, and the API.
 Anything that reads like a policy rationale for those is history kept for the migration.
+
+The **ingress** direction is one namespace deep: [`../storage/ingress.tf`](../storage/ingress.tf)
+governs all of `kube-storage` — its own pods, the node addresses, the private gateway's data plane on
+the three backend ports that namespace's HTTPRoutes name, and Prometheus on `:9327` (2026-09-17). So
+nothing else restricts inbound, which is why a LAN client can still reach Plex or SMB after a
+namespace is "locked down" — and why the S3 consumers of `kube-storage` that live outside this repo
+are covered anyway: every Service in there is ClusterIP, so the gateway pod is the only door they can
+come through, and a pod selector names that door exactly.
 
 One exception is not ours: the tigera-operator (v3.32.2+) enforces its own tier
 `calico-system` (`defaultAction: Deny`), so pods in `calico-system` are dropped

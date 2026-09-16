@@ -103,8 +103,9 @@ ClusterIssuer and ConfigMap.
 
 ## No network policy here (as of 2026-09-17)
 
-The module installs none — the rebuilt layer is egress-only so far, and `kube-certificates` is next
-in the rollout. DNS is certain; whether these pods need the API server is the thing to measure, and
+The module installs none — `kube-certificates` is next in the rollout, and the layer's **ingress** half
+exists only since 2026-09-17 (`kube-storage`). DNS is certain; whether these pods need the API server is
+the thing to measure, and
 a quiet flow window cannot answer it (watches never end, so they are never emitted — see
 `.clinedocs/flow-logs.md`). The reason this namespace has never had **ingress** rules stands, and is
 the part worth keeping: the kube-apiserver calls the cert-manager webhook from the nodes — host

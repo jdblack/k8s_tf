@@ -35,9 +35,10 @@ by instantiating these two submodules from its own namespace:
 ## NetworkPolicy implications
 
 The data plane runs as ordinary pods in the gateway namespace and proxies
-cross-namespace. **Nothing is enforced here yet**: the rebuilt layer is egress-only, so this
-namespace has no policy of its own, and the ingress half — fronted namespaces accepting traffic
-from `kube-network` — is unwritten. The egress half is real, in both directions:
+cross-namespace. **Nothing is enforced in here yet**: this namespace has no policy of its own, and
+the ingress half is one namespace deep — `kube-storage` accepts traffic from the gateway pod on the
+backend ports its HTTPRoutes name (2026-09-17); every other fronted namespace still accepts traffic
+from anywhere. The egress half is real, in both directions:
 
 - an app calling a gateway-hosted URL needs egress to *this* namespace. `devops-harbor` states it
   (`harbor/core/egress.tf`): an `egress_peer` on 443 selected by the chart's

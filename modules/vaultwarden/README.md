@@ -88,8 +88,10 @@ The "nothing else" holds for structural reasons worth keeping in mind before wid
 The policy selects the Deployment's own labels (`local.labels` = `app.kubernetes.io/name`) rather
 than the whole namespace, so it covers exactly the pods `deployment.tf` owns. Pods no policy
 selects are unrestricted, so this tightens this workload without walling off the namespace.
-Nothing here needs an **ingress** policy: the only inbound caller is the gateway, and a policy
-typing `Ingress` would be a deny-all-inbound for the pod.
+Nothing here needs an **ingress** policy *yet*: the only inbound caller is the gateway, and a policy
+typing `Ingress` is deny-all-inbound for the pods it selects — so it has to name the gateway's data-plane
+pod explicitly, which is what `kube-storage` did on 2026-09-17 (`../storage/ingress.tf`). Cheap to add
+with that guest in hand; not free to add blind.
 
 ## Configuration (env, in `secret.tf`)
 

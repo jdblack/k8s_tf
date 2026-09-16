@@ -28,10 +28,13 @@ the ListenerSet isn't double-owned.
 - **No app-level login**: `weed admin` runs with auth disabled and binds
   `0.0.0.0` via `-allowInsecureBind` (see `modules/storage/seaweedfs/locals.tf`),
   so authentik's outpost is the *only* gate. The flip side: anything that can
-  reach the pod on 23646 — kube-storage, kube-network, monitoring — gets an
-  unauthenticated admin API, bypassing the outpost. Only the gateway path is
-  SSO-gated. (Egress policy does not change this: it is *inbound* that is
-  unpoliced here, deliberately — see `../../network/firewalls/README.md`.)
+  reach the pod on 23646 gets an unauthenticated admin API, bypassing the outpost
+  — only the gateway path is SSO-gated. Since 2026-09-17 that reach is policed:
+  `kube-storage-baseline-ingress` is a namespace profile, so **23646 is open only
+  to kube-storage's own pods and to the node addresses** (the `allow_nodes` floor
+  is any-port, which is also what lets kubelet probe it) — not to `kube-network`
+  or `monitoring`, whose peers are port-scoped. See
+  `../../network/firewalls/README.md`.
 - **The outpost is co-located** in the SeaweedFS namespace, so the outpost → admin hop
   is same-namespace and needs no allow-list of its own: `egress.tf` grants the single
   thing the namespace profile cannot — the identity peer into `kube-auth` on
