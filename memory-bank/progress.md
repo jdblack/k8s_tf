@@ -71,6 +71,18 @@
   `/oauth2/redirect?redirect=/workflows`) still hand off to authentik, so a bookmark is
   still one click. One route destroyed in each of `core` and `mantle`; both then plan
   empty. Full postmortem + rebuild recipe under "Evolution" below.
+- **Authentik proxy-outpost consolidation (2026-09-16).**
+  `auth/authentik/{proxy_app,outpost}` are one module — `auth/authentik/proxy_outpost` — and
+  media/whisker/seaweedfs_admin each make **one** call instead of two. The outpost's API token
+  no longer crosses a module boundary (the Secret's `AUTHENTIK_TOKEN` is built in-module) and
+  `outpost_token` is gone as an output; `core_url`/`browser_url` are derived from `domain` +
+  `core_namespace` rather than passed by every caller. State carries over via 12 `moved` blocks
+  (4 per caller — a module-level move is refused when the destination module already holds
+  resources; see `activeContext.md`). **mantle applied** (`0 added / 0 changed / 0 destroyed`,
+  moves only; post-apply plan `No changes`; the three outposts were not rolled — deployment
+  ages still 09-09/09-12, pods 6d+). The 12 `moved` blocks stay for one commit cycle, then go.
+  **core applied** `0 added / 0 changed / 2 destroyed` (the unreferenced
+  `random_password.deploy_key`/`.database`); post-apply plan `No changes`.
 - **mantle workloads** — media (sonarr/radarr/prowlarr/bazarr/plex/qbittorrent, all
   outpost-fronted except the torrent port), blender (Samba + mDNS Bonjour advertiser that
   macOS Finder needs), whisker (flow-log UI, SSO-gated), seaweedfs-admin (SSO-gated),

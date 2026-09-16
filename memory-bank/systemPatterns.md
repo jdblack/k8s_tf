@@ -15,7 +15,7 @@ modules/
 ├── storage/        Longhorn (+netpols, VolumeSnapshotClasses), SeaweedFS
 │                   (helm, CSI, listeners, dashboard), seaweedfs_admin
 ├── cert_manager/   cert-manager + linuxguru-ca + letsencrypt (Route53 DNS-01)
-├── auth/authentik/ core, proxy_app, outpost, oidc_provider
+├── auth/authentik/ core, proxy_outpost, oidc_provider
 ├── monitoring/     prometheus (kube-prometheus-stack), grafana_oidc,
 │                   metrics_server, smartctl
 ├── harbor/         core (release+listener), mantle (projects+OIDC)

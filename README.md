@@ -109,8 +109,7 @@ authentik.
 | ↳ `storage/seaweedfs_admin/` ([README](modules/storage/seaweedfs_admin/README.md)) | SeaweedFS admin UI, authentik-gated (mantle) |
 | `cert_manager/` ([README](modules/cert_manager/README.md)) | cert-manager (pinned `v1.21.1`), the `letsencrypt` ClusterIssuer (Route53 DNS-01, zone pinned — `.vn` included) which signs **all 19 hosts**, and the dormant private `linuxguru-ca` |
 | `auth/authentik/core/` | authentik server + worker + API key + listener |
-| ↳ `auth/authentik/proxy_app/` ([README](modules/auth/authentik/proxy_app/README.md)) | authentik proxy provider/app/group **and** the outpost + its non-expiring token |
-| ↳ `auth/authentik/outpost/` ([README](modules/auth/authentik/outpost/README.md)) | the outpost Deployment/Service in the protected app's namespace + its egress carve-out |
+| ↳ `auth/authentik/proxy_outpost/` ([README](modules/auth/authentik/proxy_outpost/README.md)) | one call per protected app: proxy provider/app/group **and** the outpost Deployment/Service that fronts them |
 | ↳ `auth/authentik/oidc_provider/` | generic OIDC client for apps that speak OIDC (grafana, harbor, argo) |
 | `monitoring/prometheus/` ([README](modules/monitoring/prometheus/README.md)) | kube-prometheus-stack (pinned), Grafana SSO, dashboards |
 | `monitoring/grafana_oidc/` ([README](modules/monitoring/grafana_oidc/README.md)) | Grafana's authentik OIDC client + credentials (mantle) |

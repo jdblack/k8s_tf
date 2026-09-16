@@ -25,22 +25,38 @@ locals {
   }
 }
 
-# Proxy providers + applications per app, the "media" group, and the shared outpost.
+# Proxy providers + applications per app, the "media" group, and the outpost (Deployment/
+# Service/Secret + core egress) that fronts them in this namespace.
 module "auth" {
-  source       = "../auth/authentik/proxy_app"
-  apps         = local.auth_apps
-  outpost_name = "media-proxy"
-  group_name   = "media"
-}
-
-module "auth_outpost" {
-  source       = "../auth/authentik/outpost"
-  namespace    = var.namespace
-  outpost_name = "media-proxy"
-  service_name = local.auth_outpost_service
-  core_url     = "http://authentik-server.${var.auth_namespace}.svc.cluster.local:80"
-  browser_url  = "https://auth.${var.domain}"
-  token        = module.auth.outpost_token
+  source         = "../auth/authentik/proxy_outpost"
+  apps           = local.auth_apps
+  outpost_name   = "media-proxy"
+  group_name     = "media"
+  namespace      = var.namespace
+  service_name   = local.auth_outpost_service
+  domain         = var.domain
+  core_namespace = var.auth_namespace
 
   depends_on = [kubernetes_namespace_v1.namespace]
+}
+
+# The outpost moved into the `auth` module above; these blocks carry its state across
+# (drop them once the move has been applied). A whole-module `moved` cannot do this: the
+# destination module already holds resources, so OpenTofu refuses the module-level mapping
+# ("could not move ... existing objects already at the intended addresses") and destroys.
+moved {
+  from = module.auth_outpost.kubernetes_secret_v1.api
+  to   = module.auth.kubernetes_secret_v1.api
+}
+moved {
+  from = module.auth_outpost.kubernetes_deployment_v1.outpost
+  to   = module.auth.kubernetes_deployment_v1.outpost
+}
+moved {
+  from = module.auth_outpost.kubernetes_service_v1.outpost
+  to   = module.auth.kubernetes_service_v1.outpost
+}
+moved {
+  from = module.auth_outpost.module.core_egress
+  to   = module.auth.module.core_egress
 }

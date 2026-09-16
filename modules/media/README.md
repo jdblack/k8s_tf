@@ -28,7 +28,7 @@ peers connect to the `qbittorrent-torrent` VIP on port `21010` (currently
 ## Authentik in front of the apps (arr + qbittorrent web UI)
 
 None of these speak OIDC, so authentik fronts them as a **proxy outpost**
-(`modules/auth/authentik/proxy_app` + `modules/auth/authentik/outpost`):
+(`modules/auth/authentik/proxy_outpost`):
 
 ```
 browser -> sonarr.vn.linuxguru.net (media-private gateway, TLS)

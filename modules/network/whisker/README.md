@@ -14,8 +14,7 @@ the Calico CRs in `tier.tf` are what actually gates this app.
 
 | Piece | From | Purpose |
 |---|---|---|
-| authentik proxy provider + application + outpost + token | `auth/authentik/proxy_app` | SSO gate; app bound to `group_name` |
-| outpost Deployment/Service (`<outpost_service>`, :9000) in `namespace` | `auth/authentik/outpost` | authenticates, then proxies to whisker |
+| authentik proxy provider + application + outpost (Deployment/Service `<outpost_service>`, :9000, in `namespace`) | `auth/authentik/proxy_outpost` | SSO gate; app bound to `group_name`, outpost authenticates then proxies to whisker |
 | ListenerSet (HTTPS, cert) + HTTPRoute → the **outpost** | `gateway/expose` | `whisker.<domain>` on the private gateway |
 | 3× Calico `NetworkPolicy` CR, `spec.tier: calico-system` | `tier.tf` | **the effective policy**: outpost egress, gateway → outpost, outpost → whisker |
 | pod-scoped ingress policy on the **whisker** pods | `firewalls/limited_ingress` | currently inert (see tier) |

@@ -10,8 +10,7 @@ that used to sit there wide open.
 
 | Piece | From | Purpose |
 |---|---|---|
-| authentik proxy provider + application + outpost + token | `auth/authentik/proxy_app` | SSO gate; app bound to `group_name` |
-| outpost Deployment/Service (`seaweedfs-admin-auth`, :9000) in `namespace` | `auth/authentik/outpost` | authenticates, then proxies to the admin UI |
+| authentik proxy provider + application + outpost (Deployment/Service `seaweedfs-admin-auth`, :9000, in `namespace`) | `auth/authentik/proxy_outpost` | SSO gate; app bound to `group_name`, outpost authenticates then proxies to the admin UI |
 | ListenerSet (HTTPS, cert) + HTTPRoute → the **outpost** | `gateway/expose` | `admin.<app>.<domain>` on the private gateway |
 | pod-scoped egress policy on the outpost pods | `firewalls/policy` | DNS + `seaweedfs-admin:<port>` only |
 
@@ -37,7 +36,7 @@ the ListenerSet isn't double-owned.
   admin hop is same-namespace: the namespace's ingress firewall already admits
   it (`kube-storage` is in its own guest list) and the gateway (`kube-network`)
   can reach the outpost the same way.
-- **Access is the `storage` group**: this module creates it (via `proxy_app`) and
+- **Access is the `storage` group**: this module creates it (via `proxy_outpost`) and
   binds the app to it — there is no shared-group lookup. Add people in the
   authentik UI; any future storage app joins this same group.
 - **Icon**: dashboard-icons (the set the media apps use) has no seaweedfs tile, so

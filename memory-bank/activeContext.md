@@ -63,6 +63,38 @@
   restarted once the tier lands** — exponential backoff had left it with no `:9000` listener, so
   the gateway served `502` (upstream RST, policy already passing) until `rollout restart`.
   Open: one browser sign-in for the logged-in UI hop.
+- **The proxy outpost is one module now (2026-09-16).** `auth/authentik/{proxy_app,outpost}`
+  merged into `auth/authentik/proxy_outpost`: one call per protected app (media, whisker,
+  seaweedfs_admin) owns the authentik provider/application/group/outpost, the outpost's token,
+  and the Deployment/Service/Secret + core egress carve-out. The token was the point — it used
+  to be a `sensitive` output passed straight into the sibling module. `core_url`/`browser_url`
+  are locals now (derived from `domain` + `core_namespace`; three callers passed the same two
+  strings, including a hardcoded `authentik-server.<ns>...` literal) and `outpost_token` is no
+  longer an output. **State moves with 4 `moved` blocks per caller — a whole-module
+  `moved { from = module.outpost to = module.auth }` does NOT work** when the destination
+  already holds resources: OpenTofu warns `could not move ... existing objects already at the
+  intended addresses` and plans 9 destroys (only the nested `module.core_egress` maps). Those
+  12 blocks are one-apply scaffolding, deleted after the move lands. **Applied in mantle**
+  (`0 added / 0 changed / 0 destroyed` — moves touch state only; post-apply plan `No changes`;
+  the outposts were *not* rolled, deployment ages still 09-09/09-12). **Core applied**
+  `0 added / 0 changed / 2 destroyed` = the two dead `random_password`s below (`deploy_key`,
+  `database` — nothing referenced them; `terraform_key` is the one the blueprint Secret uses);
+  post-apply plan `No changes`.
+- **Two authentik "simplifications" are now recorded as rejected, in the code that would
+  tempt someone (2026-09-16).** (1) `core/scopes.tf`: bootstrap env vars
+  (`AUTHENTIK_BOOTSTRAP_TOKEN`/`_PASSWORD`) cannot replace our API-key blueprint —
+  `core/setup/signals.py` gates the whole bootstrap on `not Setup.get(tenant)`, i.e. once per
+  instance on a *fresh* install, so a running instance ignores them and rotating the key would
+  mean flipping the Setup row in the DB. (2) `core/security.tf` carried a factually wrong
+  comment: the worker's `allow_api` (:6443) rule is not about "the media-proxy outpost's
+  service connection" — no outpost has one. `outposts`' connection discovery re-creates a
+  local `KubernetesServiceConnection` every 8h if absent, and `outposts/models.py` gives
+  **every** connection a 15-min `outpost_service_connection_monitor` (`crontab 3-59/15`) whose
+  `KubernetesClient.fetch_state()` calls :6443 → inside `blocked_egress_cidrs`. So the rule is
+  load-bearing and un-removable from Terraform (discovery puts the object back). `core/locals.tf`
+  likewise documents why `/certs` stays: it feeds the server's :9443 listener *and* the cert
+  discovery task (live: `auth.<domain>` + `ca`, `managed=goauthentik.io/crypto/discovered/...`);
+  the OIDC providers no longer depend on it.
 - **The authentik keypair that blocked every mantle plan is gone — replaced by a TF-owned
   signing key (2026-09-16).** `data.authentik_certificate_key_pair { name = "tls" }` stopped
   resolving, and it was never ours to resolve: authentik's cert-discovery task imports whatever

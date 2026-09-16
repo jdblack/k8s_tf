@@ -4,6 +4,12 @@ locals {
   # apart. Deliberately not var.name.
   listener_name = "auth"
   helm_values = {
+    # The chart mounts cert-<fqdn> for the server's own :9443 listener, and its cert
+    # discovery task imports whatever it finds there (live: `auth.<domain>` and `ca`, both
+    # managed=goauthentik.io/crypto/discovered/...). Nothing routes to :9443 and the OIDC
+    # providers no longer depend on the discovered cert (each generates its own signing key
+    # in ../oidc_provider), but removing the mount would change both of those behaviours --
+    # so it stays.
     global = {
       volumeMounts = [
         {
