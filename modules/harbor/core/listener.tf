@@ -1,7 +1,6 @@
-# HTTPS listener via the shared private gateway (kube-network). The HTTPRoute is
-# rendered by the harbor chart itself (expose.type = "route"), so this module only
-# declares the ListenerSet; the submodule creates the cross-namespace ReferenceGrants
-# for both ListenerSet and HTTPRoute attachment.
+# HTTPS listener via the shared private gateway. The HTTPRoute is rendered by the harbor chart itself
+# (`expose.type = "route"`), so this module only declares the ListenerSet -- the submodule creates the
+# cross-namespace ReferenceGrants for both attachments.
 module "expose" {
   source            = "../../network/gateway/expose"
   name              = var.name

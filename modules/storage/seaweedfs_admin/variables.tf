@@ -1,7 +1,6 @@
-# SSO gate for the SeaweedFS admin UI: an HTTPS listener + HTTPRoute on the private
-# gateway targeting a co-located authentik proxy outpost (so that hop is
-# same-namespace). MANTLE only: core creates authentik and cannot talk to its API in
-# the same apply.
+# SSO gate for the SeaweedFS admin UI: an HTTPS listener + HTTPRoute on the private gateway targeting
+# a co-located authentik proxy outpost, so that hop is same-namespace. MANTLE only: core creates
+# authentik and cannot talk to its API in the same apply.
 
 variable "namespace" {
   type        = string

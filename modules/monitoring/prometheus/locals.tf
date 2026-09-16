@@ -27,8 +27,8 @@ locals {
           # load-bearing: JMESPath binds && tighter than ||.
           role_attribute_path = "(contains(groups[*], '${var.grafana_name}-admin') || contains(groups[*], '${var.admin_group}')) && 'Admin' || 'Viewer'"
         }
-        # grafana.com polls, every ten minutes: the version banner and the installed-plugin
-        # list. Both are UI-only, so they stay off.
+        # grafana.com polls every ten minutes (the version banner and the installed-plugin list); both
+        # are UI-only, so they stay off.
         analytics = {
           check_for_updates        = false
           check_for_plugin_updates = false
@@ -56,9 +56,9 @@ locals {
       }
     }
 
-    # OFF: kubeadm binds these to loopback while Prometheus scrapes the node IP, so
-    # every target is a permanent connection-refused. The matching defaultRules are
-    # `absent(up{...})` and would fire as soon as the targets vanish.
+    # OFF: kubeadm binds these to loopback while Prometheus scrapes the node IP, so every target is a
+    # permanent connection-refused -- and the matching `absent(up{...})` defaultRules would fire the
+    # moment the targets vanish.
     kubeEtcd              = { enabled = false }
     kubeScheduler         = { enabled = false }
     kubeControllerManager = { enabled = false }
@@ -73,8 +73,8 @@ locals {
       }
     }
 
-    # Helm only creates a chart's crds/ when absent; this hook server-side-applies
-    # them, which is the only thing keeping them in step with chart bumps.
+    # Helm only creates a chart's crds/ when absent; this hook server-side-applies them, which is the
+    # only thing keeping them in step with chart bumps.
     crds = {
       upgradeJob = {
         enabled = true

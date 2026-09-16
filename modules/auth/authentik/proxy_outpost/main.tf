@@ -1,21 +1,7 @@
-# The proxy-outpost pattern for apps that speak no OIDC/SAML, in one module: the authentik
-# side (proxy provider + application + access group + outpost + the outpost's API token)
-# and the Kubernetes side (Secret + Deployment + Service) in the namespace being protected.
-#
-# The gateway routes the public host to the OUTPOST, not to the app: the outpost
-# authenticates the user against core, injects X-authentik-* headers, then reverse-proxies
-# to the app's Service.
-#
-#   browser -> <app>.<domain> (TLS at the gateway)
-#            -> <service_name>:9000 (no session = 302 to the authentik login)
-#            -> <app>:<port>
-#
-# The app's own login must then be neutralised or the user gets prompted twice: the *arr
-# apps run AuthenticationMethod = External; qBittorrent instead whitelists the pod CIDR.
-# Both are one-time, hand-run steps -- see the main README.
-#
-# One module rather than two: the halves are always one call site and share outpost_name /
-# service_name, and the outpost's API token must not cross a module boundary.
+# The proxy-outpost pattern for apps that speak no OIDC/SAML, both halves in one module: the authentik
+# side (proxy provider, application, access group, outpost, API token) plus the Secret/Deployment/Service
+# in the namespace being protected. The gateway routes the public host to the OUTPOST, not to the app,
+# and the app's own login then has to be neutralised by hand or the user is prompted twice.
 locals {
   outpost_labels = {
     "app.kubernetes.io/name"     = "authentik-outpost"
@@ -82,9 +68,8 @@ resource "authentik_outpost" "outpost" {
   protocol_providers = [for p in authentik_provider_proxy.app : p.id]
 }
 
-# authentik auto-creates a service account ak-outpost-<uuid-without-hyphens> but does not
-# expose its token key, so mint our own non-expiring API token for it and hand that to the
-# Deployment as AUTHENTIK_TOKEN.
+# authentik auto-creates a service account but never exposes its token key, so mint our own
+# non-expiring API token for it and hand that to the Deployment as AUTHENTIK_TOKEN.
 data "authentik_user" "outpost_sa" {
   username = "ak-outpost-${replace(authentik_outpost.outpost.id, "-", "")}"
 }
@@ -97,8 +82,8 @@ resource "authentik_token" "outpost" {
   retrieve_key = true
 }
 
-# Terraform-owned pods, because authentik chart 2025.10.x no longer embeds proxy outposts.
-# That also keeps a from-scratch rebuild tofu-driven.
+# Terraform-owned pods: authentik chart 2025.10.x no longer embeds proxy outposts, which also keeps a
+# from-scratch rebuild tofu-driven.
 resource "kubernetes_secret_v1" "api" {
   metadata {
     name      = "${var.service_name}-api"

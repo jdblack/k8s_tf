@@ -1,5 +1,5 @@
-# Vaultwarden's whole configuration, in Terraform rather than an admin panel: no
-# ADMIN_TOKEN, and leaving it unset disables /admin outright.
+# Vaultwarden's whole configuration, in Terraform rather than an admin panel: ADMIN_TOKEN unset
+# disables /admin outright.
 resource "kubernetes_secret_v1" "config" {
   metadata {
     name      = "${var.name}-config"
@@ -7,8 +7,7 @@ resource "kubernetes_secret_v1" "config" {
   }
 
   data = {
-    # Cookies, attachment and websocket URLs are built from this: it must be the URL
-    # clients use.
+    # Cookies, attachment and websocket URLs are built from this: it must be the URL clients use.
     DOMAIN      = "https://${local.fqdn}"
     DATA_FOLDER = "/data"
 
@@ -16,10 +15,8 @@ resource "kubernetes_secret_v1" "config" {
 
     ENABLE_WEBSOCKET = "true"
 
-    # No self-service: mail is off, so invitations and hints are moot.
-    #
-    # SIGNUPS_ALLOWED is a BOOTSTRAP knob (vaultwarden has no CLI user-create): flip
-    # on, register, flip back.
+    # No self-service: mail is off, so invitations and hints are moot. SIGNUPS_ALLOWED is a BOOTSTRAP
+    # knob -- vaultwarden has no CLI user-create, so flip on, register, flip back.
     SIGNUPS_ALLOWED = tostring(var.signups_allowed)
 
     INVITATIONS_ALLOWED      = "false"

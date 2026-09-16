@@ -23,7 +23,7 @@ else) and `vaultwarden` (`modules/vaultwarden/egress.tf`, the same two-rule shap
 Deployment's labels). The per-pod tables and the measured evidence behind each peer are in
 [`../../media/README.md`](../../media/README.md),
 [`../../storage/README.md`](../../storage/README.md),
-[`../../vaultwarden/README.md`](../../vaultwarden/README.md) and the comment on each call.
+[`../../vaultwarden/README.md`](../../vaultwarden/README.md) and a one-line note on each call.
 
 **Per-pod closing is not namespace closing — hence a namespace-wide call.** A pod-scoped policy
 governs the pods its selector matches and says nothing at all about the rest: an unselected pod falls

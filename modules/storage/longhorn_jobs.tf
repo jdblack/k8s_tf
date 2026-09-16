@@ -1,6 +1,6 @@
-# Recurring snapshots for every Longhorn-backed PVC. The job -> volume join is a label on
-# the Volume CR (why snapshot_labeler.tf is its only writer, and why no PVC sets those
-# labels). No backupTarget: RECOVERY, not backup -- storage/disaster_recovery.md.
+# Recurring snapshots for every Longhorn-backed PVC. The job -> volume join is a label on the Volume CR
+# (why snapshot_labeler.tf is its only writer, and why no PVC sets those labels). No backupTarget:
+# RECOVERY, not backup -- see storage/disaster_recovery.md.
 locals {
   # Longhorn prunes only past retain and skips an unchanged volume head.
   snapshot_retain = {

@@ -28,11 +28,9 @@ resource "kubernetes_service_v1" "service" {
   }
 }
 
-# Torrent Service (LoadBalancer), peer traffic only -- never behind the outpost.
-#
-# The VIP floats and DNS cannot help: the router NATs WAN 21010 straight to this address.
-# A *recreated* Service gets a new pool IP and the NAT rule must be re-pointed (or pin it
-# with torrent_lb_ip). depends_on so the web UI Service gives up the IP first.
+# Torrent Service (LoadBalancer), peer traffic only -- never behind the outpost. The VIP floats and DNS
+# cannot help (the router NATs WAN 21010 straight here), so a *recreated* Service needs the NAT rule
+# re-pointed; pin it with torrent_lb_ip. depends_on so the web UI Service gives up the IP first.
 resource "kubernetes_service_v1" "torrent" {
   metadata {
     namespace = var.namespace
@@ -45,16 +43,16 @@ resource "kubernetes_service_v1" "torrent" {
   spec {
     type             = "LoadBalancer"
     load_balancer_ip = var.torrent_lb_ip
-    # Local, so the peers the router forwards see their real source IP (MetalLB L2 announces
-    # the VIP only to nodes actually running the pod).
+    # Local, so the peers the router forwards see their real source IP (MetalLB L2 announces the VIP
+    # only to nodes actually running the pod).
     external_traffic_policy = "Local"
 
     selector = {
       "app.kubernetes.io/name" = var.name
     }
 
-    # Same port for TCP (peers) and UDP (uTP/DHT/trackers): with no UDP port kube-proxy
-    # installs no UDP DNAT and inbound UDP is dropped at the node.
+    # Same port for TCP (peers) and UDP (uTP/DHT/trackers): with no UDP port kube-proxy installs no
+    # UDP DNAT and inbound UDP is dropped at the node.
     port {
       name        = "torrent"
       port        = var.torrent_port

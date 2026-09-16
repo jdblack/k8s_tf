@@ -1,12 +1,6 @@
-# One call = one NetworkPolicy, egress only, for the peers the base builder cannot express:
-# a namespace *and* the pods in it, on *named* ports. Same contract as `egress` otherwise --
-# callers state intent, this decides selectors and rule order -- and the two are meant to be
-# used together on one pod, since netpols only union.
-#
-# What it does NOT do, on purpose: no `allow_internet`, no `allow_k8s_api`, no `allow_cluster`,
-# no `to_cidrs`. Those are the base builder's curated knobs; this one is for a named peer. A
-# CIDR handed to either builder is dead for any in-cluster destination anyway (egress is
-# evaluated POST-DNAT -- see .clinedocs/calico-netpols.md).
+# One call = one NetworkPolicy, egress only, for the peers the base builder cannot express: a namespace
+# *and* the pods in it, on *named* ports. No `allow_internet`/`allow_k8s_api`/`allow_cluster`/`to_cidrs`
+# on purpose -- and a CIDR would be dead for an in-cluster destination anyway (egress is POST-DNAT).
 resource "random_id" "suffix" {
   count       = var.name == null ? 1 : 0
   byte_length = 4

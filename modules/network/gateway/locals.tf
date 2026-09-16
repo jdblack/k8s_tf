@@ -25,17 +25,16 @@ locals {
       gatewayControllerName = "gateway.nginx.org/${var.name}-controller"
       watchNamespaces       = var.watch_namespaces
     }
-    # The chart's fixed defaults (server-tls / agent-tls) collide when two NGF
-    # releases share a namespace, so derive names from the release.
+    # Derive from the release: the chart's fixed server-tls / agent-tls names collide when two NGF
+    # releases share a namespace.
     certGenerator = {
       serverTLSSecretName = "${var.release_name}-server-tls"
       agentTLSSecretName  = "${var.release_name}-agent-tls"
     }
   }
 
-  # `nginx-gateway.fullname` from the chart's _helpers.tpl: the release name when it already
-  # contains the chart name, otherwise `<release>-<chart>`. The cert-generator Job is
-  # `<fullname>-cert-generator`, and its pod carries no chart labels -- only `job-name` -- so a
-  # caller that closes a namespace needs this name to grant that pod API access.
+  # `nginx-gateway.fullname` from the chart's _helpers.tpl (the release name when it already contains
+  # the chart name), so a caller closing a namespace can name the cert-generator Job: its pod carries
+  # only `job-name`, no chart labels.
   ngf_fullname = strcontains(var.release_name, "nginx-gateway-fabric") ? var.release_name : "${var.release_name}-nginx-gateway-fabric"
 }

@@ -1,16 +1,7 @@
 
-# OIDC signing key, OWNED here instead of looked up by name.
-#
-# This was `data "authentik_certificate_key_pair" "cert" { name = "tls" }` -- an object
-# authentik's cert-discovery task imports out of /certs (where the chart mounts the TLS
-# secret) and stamps `managed: goauthentik.io/crypto/discovered/...`. Through 2025.10 it
-# named those after the FILE (tls.crt -> "tls"); 2026.8 added tls.crt/tls.key to its
-# parent-DIRECTORY branch and renames matches in place, so bumping the chart alone renamed
-# the object to "auth.vn.linuxguru.net" and broke every `mantle` plan. That name is
-# upstream's to change, and the coupling also rotated our token signing with every
-# cert-manager web-cert renewal (the kid derives from the private key). So: own it.
-#
-# Generated here, so the key matches nothing in /certs and discovery never touches it.
+# OIDC signing key, OWNED here rather than looked up by name: the chart-mounted `tls` object is
+# renamed in place by 2026.8's cert discovery (which broke every `mantle` plan) and its kid rotates
+# with each cert-manager renewal. Generated here, so discovery never touches it.
 resource "tls_private_key" "signing" {
   algorithm = "RSA" # matches the RSA key this replaces; widest client support
   rsa_bits  = 4096
@@ -52,10 +43,8 @@ data "authentik_property_mapping_provider_scope" "openid" {
   scope_name = "openid"
 }
 
-# Groups claim. authentik ships no 'groups' scope mapping in this instance, so create
-# one. Each client gets its own mapping object (same scope_name, unique name) -- a
-# provider only references its own, so the token still carries exactly one groups
-# claim; the duplication is cosmetic, in authentik's UI.
+# Groups claim: this instance ships no 'groups' scope mapping, so each client creates its own (same
+# scope_name, unique name); a provider references only its own, so the token still carries one claim.
 resource "authentik_property_mapping_provider_scope" "groups" {
   name        = "OpenID 'groups' (${var.name})"
   scope_name  = "groups"
@@ -85,10 +74,8 @@ resource "authentik_provider_oauth2" "oauth2" {
     {
       matching_mode = "strict"
       url           = var.redirect_uri
-      # Declared because the API stores it and the provider reads it back: leaving it out
-      # makes 2026.8.0's provider plan a perpetual no-op removal of this one key
-      # (`- "redirect_uri_type" = "authorization"`) that never converges, which would show
-      # as permanent drift in every mantle plan.
+      # Declared because the API stores it and reads it back: omitted, 2026.8.0 plans a perpetual
+      # no-op removal of this one key that never converges, i.e. drift in every mantle plan.
       redirect_uri_type = "authorization"
     }
   ]

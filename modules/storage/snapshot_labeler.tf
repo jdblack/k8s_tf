@@ -1,8 +1,7 @@
-# The only writer of the Volume-CR recurring-job labels (see longhorn_jobs.tf).
-#
-# local-exec kubectl: the CR is created by the CSI provisioner, so owning it through
-# kubernetes_manifest would fight Longhorn's controllers. Runs from stacks/core before
-# the PVCs exist, so a missing PVC warns instead of failing -- re-run core after.
+# The only writer of the Volume-CR recurring-job labels (see longhorn_jobs.tf), via local-exec kubectl:
+# the CR is created by the CSI provisioner, so owning it through kubernetes_manifest would fight
+# Longhorn's controllers. It runs from stacks/core before the PVCs exist, so a missing PVC warns
+# instead of failing -- re-run core after.
 resource "terraform_data" "snapshot_group" {
   for_each = local.snapshot_groups
 

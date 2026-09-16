@@ -1,25 +1,11 @@
-# Calico POLICY-TIER rules, needed since tigera-operator v3.32.2.
-#
-# The operator's own rules live in tier `calico-system` (order 100, defaultAction: Deny),
-# which is evaluated BEFORE tier `default` -- where every `kubernetes_network_policy_v1`
-# compiles. Its end-of-tier DROP therefore pre-empts ALL k8s NetworkPolicies in this
-# namespace, so only a Calico NetworkPolicy CR with `spec.tier` can allow anything here.
-#
-# THIS IS THE ONLY NETWORK POLICY LEFT IN THIS REPO (the firewalls/ modules and every
-# per-app netpol were deleted 2026-09-16). It is kept deliberately: it is not a restriction
-# this repo imposes, it is the only thing that lets whisker and its SSO outpost run inside
-# `calico-system` at all. Delete these CRs and the operator's own
-# `calico-system.default-deny` (selector `k8s-app != 'calico-apiserver'`, no rules) drops
-# every flow the outpost needs -- which is exactly how the UI broke on the v3.32.2 upgrade.
-# Every rule names a pod selector, so nothing outside these hops is widened.
-# See .clinedocs/calico-netpols.md.
+# Calico POLICY-TIER rules, needed since tigera-operator v3.32.2: the operator's tier `calico-system`
+# (order 100, defaultAction Deny) is evaluated before tier `default`, where every
+# `kubernetes_network_policy_v1` compiles, so only a Calico CR with `spec.tier` can allow anything here
+# -- and these are the only thing letting whisker and its outpost run. See .clinedocs/calico-netpols.md.
 
 locals {
-  # Within the tier, policies run lowest-`order`-first and an Allow/Deny ends evaluation, so
-  # `10` is what makes these CRs beat the operator's own denies: its holes are `order: 1`
-  # (unmatched by our selectors) and `calico-system.default-deny` / `calico-system.whisker`
-  # carry NO order, which Felix evaluates last. Any explicitly-set order would do; 10 just
-  # groups ours after the operator's.
+  # Within the tier, lowest `order` runs first and an Allow/Deny ends evaluation; the operator's own
+  # holes are `order: 1` (our selectors never match them) and its two un-ordered policies sort last.
   tier_policy_order = 10
 
   tier_outpost_selector = join(" && ", [
@@ -31,8 +17,7 @@ locals {
   tier_whisker_selector = "k8s-app == '${var.whisker_service}'"
 }
 
-# 1. Outpost egress: DNS, authentik core, whisker. Shadows `authentik-outpost-core`
-#    (from the outpost module) + `whisker-outpost-egress`.
+# 1. Outpost egress: DNS, authentik core, whisker -- shadows the outpost module's own egress rules.
 resource "kubectl_manifest" "tier_outpost_egress" {
   yaml_body = yamlencode({
     apiVersion = "crd.projectcalico.org/v1"
@@ -68,8 +53,7 @@ resource "kubectl_manifest" "tier_outpost_egress" {
             ports             = [53]
           }
         },
-        # authentik core's Service is :80 but Calico evaluates post-DNAT, so the allow
-        # names the pod's real HTTP port.
+        # authentik core's Service is :80 but Calico evaluates post-DNAT: name the pod's real port.
         {
           action   = "Allow"
           protocol = "TCP"
@@ -93,9 +77,8 @@ resource "kubectl_manifest" "tier_outpost_egress" {
   })
 }
 
-# 2. Gateway data plane -> outpost:9000. This hop had no policy at all before the tier
-#    arrived, so it worked by default; `expose` routes whisker.<domain> here.
-#    The outpost's :9443 (https) listener is deliberately left closed -- `expose` uses :9000.
+# 2. Gateway data plane -> outpost:9000, a hop no policy covered before the tier arrived. The
+#    outpost's :9443 is left closed on purpose: `expose` routes through :9000.
 resource "kubectl_manifest" "tier_outpost_ingress" {
   yaml_body = yamlencode({
     apiVersion = "crd.projectcalico.org/v1"
@@ -116,8 +99,7 @@ resource "kubectl_manifest" "tier_outpost_ingress" {
         destination = {
           ports = [9000]
         }
-        # NGF's data plane pod for this Gateway only (it labels it with the Gateway's
-        # name), not the whole kube-network namespace.
+        # NGF's data-plane pod for this Gateway only, not the whole kube-network namespace.
         source = {
           namespaceSelector = "projectcalico.org/name == '${var.gateway_namespace}'"
           selector          = "gateway.networking.k8s.io/gateway-name == '${var.gateway_name}'"
@@ -127,8 +109,8 @@ resource "kubectl_manifest" "tier_outpost_ingress" {
   })
 }
 
-# 3. Outpost -> whisker:8081 (same namespace). The operator's `calico-system.whisker` is
-#    Ingress+Egress typed with no ingress rules, so nothing could read the UI at all.
+# 3. Outpost -> whisker itself: the operator's `calico-system.whisker` is Ingress+Egress typed with
+#    no ingress rules, so nothing could read the UI at all.
 resource "kubectl_manifest" "tier_whisker_ingress" {
   yaml_body = yamlencode({
     apiVersion = "crd.projectcalico.org/v1"

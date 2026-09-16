@@ -35,10 +35,9 @@ resource "helm_release" "metal" {
   wait       = true
   timeout    = 600
   values     = [yamlencode(local.helm_values.metallb)]
-  # No loadBalancerClass on purpose: MetalLB serves every LoadBalancer here (it is
-  # the only implementation). It must be set at the chart's top level, and any
-  # Service MetalLB should serve would need it too, so revisit if a second LB
-  # controller is ever added.
+  # No loadBalancerClass on purpose: MetalLB is the only LB implementation here. It belongs at the
+  # chart's top level and on any Service MetalLB should serve, so revisit if a second controller
+  # is ever added.
   depends_on = [kubernetes_namespace_v1.namespace]
 }
 

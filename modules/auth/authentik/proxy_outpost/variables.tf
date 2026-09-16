@@ -1,5 +1,4 @@
-# The namespace being protected: the outpost Deployment/Service/Secret live here, next to
-# the apps they front.
+# The namespace being protected: the outpost Deployment/Service/Secret live here, next to the apps.
 variable "namespace" {
   type = string
 }
@@ -16,8 +15,7 @@ variable "apps" {
   }))
 }
 
-# authentik outpost name; also the pod label app.kubernetes.io/instance and the name in
-# authentik's outpost health list.
+# authentik outpost name; also the pod label app.kubernetes.io/instance and the name in the health list.
 variable "outpost_name" { default = "media-proxy" }
 
 # The protected apps' HTTPRoutes point at this Service, so callers share the name.
@@ -39,7 +37,7 @@ variable "core_namespace" { default = "kube-auth" }
 
 variable "image" { default = "ghcr.io/goauthentik/proxy" }
 
-# Left at the version the outposts were first deployed with: the proxy image is versioned
-# separately from the server (see stacks/core/auth.tf) and was not part of the 2026.8.2
-# upgrade. Bump it as its own change and verify the outposts reconnect afterwards.
+# Left at the version the outposts were first deployed with: the proxy image is versioned separately
+# from the server (see stacks/core/auth.tf) and was not part of the 2026.8.2 upgrade. Bump it as its own
+# change and verify the outposts reconnect afterwards.
 variable "image_tag" { default = "2025.10.3" }

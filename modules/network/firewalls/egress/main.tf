@@ -1,6 +1,5 @@
-# One call = one NetworkPolicy, egress only. Ingress is deliberately not a knob here: a policy
-# that types Ingress is deny-all-inbound for the pods it selects, so each app module writes its
-# own when it needs one -- there is no safe default to hand out.
+# One call = one NetworkPolicy, egress only. Ingress is deliberately not a knob: a policy that types
+# Ingress is deny-all-inbound for the pods it selects, so there is no safe default to hand out.
 # Exists only to make the default naming unique; an explicit `name` needs no suffix.
 resource "random_id" "suffix" {
   count       = var.name == null ? 1 : 0
@@ -38,8 +37,8 @@ resource "kubernetes_network_policy_v1" "this" {
           }
         }
 
-        # A `to` entry may carry more than one selector kind on purpose: the DNS rule needs
-        # namespaceSelector AND podSelector, which is an AND in a single peer.
+        # One `to` entry may carry two selector kinds: the DNS rule needs namespaceSelector AND
+        # podSelector, which is an AND inside a single peer.
         dynamic "to" {
           for_each = egress.value.to
 

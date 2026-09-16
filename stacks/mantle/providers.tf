@@ -28,23 +28,21 @@ terraform {
     }
     authentik = {
       source = "goauthentik/authentik"
-      # Tracks the app: bumped with the 2026.8.2 chart in `core`, whose API this provider
-      # is generated from (the 2025.10 API renamed user `uuid` -> `uid` and made binding
-      # `expires`/`expiring` required, among other changes).
+      # Tracks the app: bumped with the 2026.8.2 chart in `core`, whose API this provider is generated
+      # from (the 2025.10 API renamed user `uuid` -> `uid` and made `expires`/`expiring` required).
       version = "2026.8.0"
     }
     random = {
       source  = "hashicorp/random"
       version = "3.8.1"
     }
-    # Route53 for the vaultwarden A record only: one record in one zone, via the
-    # least-privilege lg-route53 key in var.deployment.cert.
+    # Route53 for the vaultwarden A record only: one record in one zone, via the least-privilege
+    # lg-route53 key in var.deployment.cert.
     aws = {
       source  = "hashicorp/aws"
       version = "~> 6.0"
     }
-    # OIDC signing keypairs, generated per provider in
-    # modules/auth/authentik/oidc_provider.
+    # OIDC signing keypairs, generated per provider in modules/auth/authentik/oidc_provider.
     tls = {
       source  = "hashicorp/tls"
       version = "4.2.1"
@@ -66,10 +64,10 @@ provider "kubectl" {
   config_path = "~/.kube/config"
 }
 
-# Credentials come from tfvars, not the ambient environment: the shell's default AWS
-# identity is a different, broader principal. NOTE the v6 rename -- `secret_key`, not
-# the v5-era `secret_access_key`; the tfvars key keeps its historical
-# AWS_SECRET_ACCESS_KEY name (cert-manager's DNS-01 solver Secret reads it).
+# Credentials come from tfvars, not the ambient environment: the shell's default AWS identity is a
+# different, broader principal. NOTE the v6 rename -- `secret_key`, not the v5-era
+# `secret_access_key`; the tfvars key keeps its historical AWS_SECRET_ACCESS_KEY name (cert-manager's
+# DNS-01 solver Secret reads it).
 provider "aws" {
   access_key = var.deployment.cert.AWS_ACCESS_KEY_ID
   secret_key = var.deployment.cert.AWS_SECRET_ACCESS_KEY

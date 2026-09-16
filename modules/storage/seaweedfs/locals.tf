@@ -11,8 +11,8 @@ locals {
       replicationPlacement = "001"
       seaweedfs = {
         image = {
-          # Registry/name only: the chart helper reads AppVersion, so a tag here is
-          # ignored -- the tag goes in the top-level `image` block.
+          # Registry/name only: the chart helper reads AppVersion, so the tag goes in the top-level
+          # `image` block below.
           name = "ghcr.io/jdblack/jblack-seaweedfs"
         }
       }
@@ -24,19 +24,15 @@ locals {
     admin = {
       enabled  = true
       grpcPort = "33646"
-      # admin.secret unset on purpose: the admin API is then unauthenticated and the
-      # outpost is the only gate.
-      #
-      # The chart defaults -dataDir to emptyDir, so admin state would revert on every
-      # restart without this PVC.
+      # admin.secret unset on purpose: the admin API is then unauthenticated and the outpost is the only
+      # gate. The chart defaults -dataDir to emptyDir, so admin state would revert on every restart.
       data = {
         type         = "persistentVolumeClaim"
         size         = "2Gi"
         storageClass = ""
       }
-      # `weed admin -ip` defaults to 127.0.0.1 and refuses a non-loopback bind without a
-      # password or mTLS; -allowInsecureBind is what lets -ip=0.0.0.0 through. Neither
-      # knob exists on the chart. Cost: an unauthenticated admin API on 23646.
+      # `weed admin -ip` defaults to 127.0.0.1 and refuses a non-loopback bind without a password or
+      # mTLS; -allowInsecureBind is what lets -ip=0.0.0.0 through, and neither knob exists on the chart.
       extraArgs = ["-ip=0.0.0.0", "-allowInsecureBind"]
       ingress = {
         enabled = false

@@ -1,12 +1,6 @@
-# Shared, cluster-wide NGF gateways in var.namespace, open to ListenerSets from any
-# namespace. Apps own their exposure from their own namespace (listener_set + HTTPRoute).
-#
-# Data planes take a MetalLB VIP like every other LoadBalancer (nothing pins them).
-# Two addresses are router-coupled and cannot be made DNS-independent, since DNS is
-# not in the path of an inbound NAT rule: WAN 443 -> the public gateway, WAN 21010 ->
-# the qbittorrent torrent Service. MetalLB keeps an IP for a Service's lifetime, so
-# unpinning moves nothing -- but a *recreated* Service gets a new pool IP and the
-# router rules need re-pointing (re-pin via the submodule's load_balancer_ip).
+# Shared cluster-wide NGF gateways, open to ListenerSets from any namespace; apps own their own
+# exposure. Two addresses are router NAT rules DNS cannot cover (WAN 443 -> the public gateway, WAN
+# 21010 -> the torrent Service): a *recreated* Service takes a new pool IP and needs re-pointing.
 module "gateway_public" {
   source           = "./gateway"
   namespace        = var.namespace
