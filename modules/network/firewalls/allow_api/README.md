@@ -39,6 +39,15 @@ module "allow_api" {
     "app.kubernetes.io/name" = "nginx-gateway-fabric"
   }
 }
+
+# ...plus the chart's cert-generator hook Job, which carries none of those labels
+# (see "Hook Jobs need their own selector" below).
+module "allow_api_cert_generator" {
+  source       = "../network/firewalls/allow_api"
+  namespace    = var.namespace
+  policy_name  = "allow-api-egress-certgen"
+  pod_selector = { "job-name" = module.gateway.cert_generator_job_name }
+}
 ```
 
 Kubernetes NetworkPolicies are **additive (union)**: both policies apply to the
@@ -49,7 +58,29 @@ denied too.
 
 > Match the selector to whatever pod label uniquely identifies the API consumer.
 > For NGF, `app.kubernetes.io/name = nginx-gateway-fabric` covers the controller
-> deployment and the chart's cert-generator job.
+> **deployment only** — see the next section for the chart's hook Job.
+
+## Hook Jobs need their own selector
+
+A Job's pods carry the Job controller's own labels (`job-name`,
+`batch.kubernetes.io/job-name`, `controller-uid`) and **nothing the chart
+specified for its deployments** — so a `pod_selector` aimed at the controller does
+not cover a chart hook, and each hook needs a second call.
+
+That is not hypothetical: NGF's `cert-generator` Job is a `pre-install`/`pre-upgrade`
+hook, so an NGF upgrade stalls on it. With media's default-deny egress the hook's pod
+got `dial tcp 10.96.0.1:443: i/o timeout`, exhausted its `backoffLimit: 6`, and helm's
+`wait` burned the release's full `timeout` (both upgrades waiting on the same deadlock —
+2026-09-16). The chart offers no values to label the hook's pods, so the only fix is the
+label the Job controller applies anyway:
+
+```hcl
+pod_selector = { "job-name" = module.gateway.cert_generator_job_name }
+```
+
+`modules/network/gateway` publishes that name as an output (the chart's
+`<release>-nginx-gateway-fabric-cert-generator`); don't re-derive it by hand, and give
+the policy its own `policy_name` — one NetworkPolicy cannot OR two selectors.
 
 ## Rules it renders
 

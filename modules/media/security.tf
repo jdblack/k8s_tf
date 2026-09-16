@@ -18,6 +18,18 @@ module "allow_api" {
   }
 }
 
+# The chart's pre-install/upgrade hook Job can't be reached by the selector above: its pods
+# carry only the Job controller's batch labels, so default-deny egress leaves the hook with
+# `dial tcp 10.96.0.1:443: i/o timeout` until helm's `wait` times the whole release out
+# (seen 2026-09-16 upgrading the media gateway). Second pod-scoped policy for the hook's one
+# pod label; the Job name tracks the gateway module's release_name.
+module "allow_api_cert_generator" {
+  source       = "../network/firewalls/allow_api"
+  namespace    = var.namespace
+  policy_name  = "allow-api-egress-certgen"
+  pod_selector = { "job-name" = module.gateway.cert_generator_job_name }
+}
+
 # Ingress: same-namespace, WireGuard clients (they land on the wg-server pod) and non-pod
 # external sources only -- every other pod, kube-network included, is denied, so the arr
 # ClusterIPs cannot be reached around the outpost. media's LBs are WAN-forwarded, hence
