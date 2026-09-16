@@ -8,8 +8,9 @@ is elsewhere, in `../whisker`.
 |---|---|
 | `egress/` | Per-pod **egress**: DNS always, own-namespace by default, plus namespace / API-server / cluster / internet / raw-CIDR peers. `policyTypes: ["Egress"]` only. |
 | `egress_peer/` ([README](egress_peer/README.md)) | The same, for a **named** peer the base builder cannot express: namespace + pod selector + port. One call = one policy; used *alongside* an `egress` call, since netpols union. |
+| `ingress/` ([README](ingress/README.md)) | Per-pod **ingress**: own-namespace and node-address floors by default, plus namespace / cluster / internet / raw-CIDR guests, plus `from_peers` for the narrow **namespace + pod selector + named ports** guest. `policyTypes: ["Ingress"]` only. One builder, not a pair — see below. |
 
-Call sites, fourteen policies live: `media` (`modules/media/egress.tf`, four — the namespace floor
+Call sites, fourteen egress policies live: `media` (`modules/media/egress.tf`, four — the namespace floor
 below, plus an API grant for the NGF control plane and one for the NGF cert-generator *hook pod*, plus
 the outpost's peer into `kube-auth`), `devops-harbor` (`modules/harbor/core/egress.tf`, three: DNS +
 self for every pod the chart ships, `+ allow_internet` for `component=trivy`, and the gateway peer for
@@ -83,14 +84,42 @@ is the only module that can know the pods exist. Same for `monitoring/grafana_oi
 
 Two things are deliberately *not* here:
 
-- **Ingress.** A `NetworkPolicy` that types `Ingress` is a deny-all-inbound for the pods it
-  selects, and there is no shape of ingress policy that is safe as a default.
 - **A `to_cidrs` shortcut to anything in-cluster.** Not a missing feature — a dead one. Egress is
   evaluated POST-DNAT, so the peer that matches is the *pod* the Service resolves to, never the
   Service IP and never a LoadBalancer VIP: `harbor-core` → the private gateway's VIP permitted
   nothing until the peer became the data-plane pod on 443 (`egress_peer`, measured 2026-09-17;
   same shape as the API-server ClusterIP finding in `egress/README.md`). CIDRs are for the LAN and
   real off-cluster hosts only.
+- **A guest list nobody measured.** True of both directions, but it costs more on the way in: an
+  ingress policy that selects a pod is that pod's deny-all-inbound until every guest is named, and
+  the flows that go missing are the ones that show up as a stalled rollout rather than as app traffic
+  (probes, webhook callbacks). `ingress/` sat unwired for exactly that reason and got its first call
+  site on 2026-09-17 (`kube-storage`), where the guest list had to be read off three things rather
+  than one: the flows, the live HTTPRoutes (which name the gateway as the peer and its ports), and
+  Prometheus's `up{}` — a scrape holds its connection open, so it never appears in a flow at all.
+  No other namespace gets one until its guests have been found the same way.
+
+The ingress direction is the mirror image of everything above, so the builder differs where the
+direction does, not where it does not: the same self rule, the same "one call = one object, callers
+state intent" contract, the same namespace-label trick (`kubernetes.io/metadata.name`, so callers pass
+names not selectors) — plus a floor this direction needs and egress never does, **the node
+addresses** (`allow_nodes`, on by default, one `ipBlock` per node `InternalIP` read live from
+`data.kubernetes_nodes`). kubelet probes and the apiserver's own calls into a pod originate on the
+node's host network, so no `namespaceSelector` can match them: without that rule the pod answers
+nothing, goes `NotReady` and the rollout stalls. It is the ingress answer to losing DNS. And one
+asymmetry that *removes* something: there is no service-CIDR peer here, because DNAT rewrites the
+**destination** — a guest's port is the pod's port.
+
+**Why one ingress builder and two egress ones.** `ingress/` carries the peer shape itself, as
+`from_peers`: one guest per rule with an optional pod selector and its own ports. The egress split
+happened because harbor needed the narrow shape the day the base builder shipped, and a second module
+was the smallest change that unblocked it; the ingress half got the same treatment before any caller
+existed, and the cost showed up immediately — the two renderers diverged, and `ingress_peer`'s node
+floor rendered as **empty `from {}` peers**, which in NetworkPolicy means *from anywhere*. That is the
+argument against duplicating a renderer to serve one extra list: fold it into the builder that owns the
+floors, where there is exactly one place for a rule's peer blocks to go wrong. `egress_peer` stays for
+now only because five call sites use it and moving live `NetworkPolicy` objects buys nothing; if the
+egress direction is ever revisited, the same fold is the shape to reach for.
 
 **Reaching the LAN.** `deployment.network.host_cidr` (tfenv) is the only declaration of the LAN
 anywhere — nothing in-cluster stores a netmask — so an egress call site passes it in as an
