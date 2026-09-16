@@ -66,71 +66,14 @@ Outpost-fronted apps point `route_name = "<app>-auth"` at the outpost service.
 
 ## Pattern: no NetworkPolicy layer (deleted 2026-09-16)
 
-There was a real one: `network/firewalls/{policy,basic_egress,limited_ingress}` —
-typed `kubernetes_network_policy_v1` resources so `plan` saw drift, called from
-every app module. It was deleted along with every per-app `security.tf` so that
-any workload can reach any other. **Nothing enforces network policy here today**,
-with one exception that is not a restriction but a prerequisite:
-`modules/network/whisker/tier.tf` (Calico CRs in the operator's own tier — see
-the invariants below).
-
-If the layer is ever rebuilt:
-
-- Start from `.clinedocs/calico-netpols.md` (conserved invariants: post-DNAT
-  egress, netpols only UNION, tier ordering, the Job-label gotcha) and
-  `.clinedocs/flow-logs.md` (how to read real traffic).
-- Guest lists come from **real flow data** (Goldmane/Whisker), not guesses.
-- Prefer a pod-scoped lockdown over a namespace-wide `allow_k8s_api`: the
-  namespace-wide shape is the one a caller's `depends_on` can break.
-- Staging worked (`StagedKubernetesNetworkPolicy` → `pendingPolicies` in the flow
-  logs) but only previews where the staged policy is the **deciding** one — a
-  namespace with a permissive netpol just unions and previews nothing.
-
-## Hard Calico invariants (expensive to get wrong)
-
-- Egress is evaluated **POST-DNAT** → allow rules match the *endpoint* IP.
-- A module-level `depends_on` covers a module's **data sources**, and a deferred
-  read makes its consumer's plan a lie: a policy that read the `kubernetes`
-  Endpoints object *inside* the module planned a guessed peer count (ClusterIP
-  only) and the apply died with `inconsistent final plan`. Fix was to read it in
-  the **stack root** (`stacks/core/core.tf`) and pass the peer IPs down — never
-  hardcode control-plane IPs. The netpol and that plumbing are gone (2026-09-16);
-  the lesson applies to any provider-deferred read inside a module.
-- k8s netpols only UNION → an operator-shipped netpol cannot be tightened.
-  tigera's `goldmane` allows any source on 7443; unfixable from TF.
-- The apiserver calls webhooks/aggregation from a **remote node** → those paths
-  need the **node CIDR** in the guest list. Same reason `etp=Cluster`
-  LoadBalancers (blender samba, WG) break under a firewall while `etp=Local`
-  (media, both gateways) pass.
-- `calicoctl` on PATH is **3.32.0 vs cluster 3.31.2 → refuses to run**. Pass
-  `--allow-version-mismatch` on every call (the env var does NOT work).
-
 ## Other conventions
 
 - **Terraform owns structure (groups, apps, bindings); the UI owns people.**
   Rebuild needs group members re-added by hand.
-- **Pin charts.** Pinned: MetalLB 0.16.1, NGF 2.7.1, kube-prometheus-stack
-  90.1.1, Longhorn 1.12.1, SeaweedFS 4.40.0 + CSI 0.2.35, authentik 2025.10.3,
-  wireguard-operator 0.3.0, cert-manager v1.21.1, media charts.
-  **Unpinned/float:** Harbor, external-dns, snapshot-controller, metrics-server,
-  prometheus-smartctl-exporter, argo-cd, argo-events, plex (whose "repo" is a
-  `raw.githubusercontent.com` gh-pages path, so a bump is also a check that the
-  chart still resolves). Bump one at a time.
+- **Pin charts.** 
 - **Dashboards ship from the owning module** as `grafana_dashboard: "1"`
   ConfigMaps (mirrors ServiceMonitors); Grafana keys them by `uid`.
 - **`checksum/config`** on pod templates when a Secret/ConfigMap should roll the
   pod (vaultwarden, blender mdns).
-- **Snapshots are cluster policy, joined by Volume-CR labels.** Longhorn matches a
-  `RecurringJob` to a volume by `recurring-job-group.longhorn.io/<group>` on the
-  **Volume CR** (`RecurringJob.spec` has `groups`; there is no volume list), so the
-  labels are written once — `modules/storage/snapshot_labeler.tf` — and *no PVC
-  carries them*: a PVC with those labels **replaces** its volume's entire group set
-  instead of merging, silently de-enrolling it. Never list the `default` group in a
-  job (every newly provisioned unlabelled volume lands in it), and re-run the
-  labeler (`-replace` of one address) after deleting a job or moving a volume
-  between tiers. Reverting a snapshot needs **maintenance mode**, because
-  `spec.disableFrontend` is derived from the VolumeAttachment tickets and not from
-  the Volume CR, and the manager API answers **in-cluster only**. Runbook with the
-  verified commands: `modules/storage/disaster_recovery.md`.
 - `.clinedocs/` holds deep, non-obvious operational notes (flow queries, netpol
   invariants) — load only when working that area.
