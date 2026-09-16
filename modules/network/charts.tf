@@ -50,7 +50,10 @@ locals {
           value = "hmac-sha256"
         }
       ]
+      # Chart 1.22.0 made `policy` required (it used to default to upsert-only); this keeps
+      # the pre-1.22 behaviour -- external-dns never deletes records it created.
       sources                   = ["service", "ingress", "gateway-httproute"]
+      policy                    = "upsert-only"
       enableGatewayListenerSets = true
       domainFilters             = [var.internal_dns.domain]
       extraArgs = [

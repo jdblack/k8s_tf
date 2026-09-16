@@ -9,6 +9,7 @@ resource "helm_release" "ext_dnsrelease" {
   name       = local.charts.ext_dns.name
   repository = local.charts.ext_dns.url
   chart      = local.charts.ext_dns.chart
+  version    = var.helm_external_dns_version
   wait       = true
   timeout    = 600
   values     = [yamlencode(local.helm_values.external_dns)]

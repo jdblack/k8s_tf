@@ -7,8 +7,8 @@ variable "namespace" {
 
 variable "helm_version" {
   type        = string
-  default     = "2.6.7"
-  description = "nginx-gateway-fabric chart version. Every gateway instance in the cluster must pin the same one."
+  default     = "2.7.1"
+  description = "nginx-gateway-fabric chart version. Every gateway instance in the cluster must pin the same one. The matching CRD refs live in ../api_gateway_config.tf."
 }
 
 variable "name" {

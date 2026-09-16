@@ -28,7 +28,7 @@ variable "ca_keyfile" {
 
 variable "helm_version" {
   type    = string
-  default = "v1.21.1"
+  default = "v1.21.2"
 }
 
 # The apiserver's endpoint IPs, read by the CALLER (stack root) and passed to the

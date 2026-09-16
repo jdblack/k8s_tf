@@ -4,7 +4,7 @@ Deploys the
 [prometheus-smartctl-exporter](https://github.com/prometheus-community/helm-charts/blob/main/charts/prometheus-smartctl-exporter/values.yaml)
 chart (OCI, `ghcr.io/prometheus-community/charts`) into `monitoring`, with
 `serviceMonitor.enabled = true` so the `prometheus` module's Prometheus scrapes
-it. Chart **version is unpinned today** — pin it when you touch the module.
+it. Chart version is pinned in `variables.tf` (`helm_version`).
 
 The exporter reads SMART data off the nodes' disks, so it needs host device
 access; check the chart's `daemonset`/privilege settings if it ever stops

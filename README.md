@@ -148,16 +148,17 @@ cert on a private gateway, no outpost on purpose).
   `helm_release`, so `grep -rn helm_version modules` lists every pin. Provider
   versions are exact and per stack (`stacks/*/providers.tf`). Bump one at a time.
 
-  Pinned today: cert-manager `v1.21.1`, MetalLB `0.16.1`, NGF `2.6.7`,
-  kube-prometheus-stack `90.1.1`, Longhorn `1.12.1`, SeaweedFS `4.40.0` + CSI
-  `0.2.35`, authentik `2025.10.3`, wireguard-operator `0.3.0`, argo-workflows
-  `0.46.4`, sonarr `2.2.2` / radarr `3.6.1` / prowlarr `3.8.2` / bazarr `2.3.0`.
-  **Still unpinned, so they float on any apply:** Harbor, tigera-operator,
-  external-dns, snapshot-controller, metrics-server,
-  prometheus-smartctl-exporter, plex-media-server, argo-cd, argo-events. Not
-  theoretical — kube-prometheus-stack rode four major versions unreviewed that
-  way and left its CRDs nine operator releases behind the operator serving them.
-  Pin on contact.
+  Pinned today: cert-manager `v1.21.2`, MetalLB `0.16.1`, calico `v3.32.2`,
+  external-dns `1.22.0`, NGF `2.7.1`, kube-prometheus-stack `91.4.1`, Longhorn
+  `1.12.1`, SeaweedFS `4.40.0` + CSI `0.2.35`, snapshot-controller `5.2.0`,
+  authentik `2026.8.2`, wireguard-operator `0.3.0`, Harbor `1.19.2`,
+  metrics-server `3.14.0`, prometheus-smartctl-exporter `0.17.1`, argo-cd `10.9.1`,
+  argo-workflows `2.0.6`, argo-events `2.4.27`, plex `1.9.0`, sonarr `2.2.3` /
+  radarr `3.6.4` / prowlarr `3.8.4` / bazarr `2.3.1`. **Nothing floats on a plain
+  apply any more** — the last unversioned releases were pinned 2026-09-16; what is
+  left is the *version* gap, tracked per chart in `memory-bank/progress.md`. Why the
+  rule exists: kube-prometheus-stack rode four major versions unreviewed that way
+  and left its CRDs nine operator releases behind the operator serving them.
 - **Image pins live with the image**, as a `*_image` / `image_tag` variable
   default (`modules/media/qbittorrent`, `modules/blender`,
   `modules/network/wireguard`). Version tag where upstream publishes one; digest
@@ -210,10 +211,14 @@ the offsite gap is tracked in `memory-bank/progress.md`.
 
 ## Gateway API (NGINX Gateway Fabric)
 
-- `stacks/core` installs the **Gateway API CRDs** (`gateway.networking.k8s.io/*`)
-  via a `terraform_data` bootstrap in `modules/network/api_gateway_config.tf`
-  (runs `kubectl`, idempotent, needs `kubectl` on the tofu box). NGF installs its
-  own CRDs (`gateway.nginx.org/*`) from its chart's `crds/` — no manual step.
+- `stacks/core` installs **both CRD sets** — the Gateway API's
+  (`gateway.networking.k8s.io/*`) and NGF's own (`gateway.nginx.org/*`) — via two
+  `terraform_data` bootstraps in `modules/network/api_gateway_config.tf` (each runs
+  `kubectl kustomize` at the NGF tag and re-runs only when its `triggers_replace`
+  changes; both are idempotent and both need `kubectl` on the tofu box). NGF's CRDs
+  are *also* vendored in the chart's `crds/`, but Helm applies that directory on
+  **install only** — an upgrade never touches it, so the bootstrap is what actually
+  keeps them current.
 - **Rebuild order matters:** `core` before planning `mantle`, because the media
   module's HTTPRoutes (`kubernetes_manifest`) need the HTTPRoute CRD at *plan*
   time.

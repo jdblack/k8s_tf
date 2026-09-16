@@ -3,7 +3,7 @@ variable "name" { default = "radarr" }
 
 variable "helm_repo" { default = "oci://ghcr.io/m0nsterrr/helm-charts" }
 variable "chart" { default = "radarr" }
-variable "helm_version" { default = "3.6.1" }
+variable "helm_version" { default = "3.6.4" }
 
 variable "domain" { type = string }
 

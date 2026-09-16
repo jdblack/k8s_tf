@@ -3,7 +3,7 @@ variable "name" { default = "bazarr" }
 
 variable "helm_repo" { default = "oci://ghcr.io/m0nsterrr/helm-charts" }
 variable "chart" { default = "bazarr" }
-variable "helm_version" { default = "2.3.0" }
+variable "helm_version" { default = "2.3.1" }
 
 variable "domain" { type = string }
 

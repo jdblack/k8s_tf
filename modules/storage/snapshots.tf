@@ -6,6 +6,7 @@ resource "helm_release" "snapshot_controller" {
   name       = "snapshot-controller"
   repository = "https://piraeus.io/helm-charts/"
   chart      = "snapshot-controller"
+  version    = var.helm_snapshot_controller_version
   namespace  = var.namespace
   wait       = true
   timeout    = 600

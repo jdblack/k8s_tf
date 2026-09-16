@@ -14,7 +14,7 @@ modules.
 | **MetalLB** | L2 LoadBalancer pool for the LAN (`metallb.tf`, addresses from `metal_networks`) |
 | **external-dns** | Publishes Services/HTTPRoutes to the internal Bind zone via RFC2136 (`external_dns.tf`, chart values in `charts.tf`). Authoritative for `vn.linuxguru.net` only — hence `dns/route53_record` for everything else |
 | **NGF gateways** | `public` and `private` NGINX Gateway Fabric control planes + data planes in `kube-network` (`gateways.tf` + `gateway/`). VIPs come from the MetalLB pool — nothing is pinned — and external-dns publishes the assigned IP into bind9, so reach them by name |
-| **Gateway API CRDs** | one-time bootstrap of `gateway.networking.k8s.io/*` (`api_gateway_config.tf`) |
+| **CRDs** | one-time bootstrap of `gateway.networking.k8s.io/*` **and** NGF's own `gateway.nginx.org/*` (`api_gateway_config.tf`) — the chart's `crds/` is install-only, so this bootstrap is what upgrades them |
 
 Most apps do *not* live here. `kube-network` is the shared **platform** namespace:
 the gateway data planes that front every namespace's HTTPS routes, external-dns,
