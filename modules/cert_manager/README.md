@@ -14,7 +14,7 @@ Installed by `stacks/core`. Two ClusterIssuers:
 | namespace `kube-certificates` | `var.namespace` default |
 | Secret `linuxguru-ca` | `kubernetes.io/tls`; `tls.crt`/`tls.key` read with `file()` from `~/.ssl/ca.{crt,key}` — those files must exist on the machine running tofu |
 | ConfigMap `linuxguru-ca`, **namespaceless** (lands in `default`) | the CA cert; no consumer left |
-| Helm release `cert-manager` | pinned `v1.21.1`; `crds.enabled` + `crds.keep`, the **gateway-shim** (`enableGatewayAPI`) and ListenerSets feature gate so an annotated ListenerSet gets its `cert-<fqdn>` secret automatically; `--dns01-recursive-nameservers[-only]` at public resolvers |
+| Helm release `cert-manager` | pinned `v1.21.2`; `crds.enabled` + `crds.keep`, the **gateway-shim** (`enableGatewayAPI`) and ListenerSets feature gate so an annotated ListenerSet gets its `cert-<fqdn>` secret automatically; `--dns01-recursive-nameservers[-only]` at public resolvers |
 | ClusterIssuer `letsencrypt` | `dns01/route53`, `hostedZoneID` from `var.data["R53_ZONEID"]`; credentials from `var.data` |
 | Secret `certman-route53-letsencrypt` | the Route53 key the solver reads |
 

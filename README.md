@@ -106,7 +106,7 @@ authentik.
 | ↳ `network/whisker/` ([README](modules/network/whisker/README.md)) | Calico Whisker flow-log UI, authentik-gated |
 | `storage/` ([README](modules/storage/README.md)) | Longhorn (+ `VolumeSnapshotClass`es, the cluster-wide recurring-snapshot jobs and their [recovery runbook](modules/storage/disaster_recovery.md)), SeaweedFS (helm, CSI, master/S3 listeners, Grafana dashboard) |
 | ↳ `storage/seaweedfs_admin/` ([README](modules/storage/seaweedfs_admin/README.md)) | SeaweedFS admin UI, authentik-gated (mantle) |
-| `cert_manager/` ([README](modules/cert_manager/README.md)) | cert-manager (pinned `v1.21.1`), the `letsencrypt` ClusterIssuer (Route53 DNS-01, zone pinned — `.vn` included) which signs **all 19 hosts**, and the dormant private `linuxguru-ca` |
+| `cert_manager/` ([README](modules/cert_manager/README.md)) | cert-manager (pinned `v1.21.2`), the `letsencrypt` ClusterIssuer (Route53 DNS-01, zone pinned — `.vn` included) which signs **all 19 hosts**, and the dormant private `linuxguru-ca` |
 | `auth/authentik/core/` | authentik server + worker + API key + listener |
 | ↳ `auth/authentik/proxy_outpost/` ([README](modules/auth/authentik/proxy_outpost/README.md)) | one call per protected app: proxy provider/app/group **and** the outpost Deployment/Service that fronts them |
 | ↳ `auth/authentik/oidc_provider/` | generic OIDC client for apps that speak OIDC (grafana, harbor, argo) |
