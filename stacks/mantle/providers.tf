@@ -27,8 +27,11 @@ terraform {
       version = "7.12.4"
     }
     authentik = {
-      source  = "goauthentik/authentik"
-      version = "2025.10.1"
+      source = "goauthentik/authentik"
+      # Tracks the app: bumped with the 2026.8.2 chart in `core`, whose API this provider
+      # is generated from (the 2025.10 API renamed user `uuid` -> `uid` and made binding
+      # `expires`/`expiring` required, among other changes).
+      version = "2026.8.0"
     }
     random = {
       source  = "hashicorp/random"
@@ -39,6 +42,12 @@ terraform {
     aws = {
       source  = "hashicorp/aws"
       version = "~> 6.0"
+    }
+    # OIDC signing keypairs, generated per provider in
+    # modules/auth/authentik/oidc_provider.
+    tls = {
+      source  = "hashicorp/tls"
+      version = "4.2.1"
     }
   }
 }

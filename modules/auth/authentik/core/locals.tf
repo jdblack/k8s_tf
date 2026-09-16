@@ -30,6 +30,27 @@ locals {
       postgresql = {
         password = random_password.postgres_pass.result
       }
+      # Two app-level defaults we have to pin, because the chart stopped setting them and
+      # its new defaults are wrong for this cluster:
+      #
+      #   * 2026.5 changed the default listen IP from 0.0.0.0 to [::]. The chart used to
+      #     hardcode AUTHENTIK_LISTEN__{HTTP,HTTPS,METRICS}=0.0.0.0:... and 2026.8.2 sets
+      #     none of them, so without this the server would bind the IPv6 wildcard. Calico
+      #     here is single-stack IPv4 (assign_ipv6=false) and the Service/route target
+      #     9000. (A prior 2026.8 attempt is recorded as crashing the server at startup;
+      #     this is the one documented breaking change that matches.)
+      #   * 2026.8 only honours X-Forwarded-Proto/-Host/-For from trusted proxies. NGF is
+      #     the only hop, so the pod CIDR is the whole list; anything else makes authentik
+      #     read HTTPS as HTTP (blocked mixed content, endless loading).
+      #
+      # trusted_proxy_cidrs stays a comma-joined STRING: the chart flattens nested values
+      # into env vars and would render a YAML list as the literal "[10.244.0.0/16]".
+      listen = {
+        http                = "0.0.0.0:9000"
+        https               = "0.0.0.0:9443"
+        metrics             = "0.0.0.0:9300"
+        trusted_proxy_cidrs = "${var.pod_cidr},127.0.0.1/32"
+      }
     },
     postgresql = {
       enabled = true
