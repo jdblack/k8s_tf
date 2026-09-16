@@ -35,8 +35,16 @@ by instantiating these two submodules from its own namespace:
 ## NetworkPolicy implications
 
 The data plane runs as ordinary pods in the gateway namespace and proxies
-cross-namespace. **No netpol exists here today** (the firewall layer was deleted
-2026-09-16), so nothing has to be allowed for this to work; this section is what a
-rebuild has to account for: fronted namespaces would need ingress from
-`kube-network`, and apps calling gateway-hosted URLs (SSO) would need egress to
-kube-network pods.
+cross-namespace. **Nothing is enforced here yet**: the rebuilt layer is egress-only, so this
+namespace has no policy of its own, and the ingress half — fronted namespaces accepting traffic
+from `kube-network` — is unwritten. The egress half is real, in both directions:
+
+- an app calling a gateway-hosted URL needs egress to *this* namespace. `devops-harbor` states it
+  (`harbor/core/egress.tf`): an `egress_peer` on 443 selected by the chart's
+  `gateway.networking.k8s.io/gateway-name` label, for harbor-core's OIDC — and every other OIDC
+  consumer here (`grafana`, `argo`, both on `auth.<domain>`) will need the same peer.
+- the controller itself needs the API server for its Gateway API watches. Those are long-lived
+  connections that a flow log never shows, so an empty Whisker window is not evidence of absence:
+  `media` grants it by pod selector (`ngf-egress`), and the cert-generator hook Job needs a
+  *separate* policy, because its pod template sets no labels at all — only `job-name`
+  (`cert_generator_job_name` in `outputs.tf` exists for that call).

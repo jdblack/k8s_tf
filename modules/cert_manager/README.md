@@ -101,13 +101,14 @@ The CA's *name* is not a literal anywhere: `ca.tf` reads it from
 names from it, so that key is **not** dead — deleting it renames the Secret,
 ClusterIssuer and ConfigMap.
 
-## No network policy here (2026-09-16)
+## No network policy here (as of 2026-09-17)
 
-This module used to install an egress-only policy (`security.tf`, deleted with the
-rest of the firewall layer). The reason it never had **ingress** rules is worth
-keeping if a policy layer is ever rebuilt: the kube-apiserver calls the
-cert-manager webhook from the nodes (host traffic, not a pod namespace), so any
-ingress restriction here breaks issuance cluster-wide.
+The module installs none — the rebuilt layer is egress-only so far, and `kube-certificates` is next
+in the rollout. DNS is certain; whether these pods need the API server is the thing to measure, and
+a quiet flow window cannot answer it (watches never end, so they are never emitted — see
+`.clinedocs/flow-logs.md`). The reason this namespace has never had **ingress** rules stands, and is
+the part worth keeping: the kube-apiserver calls the cert-manager webhook from the nodes — host
+traffic, not a pod namespace — so any ingress restriction here breaks issuance cluster-wide.
 
 ## If a private CA ever comes back
 

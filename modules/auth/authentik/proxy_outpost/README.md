@@ -71,12 +71,18 @@ core's `local.fqdn` (pinned in `stacks/core/auth.tf`).
 
 ## Egress
 
-The outpost is a plain pod with **no network policy** around it: the module used to render
-an egress default-deny plus a carve-out to authentik core on **port 9000 post-DNAT** (the
-Service is `authentik-server:80`, but Calico evaluates egress after DNAT, so a policy has to
-name the pod's real port). That whole layer — and with it the `firewalls/policy` renderer
-these calls used — was deleted 2026-09-16; the note survives only because a rebuild that
-reintroduces policy has to re-derive the port from DNAT, not from the Service.
+**The module renders no policy for it, on purpose**: three namespaces call it — `media`,
+`storage/seaweedfs_admin` and `network/whisker` — and a policy inside the module would be a policy
+for namespaces it knows nothing about. Where one is added it is always the same rule, and it
+belongs to the caller: an `network/firewalls/egress_peer` to authentik core on **port 9000
+post-DNAT**. The Service is `authentik-server:80` and the outpost dials that, but Calico evaluates
+egress after DNAT, so the policy has to name the server pod's real port — a rule naming 80 permits
+nothing. `media` and `kube-storage` state exactly this (`media/egress.tf`,
+`storage/seaweedfs_admin/egress.tf`), each selecting the outpost by
+`app.kubernetes.io/name=authentik-outpost`: the label all three carry, though their Deployments are
+named `authentik-outpost`, `seaweedfs-admin-auth` and `whisker-auth`. Whisker's copy is a Calico
+tier CR instead (`network/whisker/tier.tf`), because there the operator's tier `calico-system`
+pre-empts ours.
 
 ## Access control
 
