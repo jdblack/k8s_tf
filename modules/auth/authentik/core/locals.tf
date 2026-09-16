@@ -57,6 +57,12 @@ locals {
         metrics             = "0.0.0.0:9300"
         trusted_proxy_cidrs = "${var.pod_cidr},127.0.0.1/32"
       }
+      # The whole namespace has no internet egress (security.tf). Server and worker both ran
+      # a periodic version check against goauthentik.io (the only 443 flows from here), so
+      # turn it off rather than let it fail against the firewall.
+      disable_update_check = true
+      # ...and the startup phone-home, which dials out once per container start.
+      disable_startup_analytics = true
     },
     postgresql = {
       enabled = true

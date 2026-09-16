@@ -79,7 +79,7 @@ egress after DNAT, so the allow has to name the pod's real port). It is rendered
 [`../../../network/firewalls/policy`](../../../network/firewalls/policy/README.md) so it
 matches the rest of the firewall library.
 
-In `media` that is additive to the namespace-wide `basic_internet` posture, which supplies
+In `media` that is additive to the namespace-wide `basic_egress` posture, which supplies
 same-namespace + DNS. In `calico-system` (whisker) and `kube-storage` (seaweedfs admin)
 there is no namespace-wide egress policy to lean on, so the caller adds a second pod-scoped
 policy for DNS + the app.

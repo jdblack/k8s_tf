@@ -9,7 +9,7 @@ Non-obvious and expensive to get wrong. Per-module detail in `modules/network/fi
    `Provider produced inconsistent final plan` (`spec.egress[1].to: block count changed from 1
    to 2`). So a firewall that reads the `kubernetes` Endpoints object must not sit under a
    module-level `depends_on`: read the endpoints in the STACK ROOT and pass `api_peer_ips`
-   down (`allow_api` + `basic_internet` both take it; `cert_manager` and `authentik` do this).
+   down (`basic_egress` takes it; `cert_manager`, `authentik` and `storage` do this).
    Forewarned in a plan by `will be read during apply` / `depends on a resource or a module
    with changes pending`. **Do NOT** "fix" it by hardcoding control-plane IPs: the endpoint
    entry is the peer that actually authorizes API egress, so a re-IP becomes a silent 6443 deny.
@@ -58,7 +58,7 @@ Non-obvious and expensive to get wrong. Per-module detail in `modules/network/fi
    policy. Cost of getting this wrong: NGF's `pre-install`/`pre-upgrade` `cert-generator` Job
    dies on `dial tcp 10.96.0.1:443: i/o timeout`, exhausts `backoffLimit`, and helm's `wait`
    burns the release's whole `timeout` -- a hang, not a fast error (media, 2026-09-16; see
-   `modules/network/firewalls/allow_api/README.md`).
+   `modules/network/firewalls/basic_egress/README.md#hook-jobs-need-their-own-selector`).
  - **Staged policies only preview where the staged one is the *deciding* policy.** A namespace
    that already has a permissive netpol just unions and previews nothing.
  - calicoctl is on PATH but is **3.32.0 vs cluster 3.32.2, so it refuses to run**. Pass

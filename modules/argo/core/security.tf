@@ -7,10 +7,12 @@
 module "firewall" {
   count = var.enable_egress_firewall ? 1 : 0
 
-  source            = "../../network/firewalls/basic_internet"
-  namespace         = var.namespace
-  allow_to_services = true
-  allow_to_k8sapi   = true
+  source    = "../../network/firewalls/basic_egress"
+  namespace = var.namespace
+  # kube-network first: that order is what the pre-rename policy rendered.
+  allow_namespaces = ["kube-network", var.namespace]
+  allow_internet   = true
+  allow_k8s_api    = true
 
   depends_on = [kubernetes_namespace_v1.namespace]
 }

@@ -1,11 +1,11 @@
-# Egress: cluster DNS + the public internet, nothing else. Vaultwarden fetches icons/CDN
-# assets and has no business reaching the API or any other in-cluster service.
+# Egress: cluster DNS only. No internet -- the favicon/icon proxy is the only thing that ever
+# dialled out (mobile and desktop clients fetch their own icons; the web vault falls back),
+# and nothing else in here has business beyond the namespace. No API, no other service.
 module "firewall" {
-  source = "../network/firewalls/basic_internet"
+  source    = "../network/firewalls/basic_egress"
+  namespace = kubernetes_namespace_v1.this.metadata[0].name
 
-  namespace         = kubernetes_namespace_v1.this.metadata[0].name
-  allow_to_services = false
-  allow_to_k8sapi   = false
+  allow_namespaces = [kubernetes_namespace_v1.this.metadata[0].name]
 }
 
 # Ingress: same namespace + the gateway data plane, and NO CIDRs -- there is no
@@ -14,7 +14,7 @@ module "firewall_ingress" {
   source = "../network/firewalls/limited_ingress"
 
   namespace = kubernetes_namespace_v1.this.metadata[0].name
-  # basic_internet above already owns "namespace-firewall"; NetPol names are per-namespace.
+  # basic_egress above already owns "namespace-firewall"; NetPol names are per-namespace.
   policy_name = "namespace-ingress"
 
   allowed_ingress_namespaces = [

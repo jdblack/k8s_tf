@@ -455,8 +455,66 @@ The long-form record; the one-paragraph version is under "What works". Sequence:
    `apiVersion//Kind//name//namespace`) and are applied by mantle. One browser sign-in is the
    last unconfirmed step (the logged-in UI through the proxy).
 
+## The egress lockdown + module merge — applied 2026-09-16
+
+Two things at once, in two applies per stack, both verified live.
+
+**Phase 1 — closed egress for four namespaces** (core: `2 added, 4 changed, 0 destroyed`;
+mantle: `0/1/0`):
+
+| Namespace | Was | Now | Why it's safe |
+|---|---|---|---|
+| `kube-auth` | ns + DNS + internet | ns + DNS | the only internet use was authentik's version check (`AUTHENTIK_DISABLE_UPDATE_CHECK`) and the startup phone-home (`AUTHENTIK_DISABLE_STARTUP_ANALYTICS`) — both now `true`, confirmed with `ak dump_config` in a live pod. The worker keeps its pod-scoped API policy (outpost connection monitor). |
+| `vaultwarden` | ns + DNS + internet | ns + DNS | the favicon/icon proxy was the only caller (0 flows in 24 h); mobile/desktop clients fetch their own icons. No SMTP, no `PUSH_*`, no `ICON_*` in the config Secret. |
+| `longhorn-system` | **no egress policy at all** | ns + DNS + API | the chart ships Ingress-only netpols, so this is the namespace's first egress restriction. `upgradeChecker = false` in `longhorn.tf` kills its 443 flow. |
+| `kube-storage` | **no egress policy at all** | ns + DNS + API (`policy_name = namespace-egress`) | the API carve-out is load-bearing: seaweedfs-csi-controller/node watch PVCs/PVs. The authentik outpost in there keeps its own pod-scoped policy (netpols union, so the namespace-wide one only adds). |
+
+Proof, in this order: plan diff (internet rule disappears; new policies show ns + DNS +
+`10.96.0.1/32` + `${node}/32` on 6443) → **real workloads**: a fresh PVC in *both* storage
+classes, mounted and written to (`MOUNT-OK` for longhorn and seaweedfs) → a probe pod in
+`kube-storage` (`DNS resolves`, `INTERNET-DENIED`, `API-OK` via ClusterIP **and** node IP,
+`S3-REACHED`) → whisker `Deny` rows for the internet attempt with
+`trigger.name = namespace-firewall` → test PV/PVC deleted cleanly (so volume *deletion*
+works under the new policy too).
+
+**Phase 2 — `basic_internet` → `basic_egress`, `allow_api` folded in.** Six touchable inputs
+(`namespace`, `policy_name`, `pod_selector`, `allow_namespaces`, `allow_cidrs`,
+`api_peer_ips`/`service_cidr`) and two booleans (`allow_internet`, `allow_k8s_api`), the rest
+internalised as locals (`system_namespace`, `blocked_egress_cidrs`); DNS always rendered;
+`allow_dns`/`allow_to_ns`/`allow_to_services`/`egress_allow_ip_blocks` are gone. The family is
+now `basic_egress` / `limited_ingress` / `policy`, with both directions taking an optional
+`pod_selector`. Acceptance test held exactly: after migrating all 9 call sites, **core planned
+`0 to add, 0 to change, 0 to destroy` with 1 `moved`, mantle `0/0/0` with 2 `moved`** — the
+state-only moves were then applied (`0/0/0` applies). The `moved` blocks (`module.allow_api` →
+`module.firewall_api` in authentik; media ×2) must survive one more cycle before deletion.
+
+Two things worth not rediscovering:
+
+- **The JSON-path diff is the contract.** The merged renderer emits namespaces → DNS → API →
+  internet → CIDRs, and `harbor`/`argo` must keep `kube-network` *before* their own namespace
+  in `allow_namespaces`, or the whole policy is rewritten.
+- **Whisker only records policy-evaluated flows**, so an empty result for a namespace with no
+  egress netpol proves nothing (longhorn→apiserver 6443 never shows up). Absence of internet
+  flows *is* meaningful for namespaces that already had a policy, and every one of these had
+  its own policy by then. Also: the `kubernetes` Service is **443**, not 6443 — probing
+  `10.96.0.1:6443` fails for reasons that have nothing to do with the firewall.
+
 ## What's left / open
 
+- **Close monitoring's egress (phase 3 of the firewall rework).** `monitoring` still has **no
+  netpols at all**, and its only outbound use today is grafana's 10-minute update/plugin
+  checks — turned off in `modules/monitoring/prometheus/locals.tf`, so the policy is the last
+  piece. Shape: `basic_egress` with `allow_cidrs = [var.pod_cidr, <node IPs>/32]` (Prometheus
+  scrapes pod IPs and node-exporter/kubelet on the node IPs — those are inside
+  `blocked_egress_cidrs`, so they must be named) **plus `allow_k8s_api = true`**: Prometheus'
+  own `kubernetes_sd_configs` list pods/services/endpoints/nodes, so a DNS+CIDR-only policy
+  breaks target discovery — the plan in `activeContext.md` that said "CIDRs only" was
+  incomplete on this point. Node IPs are the one open question: no data source publishes them
+  yet (candidates: the node-exporter Service's endpoints, or a local from
+  `var.deployment.metal`), and the "≥1 h of clean scraping" soak is what closes it.
+- **Drop the 3 remaining `moved` blocks** (`module.allow_api` → `module.firewall_api` in
+  `modules/auth/authentik/core/security.tf`; the two in `modules/media/security.tf`) once a
+  cycle has applied them — they are state-only and cost nothing to keep, but they are clutter.
 - **Whisker's tier CRs and mantle's authentik blocker are both closed out (2026-09-16).** The
   3 CRs are imported into state and applied — the hand-applied render and the module's render
   agree, so nothing about the live policy changed; the `data.authentik_certificate_key_pair

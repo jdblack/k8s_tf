@@ -30,6 +30,10 @@ module "storage" {
   source     = "../../modules/storage"
   namespace  = "kube-storage"
   depends_on = [module.network]
+
+  # Same reason as cert_man below: the longhorn egress firewall needs the API carve-out,
+  # and this module sits under a module-level depends_on.
+  api_peer_ips = local.api_peer_ips
 }
 
 module "cert_man" {

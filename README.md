@@ -101,7 +101,7 @@ authentik.
 | Module | What it is |
 |---|---|
 | `network/` ([README](modules/network/README.md)) | Calico, MetalLB, external-dns (RFC2136 → bind9), the shared `public`/`private` NGF gateways, Gateway API CRD bootstrap, WireGuard |
-| ↳ `network/firewalls/` ([README](modules/network/firewalls/README.md)) | NetworkPolicy library — `basic_internet` (egress), `limited_ingress` (ingress), `allow_api` (pod-scoped API egress) over one `policy` renderer |
+| ↳ `network/firewalls/` ([README](modules/network/firewalls/README.md)) | NetworkPolicy library — `basic_egress` (egress, namespace-wide or pod-scoped), `limited_ingress` (ingress) over one `policy` renderer |
 | ↳ `network/gateway/` ([README](modules/network/gateway/README.md)) | one NGF control plane + `Gateway` per call; `expose` = `listener_set` + `http_route` in one call |
 | ↳ `network/dns/route53_record/` ([README](modules/network/dns/route53_record/README.md)) | Terraform-authoritative Route53 record, for hosts external-dns cannot publish |
 | ↳ `network/whisker/` ([README](modules/network/whisker/README.md)) | Calico Whisker flow-log UI, authentik-gated |

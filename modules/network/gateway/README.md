@@ -37,5 +37,5 @@ by instantiating these two submodules from its own namespace:
 The data plane runs as ordinary pods in the gateway namespace and proxies
 cross-namespace: fronted namespaces need ingress from `kube-network`
 (`limited_ingress`), and apps calling gateway-hosted URLs (SSO) need egress to
-kube-network pods (`basic_internet` → `allow_to_services`). Details in
+kube-network pods (`basic_egress` → `allow_namespaces = ["kube-network", …]`). Details in
 [`firewalls/README.md`](../firewalls/README.md).

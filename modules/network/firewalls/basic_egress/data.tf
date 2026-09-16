@@ -4,7 +4,7 @@
 # IP is what must be allowed. Read only when the caller did not hand the IPs in -- see
 # var.api_peer_ips for why that matters.
 data "kubernetes_endpoints_v1" "kubernetes" {
-  count = var.allow_to_k8sapi && var.api_peer_ips == null ? 1 : 0
+  count = var.allow_k8s_api && var.api_peer_ips == null ? 1 : 0
 
   metadata {
     name      = "kubernetes"

@@ -5,7 +5,7 @@ accept ingress only from the namespaces listed in `allowed_ingress_namespaces`
 and the source CIDRs in `allowed_ingress_cidrs`; everything else is dropped.
 
 > **Direction:** Ingress only. Pair it with
-> [`basic_internet`](../basic_internet/README.md) for the matching egress posture.
+> [`basic_egress`](../basic_egress/README.md) for the matching egress posture.
 
 ## When to use
 
@@ -104,5 +104,5 @@ replaces the old `namespace_only` module, which was exactly this with
 
 ## See also
 
-- [`basic_internet`](../basic_internet/README.md) — the matching egress module.
+- [`basic_egress`](../basic_egress/README.md) — the matching egress module.
 - [`firewalls/README.md`](../README.md) — decision table and composition notes.

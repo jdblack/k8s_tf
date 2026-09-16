@@ -26,7 +26,7 @@ own namespaces.
 
 | Path | What it is |
 |---|---|
-| [`firewalls/`](firewalls/README.md) | NetworkPolicy helper library — `basic_internet`, `limited_ingress`, `allow_api` over the shared [`policy`](firewalls/policy/README.md) renderer |
+| [`firewalls/`](firewalls/README.md) | NetworkPolicy helper library — `basic_egress` (egress, namespace-wide or pod-scoped via `pod_selector`), `limited_ingress` over the shared [`policy`](firewalls/policy/README.md) renderer |
 | [`gateway/`](gateway/README.md) | One NGINX Gateway Fabric instance per Gateway (control plane + Gateway resource) |
 | [`gateway/expose/`](gateway/expose/README.md) | One call to publish an app: HTTPS ListenerSet (+ cert/grants) and optional HTTPRoute |
 | [`gateway/listener_set/`](gateway/listener_set/README.md) | App-owned HTTPS listener on a Gateway + auto cert + ReferenceGrants (used by `expose`) |
@@ -40,6 +40,6 @@ own namespaces.
 `kube-network`'s shared gateway data planes are ordinary pods proxying
 cross-namespace, so a gateway-fronted namespace must allow ingress from
 `kube-network` (`firewalls/limited_ingress`) and an app calling a gateway URL —
-SSO against `auth.<domain>` — needs `allow_to_services` on
-`firewalls/basic_internet`. Composition and the decision table:
+SSO against `auth.<domain>` — needs `kube-network` in `allow_namespaces` on
+`firewalls/basic_egress`. Composition and the decision table:
 [`firewalls/README.md`](firewalls/README.md).

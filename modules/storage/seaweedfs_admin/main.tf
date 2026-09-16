@@ -61,9 +61,9 @@ module "expose" {
   backend_port      = 9000
 }
 
-# The outpost module's policy is egress default-deny and the SeaweedFS namespace
-# firewall is ingress-only, so nothing else opens this egress. Peers are post-DNAT
-# pods, not Service IPs.
+# The outpost module's policy is egress default-deny; core's SeaweedFS namespace also carries
+# a namespace-wide egress policy (ns + DNS + API) that unions in for these pods, but the
+# admin hop below is only opened here. Peers are post-DNAT pods, not Service IPs.
 module "outpost_egress" {
   source = "../../network/firewalls/policy"
 

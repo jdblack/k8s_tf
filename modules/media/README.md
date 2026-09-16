@@ -98,13 +98,13 @@ weaken external exposure.)
 
 ## Netpol posture (`security.tf`)
 
-- Egress: namespace-wide `basic_internet` with `allow_to_k8sapi = false`, plus a
-  **pod-scoped** `allow_api` for the NGF control plane only — the canonical
-  "prefer `allow_api` over `allow_to_k8sapi`" example — and a second one
+- Egress: namespace-wide `basic_egress` (self + DNS + internet, no API), plus a
+  **pod-scoped** call for the NGF control plane only — the canonical
+  "prefer a pod-scoped API grant over a namespace-wide one" example — and a second one
   (`allow-api-egress-certgen`) for NGF's cert-generator hook Job, whose pods carry
   only batch labels. Without it the hook can't reach the API and every NGF upgrade
   dies in helm's wait (2026-09-16; see
-  `network/firewalls/allow_api/README.md`).
+  `network/firewalls/basic_egress/README.md`).
 - Ingress: `limited_ingress` = same-namespace + `kube-network-vpn` (WireGuard
   clients land on the wg-server pod) + `0.0.0.0/0 minus the cluster CIDRs` (the
   LoadBalancer apps), plus a pod-scoped `limited_ingress` for plex so

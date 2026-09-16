@@ -279,6 +279,17 @@ a few days of real traffic (a login, an Argo sync, a fresh image pull) → flip
   and it plans `No changes`. That outage is the one justified use of `-target` (the 3+6
   ListenerSets).
 
+- **The egress firewall is one module now: `basic_egress` (2026-09-16).** `basic_internet` +
+  `allow_api` were merged into it and its five default-`true` posture booleans replaced by an
+  opt-in interface (`allow_namespaces` / `allow_k8s_api` / `allow_internet` / `allow_cidrs`,
+  plus an optional `pod_selector` that makes any call pod-scoped — the shape `allow_api` had).
+  At the same time `kube-auth`, `vaultwarden`, `longhorn-system` and `kube-storage` had their
+  internet egress closed (`longhorn-system`/`kube-storage` had no egress policy at all before).
+  The rename was proven zero-diff on **all three stacks** (core `0 to add / 0 to change / 0 to
+  destroy` + 1 `moved`, mantle `0/0/0` + 2 `moved`), and both storage classes were re-tested
+  with a live PVC mount under the new policies. Evidence, traps and the still-open monitoring
+  piece: `progress.md`.
+
 ## Settled — don't relitigate
 
 - Three stacks, applied in order (core → mantle → apps); state in k8s Secrets.

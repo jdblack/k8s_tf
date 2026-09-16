@@ -103,7 +103,7 @@ ClusterIssuer and ConfigMap.
 
 ## Deliberately egress-only
 
-`security.tf` installs `basic_internet` with `allow_to_k8sapi = true` and **no
+`security.tf` installs `basic_egress` with `allow_k8s_api = true` and **no
 ingress policy**: the kube-apiserver calls the cert-manager webhook from the
 nodes (host traffic, not a pod namespace), so any ingress restriction here breaks
 issuance cluster-wide. The egress fence (same-namespace, DNS, API, internet for

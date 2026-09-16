@@ -27,6 +27,14 @@ locals {
           # load-bearing: JMESPath binds && tighter than ||.
           role_attribute_path = "(contains(groups[*], '${var.grafana_name}-admin') || contains(groups[*], '${var.admin_group}')) && 'Admin' || 'Viewer'"
         }
+        # grafana.com polls, every ten minutes: the version banner and the installed-plugin
+        # list. Both are UI-only and the namespace's only outbound traffic, and monitoring's
+        # egress is being closed (pod_cidr + node IPs only), so turn them off rather than let
+        # them fail against the firewall.
+        analytics = {
+          check_for_updates        = false
+          check_for_plugin_updates = false
+        }
       }
       persistence = {
         enabled = true

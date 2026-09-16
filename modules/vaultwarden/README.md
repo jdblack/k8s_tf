@@ -50,7 +50,7 @@ every client. `/admin` is disabled instead (`ADMIN_TOKEN` unset — see
 | `service.tf` | ClusterIP `80` — no LoadBalancer, so no LAN path bypasses the gateway |
 | `listener.tf` | `expose`: ListenerSet on the `private` gateway + HTTPRoute to the Service |
 | `dns.tf` | the authoritative Route53 A record |
-| `security.tf` | egress `basic_internet`; ingress `limited_ingress` = self + `kube-network`, no CIDRs |
+| `security.tf` | egress `basic_egress` (self + DNS, **no internet**); ingress `limited_ingress` = self + `kube-network`, no CIDRs |
 | `disaster_recovery.md` | what a restore costs here; mechanics in [`../storage/disaster_recovery.md`](../storage/disaster_recovery.md) |
 
 `strategy = Recreate` is required (RWO PVC; a rolling update deadlocks waiting

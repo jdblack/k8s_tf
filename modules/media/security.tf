@@ -1,21 +1,25 @@
 
 # Namespace-wide egress: same-ns + DNS + internet, but not the k8s API.
 module "firewall" {
-  source            = "../network/firewalls/basic_internet"
-  namespace         = var.namespace
-  allow_to_services = false
-  allow_to_k8sapi   = false
+  source           = "../network/firewalls/basic_egress"
+  namespace        = var.namespace
+  allow_namespaces = [var.namespace]
+  allow_internet   = true
 }
 
 # Policies union: NGF needs the API for cert generation, so it gets this on top of the
 # namespace-wide rules; the arr and data-plane pods stay API-denied.
+module "firewall_api" {
+  source        = "../network/firewalls/basic_egress"
+  namespace     = var.namespace
+  policy_name   = "allow-api-egress"
+  pod_selector  = { "app.kubernetes.io/name" = "nginx-gateway-fabric" }
+  allow_k8s_api = true
+}
 
-module "allow_api" {
-  source    = "../network/firewalls/allow_api"
-  namespace = var.namespace
-  pod_selector = {
-    "app.kubernetes.io/name" = "nginx-gateway-fabric"
-  }
+moved {
+  from = module.allow_api
+  to   = module.firewall_api
 }
 
 # The chart's pre-install/upgrade hook Job can't be reached by the selector above: its pods
@@ -23,11 +27,17 @@ module "allow_api" {
 # `dial tcp 10.96.0.1:443: i/o timeout` until helm's `wait` times the whole release out
 # (seen 2026-09-16 upgrading the media gateway). Second pod-scoped policy for the hook's one
 # pod label; the Job name tracks the gateway module's release_name.
-module "allow_api_cert_generator" {
-  source       = "../network/firewalls/allow_api"
-  namespace    = var.namespace
-  policy_name  = "allow-api-egress-certgen"
-  pod_selector = { "job-name" = module.gateway.cert_generator_job_name }
+module "firewall_api_certgen" {
+  source        = "../network/firewalls/basic_egress"
+  namespace     = var.namespace
+  policy_name   = "allow-api-egress-certgen"
+  pod_selector  = { "job-name" = module.gateway.cert_generator_job_name }
+  allow_k8s_api = true
+}
+
+moved {
+  from = module.allow_api_cert_generator
+  to   = module.firewall_api_certgen
 }
 
 # Ingress: same-namespace, WireGuard clients (they land on the wg-server pod) and non-pod

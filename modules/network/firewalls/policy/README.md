@@ -2,9 +2,8 @@
 
 Turns explicit **rule objects** into one typed `kubernetes_network_policy_v1`.
 This is the only place in the library that translates rules → resource; the
-public presets ([`basic_internet`](../basic_internet/README.md),
-[`limited_ingress`](../limited_ingress/README.md),
-[`allow_api`](../allow_api/README.md)) and any bespoke caller just build the
+public presets ([`basic_egress`](../basic_egress/README.md),
+[`limited_ingress`](../limited_ingress/README.md)) and any bespoke caller just build the
 rule lists and call this, so the render logic (and its drift-visibility
 properties) exists once.
 
@@ -41,6 +40,6 @@ entries and `list(any)` would force them all to the same type.
 
 ## Why typed, not `kubectl_manifest`
 
-See [`basic_internet/security.tf`](../basic_internet/security.tf) — a
+See [`basic_egress/security.tf`](../basic_egress/security.tf) — a
 `kubectl_manifest`-backed NetPol edited out-of-band once silently became
 allow-all while `tofu plan` reported no changes.

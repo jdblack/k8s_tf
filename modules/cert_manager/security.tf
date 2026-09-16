@@ -6,9 +6,11 @@
 # (host traffic, not a pod namespace), so restricting ingress would break certificate
 # issuance cluster-wide.
 module "firewall" {
-  source          = "../network/firewalls/basic_internet"
-  namespace       = var.namespace
-  allow_to_k8sapi = true
+  source           = "../network/firewalls/basic_egress"
+  namespace        = var.namespace
+  allow_namespaces = [var.namespace]
+  allow_internet   = true
+  allow_k8s_api    = true
 
   api_peer_ips = var.api_peer_ips
 

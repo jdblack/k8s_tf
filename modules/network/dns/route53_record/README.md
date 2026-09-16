@@ -1,7 +1,7 @@
 # `route53_record` — a Terraform-authoritative Route53 record
 
 One `aws_route53_record`, for the hosts external-dns cannot publish. Single
-purpose, like [`../../firewalls/allow_api`](../../firewalls/allow_api/README.md).
+purpose, like [`../../firewalls/basic_egress`](../../firewalls/basic_egress/README.md).
 
 ```hcl
 module "dns" {

@@ -3,6 +3,9 @@ locals {
     longhorn = {
       defaultSettings = {
         concurrentAutomaticEngineUpgradePerNodeLimit = 3
+        # The manager polls longhorn.io for new releases (the only 443 flow from this
+        # namespace); the egress firewall in longhorn-security.tf closes that path.
+        upgradeChecker = false
       }
       csi = {
         attacherReplicaCount    = 1

@@ -17,3 +17,21 @@ module "firewall_metrics" {
 
   depends_on = [kubernetes_namespace_v1.longhorn]
 }
+
+# Egress: this namespace only -- longhorn-manager <-> instance-manager gRPC, engine replica
+# proxies, csi-plugin/attacher/provisioner/resizer/snapshotter -> manager and API -- plus
+# cluster DNS. Nothing outbound beyond that: no internet (the upgrade checker is off in
+# longhorn.tf) and no other namespace. The chart ships Ingress-only policies, so this is the
+# namespace's first egress restriction.
+module "firewall_egress" {
+  source           = "../network/firewalls/basic_egress"
+  namespace        = var.longhorn_namespace
+  allow_namespaces = [var.longhorn_namespace]
+  allow_k8s_api    = true
+
+  # This module is called under a module-level `depends_on` (stacks/core/core.tf), which
+  # defers the firewall's own endpoints read -- see basic_egress/variables.tf.
+  api_peer_ips = var.api_peer_ips
+
+  depends_on = [kubernetes_namespace_v1.longhorn]
+}
