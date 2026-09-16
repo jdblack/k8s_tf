@@ -6,6 +6,14 @@
  - **Absence of a flow is not absence of traffic.** Long-lived connections (the apiserver watches
    every controller holds) are not emitted, so API clients cannot be enumerated from here — the
    ClusterIP path never shows up as a dest namespace.
+   - **Measured 2026-09-17, the scrape case.** Prometheus (ns `monitoring`) scrapes every
+     `kube-storage` SeaweedFS pod on `:9327` — 13/13 targets `up` — and `dest_ports: [{"value":9327}]`
+     returns **zero** flow records. Prometheus keeps the connection open, so there is no flow to see.
+     A guest found this way is invisible until a policy denies it, and then it appears minutes later as
+     a dead target rather than as a Deny at the moment of the change; ask Prometheus
+     (`up{namespace=...}`) about scrape guests, not Whisker. Prometheus is not the only keep-alive
+     client: any long-lived S3/DB client hides the same way, which is why the ingress rule for the
+     scrape service was written from `up` and not from a test apply.
  - **The result set is capped (~570 items), so the window is only as long as the busiest pod needs
    to fill it.** One namespace returned 568 items spanning 105 s (`totalPages: 1`); the same query
    with `startTimeGte` 12 h back returned 566, because a torrent client's ~550 flows/hour crowded
