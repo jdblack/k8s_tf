@@ -6,5 +6,9 @@ terraform {
     kubernetes = {
       source = "hashicorp/kubernetes"
     }
+    # Calico NetworkPolicy CRs in the `calico-system` tier, see tier.tf.
+    kubectl = {
+      source = "gavinbunney/kubectl"
+    }
   }
 }
