@@ -667,6 +667,13 @@ peer set comes from the module's own Service + Endpoints reads).
 
 ## What's left / open
 
+- **The 2026-09-17 comment sweep is committed (`a799916`, 2026-09-17) — nothing open.** 55 files:
+  53 `.tf` (`+320/−685`), the rule in `.clinerules/behavior.md` and one module README; the memory-bank
+  record and two stale cert-manager version lines (`ce24ded`) followed as docs-only commits. Comment
+  lines **982 → 616** across all 240 `.tf` files, `fmt` clean, `validate` clean in all three stacks,
+  and the removed-line audit shows **no non-comment HCL**. It went in on its own, ahead of the next
+  egress namespace, so either can be reverted alone.
+  Rule, exceptions and the audit recipe: `activeContext.md` § Current state.
 - **`monitoring`'s egress policy is now writable — and it is the first one that needs a decision
   rather than a call.** Prometheus scrapes pod IPs and node-exporter/kubelet on the **node IPs**,
   and its own `kubernetes_sd_configs` list pods/services/endpoints/nodes, so a DNS-and-namespace
@@ -904,6 +911,15 @@ peer set comes from the module's own Service + Endpoints reads).
   and eyeball each one, then `tofu fmt -recursive -check` + `tofu validate` per stack.
   Clean as of 2026-09-16; the only remaining removed code lines are a variable
   `description` reword and a blank line.
+  **Superseded 2026-09-17** by a second, harder pass that took the rule to its current
+  "one line max" form (982 → 616 lines, all 240 files, committed `a799916` — `activeContext.md`).
+  That pass re-ran exactly this audit with the same result: no non-comment HCL removed
+  (one blank line in the old `storage/egress.tf` header, and the `--- a/...` headers the
+  grep itself emits, are all it prints).
+  Two gotchas it added: a **bare `#` on its own line** is a separator that fake-merges the
+  comments above and below it into one block, so grep `'^[[:space:]]*#[[:space:]]*$'` and
+  delete them; and any awk block counter must reset at `FNR==1`, or one file's trailing
+  block merges with the next file's leading one.
 - **State lives in the Kubernetes backend** (`kube-system`, `secret_suffix =
   core|mantle|deployment`), so an interrupted command leaves no local lock file and a
   local `ls` for `*.tfstate.lock.info` proves nothing. **The lock is a `Lease` named

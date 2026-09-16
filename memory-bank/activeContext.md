@@ -5,6 +5,27 @@
 State and in-flight work; the open list is `progress.md`.*
 
 ## Current state
+- **Code comments were swept to the new rule (2026-09-17), committed as `a799916`** — 55 files of
+  code and docs: **53 `.tf` (`+320/−685`)** plus `.clinerules/behavior.md` (the rule itself) and
+  `network/firewalls/README.md`. The record you are reading followed as itself, and two stale
+  cert-manager version lines as `ce24ded`. All 240 `.tf` files: comment lines **982 → 616**. The rule
+  is one line max; the only blocks over 1 line are **file headers, capped at 4**, and they hold
+  cross-cutting traps only (plan-time landmines, the tier mechanism) — app detail stays in the module
+  README. Three places have **no README at any level** — `harbor/core`, `auth/authentik/core`,
+  `argo/mantle/argo-workflows` — and there the comments are the only copy, so they were pruned most
+  conservatively. Cut everywhere: module README
+  duplication, verification narrative, README pointers, decorative `--- x ---` banners, code
+  restatement. Two defects found and fixed: a **severed comment fragment** at the tail of
+  `storage/egress.tf` (a block whose head had already been trimmed) and two **bare `#` separator
+  lines** (`media/egress.tf`, `stacks/core/vpn.tf`) that fake-merged two unrelated comments into one
+  block.
+  **Checks to repeat after any comments-only pass:** `git diff -w -U0 -- '*.tf' | grep '^-' | grep -v
+  '^-[[:space:]]*#'` must print nothing but `--- a/...` headers (the 2026-09-16 pass silently deleted a
+  `variable` block along with its comment), `grep -rn '^[[:space:]]*#[[:space:]]*$' --include='*.tf'`
+  must be empty, `tofu fmt -recursive -check modules stacks` exits 0, `tofu validate` passes in all
+  three stacks.
+  A block-size counter must reset at `FNR==1`, or it merges a file's last comment block with the next
+  file's first and over-reports.
 - **`kube-storage` is the fourth namespace closed, and the second shape (2026-09-17).** `media` carries
   a namespace *profile* (self + DNS + the public internet); `kube-storage` carries the **closed floor**
   used namespace-wide — `podSelector: {}`, own namespace + DNS and nothing else, 28 pods — because
@@ -43,7 +64,7 @@ State and in-flight work; the open list is `progress.md`.*
   the top of this file). `harbor/mantle`
   gets none — no pods there, and that is now the documented rule for config-only modules
   (`network/firewalls/README.md`). The per-pod tables and the evidence per peer are in
-  `modules/media/README.md`, `modules/vaultwarden/README.md` and the comment on each call;
+  `modules/media/README.md`, `modules/vaultwarden/README.md` and a one-line note on each call;
   wiring in `modules/network/firewalls/README.md`. Ingress is deliberately absent, so this tightens
   egress on named pods instead of walling off a namespace.
 - **Per-pod closing is not namespace closing — and `media` now does it at the namespace (2026-09-16 →
@@ -250,7 +271,7 @@ State and in-flight work; the open list is `progress.md`.*
   read lives in `firewalls/egress/data.tf` (the `kubernetes` Service **and** its Endpoints,
   whenever `allow_k8s_api = true`), so a `depends_on` over a pending change in any egress
   caller re-arms it: `.clinedocs/calico-netpols.md`; evidence: `progress.md`.
-- **The CA migration is finished: all 17 hosts are on Let's Encrypt and nothing consumes
+- **The CA migration is finished: all 19 hosts are on Let's Encrypt and nothing consumes
   `linuxguru-ca`** (dormant, not deleted; `var.ca_certfile`/`ca_keyfile` remain a standing
   **plan-time** dependency of `stacks/core`). Checklist:
   `modules/cert_manager/README.md`.
@@ -410,6 +431,10 @@ should be read off.
   read off measured flows, never namespace-wide and never `Ingress`. Whisker's tier CRs are the
   exception that is not an exception: they exist so the operator's own tier stops breaking whisker.
 - Parse the **narrowest doc first**: root README → module README → `.clinedocs/`.
+- **Code comments: rare, one line max, only for the most important details and traps**
+  (rule lives in `.clinerules/behavior.md`, loaded every session). Swept repo-wide 2026-09-17
+  (982 → 616 lines). The one sanctioned exception is a **≤4-line file header** — a deliberate call,
+  not an oversight, so **don't re-sweep the headers down to a literal single line**.
 
 ## Reading order for a fresh session
 
