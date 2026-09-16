@@ -12,7 +12,6 @@ that used to sit there wide open.
 |---|---|---|
 | authentik proxy provider + application + outpost (Deployment/Service `seaweedfs-admin-auth`, :9000, in `namespace`) | `auth/authentik/proxy_outpost` | SSO gate; app bound to `group_name`, outpost authenticates then proxies to the admin UI |
 | ListenerSet (HTTPS, cert) + HTTPRoute → the **outpost** | `gateway/expose` | `admin.<app>.<domain>` on the private gateway |
-| pod-scoped egress policy on the outpost pods | `firewalls/policy` | DNS + `seaweedfs-admin:<port>` only |
 
 ## Why it lives in the mantle stack
 
@@ -32,10 +31,9 @@ the ListenerSet isn't double-owned.
   reach the pod on 23646 — kube-storage, kube-network, monitoring — gets an
   unauthenticated admin API, bypassing the outpost. Only the gateway path is
   SSO-gated.
-- **The outpost is co-located** in the SeaweedFS namespace, so the outpost →
-  admin hop is same-namespace: the namespace's ingress firewall already admits
-  it (`kube-storage` is in its own guest list) and the gateway (`kube-network`)
-  can reach the outpost the same way.
+- **The outpost is co-located** in the SeaweedFS namespace, so the outpost → admin hop
+  is same-namespace and needs no allow-list: there is no netpol layer in this repo any
+  more (deleted 2026-09-16).
 - **Access is the `storage` group**: this module creates it (via `proxy_outpost`) and
   binds the app to it — there is no shared-group lookup. Add people in the
   authentik UI; any future storage app joins this same group.

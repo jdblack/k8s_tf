@@ -2,13 +2,14 @@
 
 Publishes the Calico **Whisker** flow-log UI at `whisker.<domain>` the same way
 the media apps are published — HTTPS on the shared **private** gateway, fronted
-by an **authentik proxy outpost** so access is SSO-gated by group membership —
-and locks the flow data down in-cluster.
+by an **authentik proxy outpost** so access is SSO-gated by group membership.
 
-**Read `tier.tf` before touching policy here.** Since tigera-operator `v3.32.2`
-the operator's rules live in a policy *tier* that outranks the tier our
-NetworkPolicies compile into, which makes the k8s policies below inert and means
-the Calico CRs in `tier.tf` are what actually gates this app.
+**Read `tier.tf` before touching anything here.** It is the only network policy left in
+this repo (every other netpol was deleted 2026-09-16), and it exists because of the
+operator, not because of us: since tigera-operator `v3.32.2` the operator's own rules
+live in a policy *tier* that denies everything in `calico-system` in both directions for
+every pod it does not exempt, so without those three Calico CRs the UI and its outpost do
+not work at all.
 
 ## What it renders
 
@@ -16,9 +17,7 @@ the Calico CRs in `tier.tf` are what actually gates this app.
 |---|---|---|
 | authentik proxy provider + application + outpost (Deployment/Service `<outpost_service>`, :9000, in `namespace`) | `auth/authentik/proxy_outpost` | SSO gate; app bound to `group_name`, outpost authenticates then proxies to whisker |
 | ListenerSet (HTTPS, cert) + HTTPRoute → the **outpost** | `gateway/expose` | `whisker.<domain>` on the private gateway |
-| 3× Calico `NetworkPolicy` CR, `spec.tier: calico-system` | `tier.tf` | **the effective policy**: outpost egress, gateway → outpost, outpost → whisker |
-| pod-scoped ingress policy on the **whisker** pods | `firewalls/limited_ingress` | currently inert (see tier) |
-| pod-scoped **egress** policy on the outpost pods | `firewalls/policy` | currently inert (see tier) |
+| 3× Calico `NetworkPolicy` CR, `spec.tier: calico-system` | `tier.tf` | **what makes it work at all**: outpost egress, gateway → outpost, outpost → whisker |
 
 ## The netpols — and what the operator already does
 
@@ -36,8 +35,8 @@ The tigera-operator **already** ships pod-scoped netpols in `calico-system`:
   here** — `goldmane:7443` stays readable by any pod. Treat the flow API as
   cluster-visible; protect it by other means if that matters.
 
-So this module adds only what the operator's rules don't, in the tier (see
-below) — and each rule is pod-scoped, so the gateway hop is narrower than the
+So this module adds only what the operator's rules don't need it to, in the tier
+(see below) — and each rule is pod-scoped, so the gateway hop is narrower than the
 namespace-wide equivalent a k8s policy would need.
 
 ## Why `tier.tf` exists
@@ -74,9 +73,9 @@ however it is written. Hence three CRs, one per hop:
 The outpost's `:9443` (https) listener is deliberately left closed: `expose`
 routes to `:9000`.
 
-The k8s policies are kept rather than deleted: they are the portable statement of
-intent and would be load-bearing again if a future operator stopped shipping the
-tier, but **they are not what protects this app today**.
+This is the *only* policy in the repo. Everything else — every namespace, the
+internet, the API — is reachable from anywhere, since the `firewalls/` library and every
+per-app netpol were deleted 2026-09-16.
 
 ## Notes
 

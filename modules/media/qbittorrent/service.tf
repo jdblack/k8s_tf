@@ -45,8 +45,8 @@ resource "kubernetes_service_v1" "torrent" {
   spec {
     type             = "LoadBalancer"
     load_balancer_ip = var.torrent_lb_ip
-    # Local, or the LB breaks under the media ingress firewall: Cluster SNATs cross-node
-    # traffic to an IP allowed_ingress_cidrs cannot match.
+    # Local, so the peers the router forwards see their real source IP (MetalLB L2 announces
+    # the VIP only to nodes actually running the pod).
     external_traffic_policy = "Local"
 
     selector = {

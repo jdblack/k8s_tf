@@ -40,18 +40,19 @@ backend "kubernetes" {
 
 `stacks/<stack>/terraform.tfvars` is a **symlink to `/Users/jblack/.tfenvs/k8s.tfenv`**
 (outside the repo, so the secret-bearing file is single-sourced). Structure:
-`deployment = { common, harbor, storage, network_ingress, network, auth,
+`deployment = { common, harbor, storage, network, auth,
 metal, vpn, internal_dns, dyndns_host, media, cert,
 cert_authorities, domains, argocd_devops, ... }`.
 
-tfvars is the single source of truth for the LAN CIDR, pod/service CIDRs and the
+tfvars is the single source of truth for the pod/service CIDRs and the
 MetalLB IPs, so renumbering the network is a one-line change, not a code edit.
 
 - `network.pod_cidr` = Calico's range (referenced literally as `10.244.0.0/16`
   in media/qbittorrent notes).
-- `network_ingress.public_ip` / `private_ip` → the pinned gateway data-plane IPs.
-- `metal.local_lan` → the non-pod source range allowed into LoadBalancer-fronted
-  namespaces.
+- `metal.local_lan` → **deleted 2026-09-16** (its only readers were the deleted
+  firewall modules; the key, the LAN-CIDR sentence in the `network` comment and the
+  comment naming it are all gone from the tfenv — backup `k8s.tfenv.bak.20260916-201448`).
+  Nothing in the `.tf` tree reads it.
 - `cert` doubles as the AWS credential bucket (`AWS_ACCESS_KEY_ID`,
   `AWS_SECRET_ACCESS_KEY` — note the v6 rename `secret_key`, not
   `secret_access_key` — `AWS_REGION`, `R53_ZONEID`).

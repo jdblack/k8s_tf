@@ -13,9 +13,9 @@
    footgun. An empty result usually means a misspelled filter, not an absence of flows.
  - `startTimeGte`/`startTimeLt` = epoch **seconds**
  - hints: `/whisker-backend/flows-filter-hints?type=SourceNamespace` (+Dest, *Name, PolicyTier/Name)
- - goldmane:7443 = mTLS + proto, skip it. Port-forward is host-sourced, so whisker's
-   deny-all pod netpol does not block it.
+ - goldmane:7443 = mTLS + proto, skip it. Port-forward is host-sourced, so the tigera
+   operator's deny-all pod netpol on whisker does not block it.
 
- - Deny with empty `policies.enforced` = default deny, NOT a named policy. Don't read that field as "which policy blocked me" -- the deciding rule's policy is at `policies.enforced[].trigger` (`trigger.name` / `trigger.namespace`). EndOfTier name="" + trigger.name="namespace-firewall" = that netpol's tail deny.
- - `policies.pending` = staged netpol preview (see `memory-bank/progress.md`).
- - Off-cluster / unnamed peers: `dest_name` = `PRIVATE NETWORK` / `PUBLIC NETWORK` with `dest_namespace` = `-`. Reachability to an RFC1918 dest that still reads as PRIVATE = an `ipBlock … except` in a namespace firewall, not a missing netpol.
+ - Deny with empty `policies.enforced` = default deny, NOT a named policy. Don't read that field as "which policy blocked me" -- the deciding rule's policy is at `policies.enforced[].trigger` (`trigger.name` / `trigger.namespace`). EndOfTier name="" + a trigger name = the tail deny of that policy (in `calico-system` this is the operator's `default-deny`; the only policy this repo owns there is `whisker-*-tier`).
+ - `policies.pending` = staged netpol preview. Nothing in this repo stages policies since the firewall layer was deleted (2026-09-16), so this field should read empty nearly always.
+ - Off-cluster / unnamed peers: `dest_name` = `PRIVATE NETWORK` / `PUBLIC NETWORK` with `dest_namespace` = `-`. Reachability to an RFC1918 dest that still reads as PRIVATE = an `ipBlock … except` on the deciding policy, not a missing netpol.

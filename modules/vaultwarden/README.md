@@ -44,13 +44,12 @@ every client. `/admin` is disabled instead (`ADMIN_TOKEN` unset — see
 
 | File | What |
 |---|---|
-| `namespace.tf` | its own `vaultwarden` namespace (one netpol blast radius) |
+| `namespace.tf` | its own `vaultwarden` namespace |
 | `secret.tf` | the whole env config; **no `ADMIN_TOKEN`** |
 | `deployment.tf` | `kubernetes_deployment_v1` (`replicas = 1`, `strategy = Recreate`) + the `vaultwarden-data` PVC |
 | `service.tf` | ClusterIP `80` — no LoadBalancer, so no LAN path bypasses the gateway |
 | `listener.tf` | `expose`: ListenerSet on the `private` gateway + HTTPRoute to the Service |
 | `dns.tf` | the authoritative Route53 A record |
-| `security.tf` | egress `basic_egress` (self + DNS, **no internet**); ingress `limited_ingress` = self + `kube-network`, no CIDRs |
 | `disaster_recovery.md` | what a restore costs here; mechanics in [`../storage/disaster_recovery.md`](../storage/disaster_recovery.md) |
 
 `strategy = Recreate` is required (RWO PVC; a rolling update deadlocks waiting
@@ -76,8 +75,7 @@ rolls the pod — Kubernetes never restarts pods for a Secret alone.
 
 **No metrics.** 1.37.3 has no `/metrics` and no `PROMETHEUS_ENABLED` (the build
 feature was dropped upstream); the only health route is `GET /alive`, hence no
-ServiceMonitor. Re-check upstream before adding one — and then also add
-`monitoring` to the ingress guest list in `security.tf`.
+ServiceMonitor. Re-check upstream before adding one.
 
 ## Snapshots
 

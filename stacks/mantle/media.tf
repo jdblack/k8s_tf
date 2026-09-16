@@ -12,9 +12,4 @@ module "media" {
   # qbittorrent_torrent_lb_ip exists to re-pin the torrent LoadBalancer -- the one address
   # the home router port-forwards, so the one DNS cannot cover. Unset = float.
   qbittorrent_torrent_lb_ip = try(var.deployment.media.qbittorrent_torrent_lb_ip, null)
-  lan_cidrs                 = [var.deployment.metal.local_lan]
-  cluster_cidrs = [
-    var.deployment.network.pod_cidr,
-    var.deployment.network.service_cidr,
-  ]
 }

@@ -4,7 +4,7 @@ One namespace (`media`) holding sonarr / radarr / prowlarr / bazarr (helm charts
 each in its own submodule), plex, a hand-rolled qbittorrent, the namespace-local
 **`media-private` NGF gateway** (`api_gateway.tf`, VIP from the MetalLB pool,
 currently `.106` — like every gateway in this repo, none is IP-pinned in code),
-the shared authentik outpost, and the namespace netpols (`security.tf`).
+and the shared authentik outpost.
 
 Non-HTTP ingress: plex also listens on its own LoadBalancer, and qBittorrent
 peers connect to the `qbittorrent-torrent` VIP on port `21010` (currently
@@ -96,19 +96,15 @@ kubectl -n media delete pod -l app.kubernetes.io/name=qbittorrent --grace-period
 the proxy. The web UI Service being ClusterIP-only is why this whitelist doesn't
 weaken external exposure.)
 
-## Netpol posture (`security.tf`)
+## NetworkPolicy: none
 
-- Egress: namespace-wide `basic_egress` (self + DNS + internet, no API), plus a
-  **pod-scoped** call for the NGF control plane only — the canonical
-  "prefer a pod-scoped API grant over a namespace-wide one" example — and a second one
-  (`allow-api-egress-certgen`) for NGF's cert-generator hook Job, whose pods carry
-  only batch labels. Without it the hook can't reach the API and every NGF upgrade
-  dies in helm's wait (2026-09-16; see
-  `network/firewalls/basic_egress/README.md`).
-- Ingress: `limited_ingress` = same-namespace + `kube-network-vpn` (WireGuard
-  clients land on the wg-server pod) + `0.0.0.0/0 minus the cluster CIDRs` (the
-  LoadBalancer apps), plus a pod-scoped `limited_ingress` for plex so
-  `kube-network` reaches plex only. This is why the arr ClusterIPs can't be hit
-  directly, bypassing the outpost.
-- Locked down 2026-09-12; the other namespaces are not — see
-  `memory-bank/progress.md`.
+The layer this namespace was locked down with (2026-09-12) is **gone** — the
+`security.tf` netpols and the `firewalls/` library were deleted 2026-09-16, so every
+pod in `media` can now reach anything, and anything can reach it. Two consequences
+worth remembering while it is open, because they were the reason for two of the
+old rules:
+
+- the arr ClusterIPs are reachable from any pod again — going through the outpost is
+  now a matter of nothing knowing the Service names, not of policy;
+- plex and the `qbittorrent-torrent` LoadBalancer still run `etp=Local` (source-IP
+  preservation against MetalLB L2); that choice no longer has a policy dependency.

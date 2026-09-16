@@ -7,12 +7,11 @@ stacks/{core,mantle,apps}/      # root modules, applied in that order
 modules/
 ├── network/        Calico, MetalLB, external-dns, shared NGF gateways,
 │                   Gateway API CRD bootstrap, wireguard, whisker
-│   ├── firewalls/  NetworkPolicy library (basic_internet, limited_ingress,
-│   │               allow_api) over one renderer (policy)
 │   ├── gateway/    one NGF instance per call; submodules listener_set,
 │   │               http_route, expose (= listener_set + http_route)
+│   ├── whisker/    flow-log UI; tier.tf = the repo's ONLY network policy
 │   └── dns/route53_record/
-├── storage/        Longhorn (+netpols, VolumeSnapshotClasses), SeaweedFS
+├── storage/        Longhorn (+VolumeSnapshotClasses), SeaweedFS
 │                   (helm, CSI, listeners, dashboard), seaweedfs_admin
 ├── cert_manager/   cert-manager + linuxguru-ca + letsencrypt (Route53 DNS-01)
 ├── auth/authentik/ core, proxy_outpost, oidc_provider
@@ -65,39 +64,38 @@ Outpost-fronted apps point `route_name = "<app>-auth"` at the outpost service.
   `1 to add` in `tofu plan`, and hand-editing the Secret's `url` desyncs it.
 - `hostname` overrides for sub-subdomains (`admin.seaweedfs.<domain>`).
 
-## Pattern: firewalls compose (NetworkPolicies UNION)
+## Pattern: no NetworkPolicy layer (deleted 2026-09-16)
 
-- Never assume one policy per namespace. `limited_ingress` (ingress guest list)
-  + `basic_internet` (egress) = full posture for a gateway-fronted app;
-  `basic_internet` (API off) + `allow_api` = namespace lockdown with one
-  pod-scoped API exception.
-- All presets build rule objects and hand them to `firewalls/policy`, the single
-  renderer. Everything renders a typed `kubernetes_network_policy_v1` so drift
-  is visible to `plan` (a kubectl-managed netpol once hid a live edit).
-- `basic_internet.allow_to_k8sapi` is namespace-wide convenience;
-  `allow_api` is the pod-scoped lockdown. **Prefer `allow_api`.**
-- Staged rollout (the intended method for the remaining namespaces):
-  render a `StagedKubernetesNetworkPolicy` (`crd.projectcalico.org/v1`) — same
-  rules, NOT enforced — and Calico records would-be denies as `pendingPolicies`
-  in the flow logs. **NOT IMPLEMENTED YET in Terraform**: there is no `staged`
-  variable in `firewalls/policy` or `limited_ingress` (grep-verified 2026-09-14).
-  The mechanism itself was proven by hand on `argo`. Adding the flag is the first
-  task of the rollout.
-  **Staged policies only preview where the staged one is the deciding policy**;
-  a namespace with an existing permissive netpol just unions and previews
-  nothing.
-- Guest lists must be derived from **real flow data** (Goldmane/Whisker), not
-  guesses. See `.clinedocs/flow-logs.md` and `.clinedocs/calico-netpols.md`.
+There was a real one: `network/firewalls/{policy,basic_egress,limited_ingress}` —
+typed `kubernetes_network_policy_v1` resources so `plan` saw drift, called from
+every app module. It was deleted along with every per-app `security.tf` so that
+any workload can reach any other. **Nothing enforces network policy here today**,
+with one exception that is not a restriction but a prerequisite:
+`modules/network/whisker/tier.tf` (Calico CRs in the operator's own tier — see
+the invariants below).
+
+If the layer is ever rebuilt:
+
+- Start from `.clinedocs/calico-netpols.md` (conserved invariants: post-DNAT
+  egress, netpols only UNION, tier ordering, the Job-label gotcha) and
+  `.clinedocs/flow-logs.md` (how to read real traffic).
+- Guest lists come from **real flow data** (Goldmane/Whisker), not guesses.
+- Prefer a pod-scoped lockdown over a namespace-wide `allow_k8s_api`: the
+  namespace-wide shape is the one a caller's `depends_on` can break.
+- Staging worked (`StagedKubernetesNetworkPolicy` → `pendingPolicies` in the flow
+  logs) but only previews where the staged policy is the **deciding** one — a
+  namespace with a permissive netpol just unions and previews nothing.
 
 ## Hard Calico invariants (expensive to get wrong)
 
 - Egress is evaluated **POST-DNAT** → allow rules match the *endpoint* IP.
 - A module-level `depends_on` covers a module's **data sources**, and a deferred
-  read makes its consumer's plan a lie: the API carve-out planned a guessed peer
-  count (ClusterIP only) and the apply died with `inconsistent final plan`.
-  Firewalls that read the `kubernetes` Endpoints object therefore take
-  `api_peer_ips`, read in the **stack root** (`stacks/core/core.tf`) and passed
-  down — never hardcode control-plane IPs. Fixed 2026-09-16.
+  read makes its consumer's plan a lie: a policy that read the `kubernetes`
+  Endpoints object *inside* the module planned a guessed peer count (ClusterIP
+  only) and the apply died with `inconsistent final plan`. Fix was to read it in
+  the **stack root** (`stacks/core/core.tf`) and pass the peer IPs down — never
+  hardcode control-plane IPs. The netpol and that plumbing are gone (2026-09-16);
+  the lesson applies to any provider-deferred read inside a module.
 - k8s netpols only UNION → an operator-shipped netpol cannot be tightened.
   tigera's `goldmane` allows any source on 7443; unfixable from TF.
 - The apiserver calls webhooks/aggregation from a **remote node** → those paths

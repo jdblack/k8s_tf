@@ -101,11 +101,10 @@ authentik.
 | Module | What it is |
 |---|---|
 | `network/` ([README](modules/network/README.md)) | Calico, MetalLB, external-dns (RFC2136 → bind9), the shared `public`/`private` NGF gateways, Gateway API CRD bootstrap, WireGuard |
-| ↳ `network/firewalls/` ([README](modules/network/firewalls/README.md)) | NetworkPolicy library — `basic_egress` (egress, namespace-wide or pod-scoped), `limited_ingress` (ingress) over one `policy` renderer |
 | ↳ `network/gateway/` ([README](modules/network/gateway/README.md)) | one NGF control plane + `Gateway` per call; `expose` = `listener_set` + `http_route` in one call |
 | ↳ `network/dns/route53_record/` ([README](modules/network/dns/route53_record/README.md)) | Terraform-authoritative Route53 record, for hosts external-dns cannot publish |
 | ↳ `network/whisker/` ([README](modules/network/whisker/README.md)) | Calico Whisker flow-log UI, authentik-gated |
-| `storage/` ([README](modules/storage/README.md)) | Longhorn (+ netpols, `VolumeSnapshotClass`es, the cluster-wide recurring-snapshot jobs and their [recovery runbook](modules/storage/disaster_recovery.md)), SeaweedFS (helm, CSI, master/S3 listeners, Grafana dashboard) |
+| `storage/` ([README](modules/storage/README.md)) | Longhorn (+ `VolumeSnapshotClass`es, the cluster-wide recurring-snapshot jobs and their [recovery runbook](modules/storage/disaster_recovery.md)), SeaweedFS (helm, CSI, master/S3 listeners, Grafana dashboard) |
 | ↳ `storage/seaweedfs_admin/` ([README](modules/storage/seaweedfs_admin/README.md)) | SeaweedFS admin UI, authentik-gated (mantle) |
 | `cert_manager/` ([README](modules/cert_manager/README.md)) | cert-manager (pinned `v1.21.1`), the `letsencrypt` ClusterIssuer (Route53 DNS-01, zone pinned — `.vn` included) which signs **all 19 hosts**, and the dormant private `linuxguru-ca` |
 | `auth/authentik/core/` | authentik server + worker + API key + listener |
@@ -117,7 +116,7 @@ authentik.
 | `harbor/core/`, `harbor/mantle/` | Harbor release + listener (core); projects + OIDC auth (mantle) |
 | `argo/core/`, `argo/mantle/` | Argo CD release (core); its SSO/deploy key + argo-workflows + argo-events (mantle) |
 | `argo/aoa_deployment/` | app-of-apps `Application` generator (apps stack) |
-| `media/` ([README](modules/media/README.md)) | the `media` namespace: sonarr/radarr/prowlarr/bazarr/plex/qbittorrent, the `media-private` gateway, the authentik outpost, and the namespace netpols |
+| `media/` ([README](modules/media/README.md)) | the `media` namespace: sonarr/radarr/prowlarr/bazarr/plex/qbittorrent, the `media-private` gateway, the authentik outpost |
 | `blender/` ([README](modules/blender/README.md)) | Samba share on the LAN + the mDNS advertiser macOS Finder needs |
 | `vaultwarden/` ([README](modules/vaultwarden/README.md)) | Bitwarden-compatible server on the private gateway + its Route53 record |
 

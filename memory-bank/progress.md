@@ -18,13 +18,15 @@
   `.107` — are assignments, not config. The only two addresses DNS cannot cover are the
   router NAT rules (WAN 443 → public gateway, WAN 21010 → torrent); see
   `modules/network/gateways.tf`.
-- **Firewall library** — `policy` renderer + `basic_internet`, `limited_ingress`,
-  `allow_api`. Media is locked down (2026-09-12). The staged/preview mechanism is proven
-  on `argo`.
+- **There is no network-policy layer, on purpose (deleted 2026-09-16).** The `firewalls/`
+  library (`policy` renderer + `basic_egress` + `limited_ingress`) and every per-app
+  `security.tf` were removed, so every workload reaches every other one. **One exception:**
+  `modules/network/whisker/tier.tf` — 3 Calico CRs at `spec.tier: calico-system` that are a
+  prerequisite for whisker, not a restriction on it. Conserved invariants: `.clinedocs/calico-netpols.md`.
 - **`calico-system` is policed by a Calico *tier*, and whisker is fixed (2026-09-16).**
   tigera-operator `v3.32.2` moved its own rules into tier `calico-system` (`order: 100`,
-  `defaultAction: Deny`), whose end-of-tier DROP pre-empts tier `default` — where every k8s
-  NetworkPolicy this repo writes compiles — so whisker's UI died (`code=000`) with the
+  `defaultAction: Deny`), whose end-of-tier DROP pre-empts tier `default` — where a k8s
+  NetworkPolicy compiles — so whisker's UI died (`code=000`) with the
   gateway healthy. Fix: `modules/network/whisker/tier.tf`, three pod-scoped Calico
   `NetworkPolicy` CRs at `spec.tier: calico-system`, `order: 10` (outpost egress; gateway →
   outpost:9000; outpost → whisker:8081). **Verified live**: `whisker.<domain>/` → `302` to
@@ -40,7 +42,8 @@
   the rendered CRs) because mantle's apply was blocked by an unrelated authentik lookup; the
   CRs are now **imported into state** and applied by mantle (`12 added / 8 changed / 0
   destroyed`, post-apply plan `No changes`).
-- **Core-apply landmine — FIXED 2026-09-16.** Was: a core apply aborting with
+- **Core-apply landmine (2026-09-16) — moot since the firewall layer was deleted; kept
+  because the mechanism is generic.** Was: a core apply aborting with
   `Provider produced inconsistent final plan ... block count changed from 1 to 2`,
   triggered by **any pending change in a module listed in the caller's `depends_on`**
   (cert_man as readily as storage), because a module-level `depends_on` covers every
@@ -57,9 +60,10 @@
   changes; a deliberate pending change in `module.storage` then applied clean (the case
   that used to abort) with 0 `will be read during apply` lines; mantle No changes with
   media's in-module read still working. Old-behaviour evidence: `/tmp/core.apply.log`
-  (2026-09-15 01:14), `/tmp/core-apply.txt`, `/tmp/relabel.txt`. **Residual:** a *new*
-  module-level `depends_on` on a caller of a firewall with `allow_to_k8sapi = true`
-  (argo today — it has none) re-arms it; invariant in `.clinedocs/calico-netpols.md`.
+  (2026-09-15 01:14), `/tmp/core-apply.txt`, `/tmp/relabel.txt`. **Now moot:** the read, the
+  `api_peer_ips` plumbing and the policies themselves were deleted with the firewall layer, so
+  nothing here re-arms it. Keep the lesson for any provider-deferred read inside a module under
+  a caller's `depends_on`; invariant in `.clinedocs/calico-netpols.md`.
 - **IdP-first login — Harbor only; the Argo apps keep their own login pages,
   deliberately (2026-09-15).** Harbor uses its native `primary_auth_mode`. Argo CD and
   Argo Workflows got a `gateway/redirect_route` hijacking `Exact /` at their OIDC
@@ -236,9 +240,9 @@ clean). Kept here as the rationale record. All in-place-only; all three stacks `
   added per-component netpols gated by `global.networkPolicy.create`, **true** by default;
   with it on, 10.9.1 renders 6 objects 9.2.4 did not (server = `ingress: - {}` allow-all;
   controller/notifications allow `metrics` from any namespace; repo-server allows only the
-  four in-namespace components; dex and redis are allow-lists). `argo` has **no** netpols
-  today and netpols in this repo are TF-owned (`modules/network/firewalls`), so the default
-  would have been a network-posture change riding along with a version bump. Set
+  four in-namespace components; dex and redis are allow-lists). `argo` had **no** netpols and
+  the repo's were TF-owned (`modules/network/firewalls`, itself deleted 2026-09-16), so the
+  default would have been a network-posture change riding along with a version bump. Set
   `global.networkPolicy.create = false` in `modules/argo/core/argo-cd/locals.tf`; with it off
   10.9.1 renders **exactly 54 objects — the same set as 9.2.4**, which is what made this a
   pure version bump. Enabling them later is cheap and low-risk: nothing scrapes Argo metrics
@@ -258,7 +262,13 @@ clean). Kept here as the rationale record. All in-place-only; all three stacks `
   malformed AdmissionReviews and ACME renewal-window / HTTP-01-cleanup fixes.
 
 
-### NGF's cert-generator hook vs media's API carve-out — FIXED 2026-09-16
+### NGF's cert-generator hook vs media's API carve-out — diagnosed 2026-09-16 (the fix is gone)
+
+**Superseded the same day:** the whole policy layer was deleted (see the deletion section
+above), so the fix below no longer exists and this exact deadlock cannot recur. Kept for the
+generic trap — **a Helm hook Job's pods carry only the Job controller's labels**, so a
+pod-selector-based allow-list never matches them, and a `wait`-ing release turns that into a
+five-minute stall instead of a visible failure.
 
 - **Symptom:** the `ngf` helm release in the mantle apply sat at `Still modifying...
   [id=ngf]` for five straight minutes (`helm status` → `pending-upgrade`, revision 6), while
@@ -289,8 +299,9 @@ clean). Kept here as the rationale record. All in-place-only; all three stacks `
   `Apply complete!`, exit 0 — the Job is gone because helm deletes a succeeded hook), then
   adopted with `tofu import 'module.media.module.allow_api_cert_generator.module.policy.
   kubernetes_network_policy_v1.this' media/allow-api-egress-certgen` after stripping the
-  stopgap `managed-by` label so live == rendered; mantle then planned `No changes`. **Do not
-  re-create this policy by hand — it is in state now.**
+  stopgap `managed-by` label so live == rendered; mantle then planned `No changes`. **Superseded
+  2026-09-16:** the policy and the whole layer were deleted, so there is no hand-made object left
+  to avoid re-creating.
 - **Verified after the fact (no upgrade needed):** a throwaway `curlimages/curl` pod labeled
   with only `job-name=ngf-nginx-gateway-fabric-cert-generator` got `http_code=403` from
   `https://10.96.0.1:443/api` in under 6 s, while the same pod without matching labels still
@@ -455,74 +466,67 @@ The long-form record; the one-paragraph version is under "What works". Sequence:
    `apiVersion//Kind//name//namespace`) and are applied by mantle. One browser sign-in is the
    last unconfirmed step (the logged-in UI through the proxy).
 
-## The egress lockdown + module merge — applied 2026-09-16
+## The firewall layer was deleted (2026-09-16)
 
-Two things at once, in two applies per stack, both verified live.
+Removed rather than repaired: the whole policy system came out so every workload can talk to
+every other one, and it gets rebuilt from scratch if it is ever wanted again. What went:
 
-**Phase 1 — closed egress for four namespaces** (core: `2 added, 4 changed, 0 destroyed`;
-mantle: `0/1/0`):
+- `modules/network/firewalls/` — `policy` (the single renderer), `basic_egress`,
+  `limited_ingress`, plus the older `allow_api` / `basic_internet`, READMEs included.
+- Every per-app `security.tf`: `argo/core`, `auth/authentik/core`, `cert_manager`,
+  `harbor/core`, `media`, `storage/longhorn-security.tf`, `storage/seaweedfs/security.tf`,
+  `vaultwarden`.
+- The wiring: the `api_peer_ips` / `lan_cidrs` / `cluster_cidrs` / `enable_egress_firewall`
+  variables (`system_namespace` survives only in `network/whisker`, which needs it),
+  `data.kubernetes_endpoints_v1.kubernetes` +
+  `local.api_peer_ips` in `stacks/core/core.tf`, `network/gateway`'s
+  `cert_generator_job_name` output, the `firewalls` + `policy` module calls in
+  `storage/seaweedfs_admin` and `network/whisker`, and `proxy_outpost`'s `core_egress`.
+- The docs that described it (root/network/gateway/media/storage/blender/vaultwarden/
+  seaweedfs_admin/proxy_outpost/route53_record READMEs, `storage/disaster_recovery.md`,
+  `.clinerules/resources.md`). `modules/cert_manager/README.md` kept the *why* an ingress
+  rule there breaks issuance cluster-wide, minus the module.
 
-| Namespace | Was | Now | Why it's safe |
-|---|---|---|---|
-| `kube-auth` | ns + DNS + internet | ns + DNS | the only internet use was authentik's version check (`AUTHENTIK_DISABLE_UPDATE_CHECK`) and the startup phone-home (`AUTHENTIK_DISABLE_STARTUP_ANALYTICS`) — both now `true`, confirmed with `ak dump_config` in a live pod. The worker keeps its pod-scoped API policy (outpost connection monitor). |
-| `vaultwarden` | ns + DNS + internet | ns + DNS | the favicon/icon proxy was the only caller (0 flows in 24 h); mobile/desktop clients fetch their own icons. No SMTP, no `PUSH_*`, no `ICON_*` in the config Secret. |
-| `longhorn-system` | **no egress policy at all** | ns + DNS + API | the chart ships Ingress-only netpols, so this is the namespace's first egress restriction. `upgradeChecker = false` in `longhorn.tf` kills its 443 flow. |
-| `kube-storage` | **no egress policy at all** | ns + DNS + API (`policy_name = namespace-egress`) | the API carve-out is load-bearing: seaweedfs-csi-controller/node watch PVCs/PVs. The authentik outpost in there keeps its own pod-scoped policy (netpols union, so the namespace-wide one only adds). |
+**What to expect:** the dead policies are still in state and on the cluster, so the next
+apply of each stack destroys them. `tofu validate` is clean on all three stacks (checked
+2026-09-16) and no other module referenced a deleted output or variable (grep-verified), so
+the diff is policy-object destruction only. The three `stacks/*/.terraform/modules/modules.json`
+manifests also still listed 34 dead `firewall*` keys (the module dirs themselves were already
+gone) — pruned by hand, and `init` + `validate` stayed clean afterwards. Hand-made Calico
+`Staged*NetworkPolicy` CRs are not typed resources — check for strays with
+`kubectl get stagedkubernetesnetworkpolicies -A` (the staging experiment ran on `argo`).
 
-Proof, in this order: plan diff (internet rule disappears; new policies show ns + DNS +
-`10.96.0.1/32` + `${node}/32` on 6443) → **real workloads**: a fresh PVC in *both* storage
-classes, mounted and written to (`MOUNT-OK` for longhorn and seaweedfs) → a probe pod in
-`kube-storage` (`DNS resolves`, `INTERNET-DENIED`, `API-OK` via ClusterIP **and** node IP,
-`S3-REACHED`) → whisker `Deny` rows for the internet attempt with
-`trigger.name = namespace-firewall` → test PV/PVC deleted cleanly (so volume *deletion*
-works under the new policy too).
+**Also cleaned outside the repo:** the tfenv carried one dead key and two stale comments from
+this system — `metal.local_lan` (only the firewall modules read it, and its comment named
+media's ingress firewall) and the `network = {...}` comment calling `pod_cidr`/`service_cidr`
+"the single source of truth for the firewall modules". All three are gone from
+`~/.tfenvs/k8s.tfenv` (backup `k8s.tfenv.bak.20260916-201448` taken first); the CIDRs
+themselves are still read by the modules that need them. The hand-made router NAT rules
+(WAN 443 → public gateway, WAN 21010 → torrent) are unaffected and remain the one thing DNS
+cannot cover — `modules/network/gateways.tf`.
 
-**Phase 2 — `basic_internet` → `basic_egress`, `allow_api` folded in.** Six touchable inputs
-(`namespace`, `policy_name`, `pod_selector`, `allow_namespaces`, `allow_cidrs`,
-`api_peer_ips`/`service_cidr`) and two booleans (`allow_internet`, `allow_k8s_api`), the rest
-internalised as locals (`system_namespace`, `blocked_egress_cidrs`); DNS always rendered;
-`allow_dns`/`allow_to_ns`/`allow_to_services`/`egress_allow_ip_blocks` are gone. The family is
-now `basic_egress` / `limited_ingress` / `policy`, with both directions taking an optional
-`pod_selector`. Acceptance test held exactly: after migrating all 9 call sites, **core planned
-`0 to add, 0 to change, 0 to destroy` with 1 `moved`, mantle `0/0/0` with 2 `moved`** — the
-state-only moves were then applied (`0/0/0` applies). The `moved` blocks (`module.allow_api` →
-`module.firewall_api` in authentik; media ×2) must survive one more cycle before deletion.
-
-Two things worth not rediscovering:
-
-- **The JSON-path diff is the contract.** The merged renderer emits namespaces → DNS → API →
-  internet → CIDRs, and `harbor`/`argo` must keep `kube-network` *before* their own namespace
-  in `allow_namespaces`, or the whole policy is rewritten.
-- **Whisker only records policy-evaluated flows**, so an empty result for a namespace with no
-  egress netpol proves nothing (longhorn→apiserver 6443 never shows up). Absence of internet
-  flows *is* meaningful for namespaces that already had a policy, and every one of these had
-  its own policy by then. Also: the `kubernetes` Service is **443**, not 6443 — probing
-  `10.96.0.1:6443` fails for reasons that have nothing to do with the firewall.
+Invariants that made the old layer expensive are kept as a post-mortem in
+`.clinedocs/calico-netpols.md`; flow-query recipes in `.clinedocs/flow-logs.md`.
 
 ## What's left / open
 
-- **Close monitoring's egress (phase 3 of the firewall rework).** `monitoring` still has **no
-  netpols at all**, and its only outbound use today is grafana's 10-minute update/plugin
-  checks — turned off in `modules/monitoring/prometheus/locals.tf`, so the policy is the last
-  piece. Shape: `basic_egress` with `allow_cidrs = [var.pod_cidr, <node IPs>/32]` (Prometheus
-  scrapes pod IPs and node-exporter/kubelet on the node IPs — those are inside
-  `blocked_egress_cidrs`, so they must be named) **plus `allow_k8s_api = true`**: Prometheus'
-  own `kubernetes_sd_configs` list pods/services/endpoints/nodes, so a DNS+CIDR-only policy
-  breaks target discovery — the plan in `activeContext.md` that said "CIDRs only" was
-  incomplete on this point. Node IPs are the one open question: no data source publishes them
-  yet (candidates: the node-exporter Service's endpoints, or a local from
-  `var.deployment.metal`), and the "≥1 h of clean scraping" soak is what closes it.
-- **Drop the 3 remaining `moved` blocks** (`module.allow_api` → `module.firewall_api` in
-  `modules/auth/authentik/core/security.tf`; the two in `modules/media/security.tf`) once a
-  cycle has applied them — they are state-only and cost nothing to keep, but they are clutter.
+- **Monitoring's egress closure is dropped with the rest of the layer.** Kept only as the
+  shape any rebuild would need: a `basic_egress`-style policy with `allow_cidrs = [var.pod_cidr,
+  <node IPs>/32]` (Prometheus scrapes pod IPs and node-exporter/kubelet on the node IPs, which
+  are inside the cluster CIDR) **plus `allow_k8s_api = true`** — Prometheus' own
+  `kubernetes_sd_configs` list pods/services/endpoints/nodes, so a DNS+CIDR-only policy breaks
+  target discovery. No data source publishes node IPs yet (candidates: the node-exporter
+  Service's endpoints, or a local from `var.deployment.metal`). Grafana's 10-minute
+  update/plugin checks are already off in `modules/monitoring/prometheus/locals.tf`.
 - **Whisker's tier CRs and mantle's authentik blocker are both closed out (2026-09-16).** The
   3 CRs are imported into state and applied — the hand-applied render and the module's render
   agree, so nothing about the live policy changed; the `data.authentik_certificate_key_pair
   { name = "tls" }` lookup is gone, replaced by Terraform-owned per-provider signing keys
   (root cause, fix, verification and the *why-not-stopgap* reasoning: `activeContext.md`).
   Only the logged-in whisker UI (one browser sign-in) remains unconfirmed.
-- **Namespace ingress rollout** for every namespace except `media` — the main thread of
-  work; method, first candidates and the missing `staged` flag are in `activeContext.md`.
+- **Nothing is in flight for network policy.** The namespace-ingress rollout was cancelled with
+  the layer (2026-09-16 — see the deletion section above); method, invariants and lessons are in
+  `activeContext.md` and `.clinedocs/calico-netpols.md`.
 - **Off-cluster backups: nothing has one.** No Longhorn `backupTarget`, so all 8 covered
   volumes share a failure domain with their snapshots and a lost cluster takes
   everything. Intended target: SeaweedFS S3 (`s3.vn.linuxguru.net`, TLS trusted
@@ -564,8 +568,8 @@ Two things worth not rediscovering:
   `false`); see the vaultwarden README.
 - **vaultwarden has nothing to scrape** — 1.37.3 dropped the metrics build (no
   `/metrics`, no `PROMETHEUS_ENABLED`, only `GET /alive`), so the module ships no
-  ServiceMonitor. If upstream restores it, add `monitoring.tf` and add `monitoring` to
-  the ingress guest list in `modules/vaultwarden/security.tf`.
+  ServiceMonitor. If upstream restores it, add `monitoring.tf` (there is no netpol layer left to
+  add `monitoring` to).
 - **Rebuild gaps that are hand work, not state:** authentik group membership is
   UI-managed → members must be re-added by hand; per-app one-time config (arr apps
   `AuthenticationMethod = External`; qBittorrent pod-CIDR WebUI whitelist + hard pod
@@ -588,10 +592,11 @@ Two things worth not rediscovering:
   action: metallb, longhorn, harbor, metrics-server, snapshot-controller, plex,
   wireguard-operator, smartctl. Not upgradable here at all: the `apps` charts (ollama,
   corsless, llm-embedder) are `0.0.*` wildcards synced by Argo from the external repo.
-- **Optional**: a `posture` wrapper so a namespace states egress+ingress in one call
-  instead of 2-4 module calls (deferred until after the rollout).
+- **Optional, if policies ever return**: a `posture` wrapper so a namespace states
+  egress+ingress in one call instead of 2-4 module calls.
 - **Accepted risks**: `goldmane:7443` readable by any pod (unfixable from TF); media
-  NodePort soft spot (`nodeIP:nodePort` bypass); `ollama` has no auth in front of it.
+  NodePort soft spot (`nodeIP:nodePort` bypass — moot while nothing is policed); `ollama`
+  has no auth in front of it.
 
 
 ## Evolution of decisions worth knowing
@@ -599,7 +604,10 @@ Two things worth not rediscovering:
 - `allow_ingress` → renamed `limited_ingress` (2026-09) because the old name read like a
   blanket allow when it is a lockdown with a guest list. Docs/paths only — no resources
   moved. The older `namespace_only` is gone too, replaced by `limited_ingress` with a
-  one-namespace guest list, typed instead of `kubectl_manifest`.
+  one-namespace guest list, typed instead of `kubectl_manifest`. The whole family
+  (`namespace_only` → `allow_ingress` → `limited_ingress`, plus `allow_api` →
+  `firewall_api` → folded into `basic_egress`) was deleted outright 2026-09-16, four days
+  after `media` was the first namespace locked down — see the deletion section above.
 - ntfy alerting was added and then removed (2026-09); Alertmanager runs stock `null`.
   Harbor's native `primary_auth_mode` is the **only** native IdP-first lever here.
 - The `modules/security/trivy` module was removed 2026-09; its three empty namespace
@@ -672,11 +680,13 @@ Two things worth not rediscovering:
   narrative history, verification dates, README pointers, design rationale and code
   restatements. Surviving examples worth not re-deleting: the JMESPath `&&`/`||`
   precedence parens (Grafana), the RWO-volume RollingUpdate deadlock, the control-plane
-  scraper loopback gotcha, the Helm CRD upgrade hole, authentik group-name matching for
-  argo-cd RBAC, argo-workflows `redirect_uri` scheme pin, plex's
-  `externalTrafficPolicy=Local` firewall requirement, blender's mDNS/hostNetwork
-  selector-collision trap, the post-DNAT egress semantics in `firewalls/allow_api`, the
-  MetalLB-VIP/router-rule coupling, the Longhorn-labelled-PVC group-set replacement.
+  scraper loopback gotcha, the Helm CRD upgrade hole, argo-cd's
+  `networkPolicy.create = false` rationale, authentik group-name matching for argo-cd RBAC,
+  argo-workflows `redirect_uri` scheme pin, plex's `externalTrafficPolicy=Local` VIP note,
+  blender's mDNS/hostNetwork selector-collision trap, the MetalLB-VIP/router-rule coupling,
+  the Longhorn-labelled-PVC group-set replacement, and the post-DNAT semantics that now live
+  only in `whisker/tier.tf` + `.clinedocs/calico-netpols.md` (the `firewalls/allow_api`
+  comment went with the module).
   **One casualty, caught by `validate`:** the trim silently took
   `variable "private_gateway_ip"` out of `modules/vaultwarden/variables.tf` along with
   its comment (mantle red with "An argument named private_gateway_ip is not expected

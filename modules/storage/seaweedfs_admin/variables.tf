@@ -80,8 +80,3 @@ variable "icon" {
   default     = "https://cdn.jsdelivr.net/gh/selfhst/icons/svg/seaweedfs.svg"
   description = "Bookmark-tile icon URL for the authentik app; null = no icon."
 }
-
-variable "system_namespace" {
-  type    = string
-  default = "kube-system"
-}

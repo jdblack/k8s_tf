@@ -101,13 +101,13 @@ The CA's *name* is not a literal anywhere: `ca.tf` reads it from
 names from it, so that key is **not** dead — deleting it renames the Secret,
 ClusterIssuer and ConfigMap.
 
-## Deliberately egress-only
+## No network policy here (2026-09-16)
 
-`security.tf` installs `basic_egress` with `allow_k8s_api = true` and **no
-ingress policy**: the kube-apiserver calls the cert-manager webhook from the
-nodes (host traffic, not a pod namespace), so any ingress restriction here breaks
-issuance cluster-wide. The egress fence (same-namespace, DNS, API, internet for
-Let's Encrypt + Route53) is the useful part.
+This module used to install an egress-only policy (`security.tf`, deleted with the
+rest of the firewall layer). The reason it never had **ingress** rules is worth
+keeping if a policy layer is ever rebuilt: the kube-apiserver calls the
+cert-manager webhook from the nodes (host traffic, not a pod namespace), so any
+ingress restriction here breaks issuance cluster-wide.
 
 ## If a private CA ever comes back
 

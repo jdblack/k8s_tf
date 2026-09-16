@@ -3,11 +3,9 @@ locals {
   helm_values = {
     global = {
       domain = local.fqdn
-      # Chart >=10.0.0 ships per-component ingress NetworkPolicies, on by default. This
-      # namespace has none today and netpols are TF-owned here (modules/network/firewalls),
-      # so leaving the default on would attach new ingress allow-lists to argo-cd in the same
-      # change as the version bump. Off: 10.9.1 then renders exactly the same 54 objects as
-      # 9.2.4. Revisit as its own change if chart-managed netpols are wanted.
+      # Chart >=10.0.0 ships per-component ingress NetworkPolicies, on by default. Nothing
+      # in this repo manages netpols today, so the chart's own allow-lists would be the only
+      # ones in the cluster: off. 10.9.1 then renders exactly the same 54 objects as 9.2.4.
       networkPolicy = {
         create = false
       }

@@ -32,10 +32,11 @@ by instantiating these two submodules from its own namespace:
 - `routes_namespace` — restrict which namespaces may attach `ListenerSet`s
   (`null` = any namespace, used by the shared gateways).
 
-## Firewall implications
+## NetworkPolicy implications
 
 The data plane runs as ordinary pods in the gateway namespace and proxies
-cross-namespace: fronted namespaces need ingress from `kube-network`
-(`limited_ingress`), and apps calling gateway-hosted URLs (SSO) need egress to
-kube-network pods (`basic_egress` → `allow_namespaces = ["kube-network", …]`). Details in
-[`firewalls/README.md`](../firewalls/README.md).
+cross-namespace. **No netpol exists here today** (the firewall layer was deleted
+2026-09-16), so nothing has to be allowed for this to work; this section is what a
+rebuild has to account for: fronted namespaces would need ingress from
+`kube-network`, and apps calling gateway-hosted URLs (SSO) would need egress to
+kube-network pods.

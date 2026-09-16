@@ -7,7 +7,6 @@ that lands on them. Applied from `stacks/core` (the `seaweedfs_admin` UI is a
 | File | What |
 |---|---|
 | `longhorn.tf` | Longhorn release (pinned `1.12.1`), UI off, `defaultDataLocality: best-effort`, 2 replicas |
-| `longhorn-security.tf` | the netpols that keep the manager and its components talking to each other and nobody else |
 | `snapshots.tf` | snapshot-controller + the `longhorn-snapshot` / `longhorn-backup` `VolumeSnapshotClass`es |
 | `longhorn_jobs.tf` | **cluster snapshot policy**: three `RecurringJob`s (`snapshot-daily|weekly|monthly`) and the enrolment table that says which PVC gets which tier |
 | `snapshot_labeler.tf` | writes the recurring-job group labels onto the Longhorn **Volume** CRs — the only writer of those labels in the repo |

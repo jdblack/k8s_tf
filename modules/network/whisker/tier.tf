@@ -1,17 +1,17 @@
 # Calico POLICY-TIER rules, needed since tigera-operator v3.32.2.
 #
-# The operator's own rules now live in tier `calico-system` (order 100, defaultAction:
-# Deny), which is evaluated BEFORE tier `default` -- where every kubernetes_network_policy_v1
-# in this module compiles. Its end-of-tier DROP therefore pre-empts all of them, so the three
-# k8s policies `whisker-ingress` / `whisker-outpost-egress` / `authentik-outpost-core` are
-# still written (they are the portable expression of intent, and become load-bearing again if
-# a future operator stops shipping the tier) but are currently UNREACHABLE.
+# The operator's own rules live in tier `calico-system` (order 100, defaultAction: Deny),
+# which is evaluated BEFORE tier `default` -- where every `kubernetes_network_policy_v1`
+# compiles. Its end-of-tier DROP therefore pre-empts ALL k8s NetworkPolicies in this
+# namespace, so only a Calico NetworkPolicy CR with `spec.tier` can allow anything here.
 #
-# Only a Calico NetworkPolicy CR with `spec.tier` can allow anything in calico-system, so each
-# hop the UI needs is re-stated here. These are TIGHTER than the k8s policies they shadow:
-# every rule names a pod selector instead of whole namespaces (incl. the gateway hop, which
-# was previously unpoliced). Nothing else in the namespace is widened -- the tier's own
-# `calico-system.default-deny` still covers everything else.
+# THIS IS THE ONLY NETWORK POLICY LEFT IN THIS REPO (the firewalls/ modules and every
+# per-app netpol were deleted 2026-09-16). It is kept deliberately: it is not a restriction
+# this repo imposes, it is the only thing that lets whisker and its SSO outpost run inside
+# `calico-system` at all. Delete these CRs and the operator's own
+# `calico-system.default-deny` (selector `k8s-app != 'calico-apiserver'`, no rules) drops
+# every flow the outpost needs -- which is exactly how the UI broke on the v3.32.2 upgrade.
+# Every rule names a pod selector, so nothing outside these hops is widened.
 # See .clinedocs/calico-netpols.md.
 
 locals {

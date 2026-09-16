@@ -1,6 +1,5 @@
-# Calico Whisker (the flow-log UI) behind an authentik proxy outpost, with pod-scoped
-# NetworkPolicies so no other cluster pod can read the flow data. Lives in mantle because
-# it needs the authentik provider.
+# Calico Whisker (the flow-log UI) behind an authentik proxy outpost. Lives in mantle
+# because it needs the authentik provider.
 module "whisker" {
   source = "../../modules/network/whisker"
 

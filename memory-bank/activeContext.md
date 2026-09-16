@@ -1,9 +1,22 @@
 # Active Context
 
-*Consolidated 2026-09-16. State and in-flight work; the open list is `progress.md`.*
+*Consolidated 2026-09-16; **updated later that day — the firewall layer was deleted**.
+State and in-flight work; the open list is `progress.md`.*
 
 ## Current state
 
+- **There is no network-policy layer any more (deleted 2026-09-16).**
+  `modules/network/firewalls/` (the `policy` renderer + `basic_egress` +
+  `limited_ingress`), every per-app `security.tf`, and all the wiring that fed them
+  (the per-module `api_peer_ips`/`lan_cidrs`/`system_namespace`/`enable_egress_firewall`
+  variables, `data.kubernetes_endpoints_v1.kubernetes` + `local.api_peer_ips` in
+  `stacks/core/core.tf`, whisker/seaweedfs_admin's `firewalls` module calls,
+  `network/gateway`'s `cert_generator_job_name` output) are gone, so every workload can
+  reach every other one. **Kept on purpose:** `modules/network/whisker/tier.tf` — 3 Calico
+  CRs at `spec.tier: calico-system`, which are not a restriction but the thing that makes
+  whisker work at all (the operator's tier denies that namespace outright). Post-mortem
+  invariants for any future policy work: `.clinedocs/calico-netpols.md`; the removal
+  record and what to expect on the first apply: `progress.md`.
 - Branch `main`, **ahead of `origin/main`, not pushed** (`5f0f582` → `226ba04` →
   `bbe94f4` → `985c334` → the 2026-09-16 sweep, five commits: pin/bump backlog, whisker
   Calico tier, authentik signing key, NGF hook egress, docs).
@@ -80,18 +93,20 @@
   `0 added / 0 changed / 2 destroyed` = the two dead `random_password`s below (`deploy_key`,
   `database` — nothing referenced them; `terraform_key` is the one the blueprint Secret uses);
   post-apply plan `No changes`.
-- **Two authentik "simplifications" are now recorded as rejected, in the code that would
-  tempt someone (2026-09-16).** (1) `core/scopes.tf`: bootstrap env vars
+- **Two authentik "simplifications" are recorded as rejected (2026-09-16).** (1) In the code
+  that would tempt someone, `core/scopes.tf`: bootstrap env vars
   (`AUTHENTIK_BOOTSTRAP_TOKEN`/`_PASSWORD`) cannot replace our API-key blueprint —
   `core/setup/signals.py` gates the whole bootstrap on `not Setup.get(tenant)`, i.e. once per
   instance on a *fresh* install, so a running instance ignores them and rotating the key would
-  mean flipping the Setup row in the DB. (2) `core/security.tf` carried a factually wrong
-  comment: the worker's `allow_api` (:6443) rule is not about "the media-proxy outpost's
-  service connection" — no outpost has one. `outposts`' connection discovery re-creates a
-  local `KubernetesServiceConnection` every 8h if absent, and `outposts/models.py` gives
-  **every** connection a 15-min `outpost_service_connection_monitor` (`crontab 3-59/15`) whose
-  `KubernetesClient.fetch_state()` calls :6443 → inside `blocked_egress_cidrs`. So the rule is
-  load-bearing and un-removable from Terraform (discovery puts the object back). `core/locals.tf`
+  mean flipping the Setup row in the DB. (2) `core/security.tf` (file deleted 2026-09-16) used
+  to carry a factually wrong comment: the worker's API (`:6443`) rule was not about "the
+  media-proxy outpost's service connection" — no outpost has one. `outposts`' connection
+  discovery re-creates a local `KubernetesServiceConnection` every 8h if absent, and
+  `outposts/models.py` gives **every** connection a 15-min `outpost_service_connection_monitor`
+  (`crontab 3-59/15`) whose `KubernetesClient.fetch_state()` calls :6443. The durable part:
+  that discovery makes an API allow-rule load-bearing and un-removable from Terraform, because
+  the object is put back. The file was deleted 2026-09-16, so this note is the surviving record.
+  `core/locals.tf`
   likewise documents why `/certs` stays: it feeds the server's :9443 listener *and* the cert
   discovery task (live: `auth.<domain>` + `ca`, `managed=goauthentik.io/crypto/discovered/...`);
   the OIDC providers no longer depend on it.
@@ -139,16 +154,14 @@
   bazarr/radarr/sonarr gained `runAsGroup: 1000`, qbittorrent pinned
   (`…qbittorrent:5.2.3_v2.0.14-ls475`, `Recreate`), samba pinned, torrent VIP `.105`
   retained. It was *not* a clean run — see the next bullet.
-- **NGF's cert-generator hook is invisible to media's API carve-out — fixed 2026-09-16.**
-  The media gateway's helm upgrade hung `Still modifying [id=ngf]` (`pending-upgrade`), its
-  `cert-generator` Job pods `Error`-looping on `dial tcp 10.96.0.1:443: i/o timeout`: a
-  **Job's pods carry only the Job controller's labels** (`job-name`, …), never the chart's
-  `app.kubernetes.io/name`, so media's `allow_api` selector missed them. Second pod-scoped
-  policy + a `cert_generator_job_name` output on `network/gateway` now cover it (imported,
-  not recreated). Latent since the netpols landed 2026-09-09, i.e. *after* the last NGF
-  upgrade — so this batch was the first to hit it. Only `media` is exposed (`kube-network`
-  has no netpols at all); the `allow_api` README that asserted the false claim is corrected.
-  Detail: `progress.md`.
+- **The NGF cert-generator hook needed an API carve-out while netpols existed — now moot
+  (2026-09-16).** The media gateway's helm upgrade once hung `Still modifying [id=ngf]`
+  (`pending-upgrade`) because its `cert-generator` Job pods `Error`-looped on
+  `dial tcp 10.96.0.1:443: i/o timeout`: a **Job's pods carry only the Job controller's
+  labels** (`job-name`, …), never the chart's `app.kubernetes.io/name`, so a pod-scoped
+  policy keyed on that label missed them. Policy and the `cert_generator_job_name` output
+  are deleted with the firewall layer, so there is nothing to do today — but that label
+  rule is why any future pod-scoped netpol must special-case Job traffic.
 - **Longhorn snapshots are one cluster-wide, TF-owned scheme and the restore path is
   verified end to end.** Jobs, enrolment table and the label trap: `progress.md` and
   `modules/storage/longhorn_jobs.tf`. Verified on throwaway objects: a revert is refused
@@ -157,33 +170,34 @@
   pre-snapshot. **The manager API is in-cluster only:** `kubectl exec` into a
   `longhorn-manager` pod + `http://longhorn-backend:9500` (port-forward and the apiserver
   service-proxy both fail). **No `backupTarget`: recovery, not backup.**
-- **The core-apply landmine is fixed (2026-09-16).** A pending change in any module under
-  a caller's `depends_on` deferred the `kubernetes` Endpoints read inside authentik's
-  `allow_api` netpol and the apply aborted with a provider "inconsistent final plan"
-  error; the read now happens once in the stack root and is passed down as
-  `api_peer_ips`. Mechanism: `.clinedocs/calico-netpols.md`; evidence: `progress.md`.
+- **The core-apply "inconsistent final plan" landmine died with the layer (2026-09-16).**
+  A pending change in any module under a caller's `depends_on` deferred the `kubernetes`
+  Endpoints read that used to live *inside* the authentik policy module, so the plan's `to`
+  block count was a guess and the apply aborted. The fix (read it in the stack root, pass
+  the peer IPs down as `api_peer_ips`) has been deleted along with the policy — the
+  mechanism is generic and still worth knowing: `.clinedocs/calico-netpols.md`; evidence:
+  `progress.md`.
 - **The CA migration is finished: all 17 hosts are on Let's Encrypt and nothing consumes
   `linuxguru-ca`** (dormant, not deleted; `var.ca_certfile`/`ca_keyfile` remain a standing
   **plan-time** dependency of `stacks/core`). Checklist:
   `modules/cert_manager/README.md`.
 
-## In flight — namespace ingress rollout, part 2
+## The policy layer was thrown away (2026-09-16), not parked
 
-The "media treatment" for the remaining namespaces. `media` is the **only** namespace
-with enforced NetworkPolicies (locked down 2026-09-12); everything else is open to any
-cluster pod. Method (validated by hand, not yet in code): render staged policies via a
-`staged` flag on `firewalls/policy` (+ pass-through on `limited_ingress`), stage → watch
-a few days of real traffic (a login, an Argo sync, a fresh image pull) → flip
-`staged = false`.
+The namespace-ingress rollout that used to be the main thread of work here (staged policies
+→ soak → enforce, `media` as the model) is **cancelled**, and its output went with it:
+`media` was locked down 2026-09-12, and four days later every policy in the repo was
+deleted. Nothing here enforces network policy today except whisker's tier CRs.
 
-- Staging is **proven** (an allow-list staged on `argo` logged `pendingPolicies: Deny`
-  while traffic kept flowing) but **the `staged` flag does not exist in code yet**
-  (grep-verified 2026-09-14) — implementing it is the first concrete task.
-- Guest lists were never written down (the `TODO.md` they pointed at does not exist);
-  derive them from Goldmane/Whisker flow data, not guesses.
-- Highest-value first candidates: `kube-auth`, `devops-harbor`, `argo`, `ai`,
-  `monitoring`, `kube-certificates`, `blender`.
-- `argo` also has **no egress fence** (`enable_egress_firewall=false`).
+The method is not lost if it is ever restarted: `.clinedocs/calico-netpols.md` keeps the
+invariants (post-DNAT egress, netpols only UNION, tier ordering, the Job-label gotcha) and
+`.clinedocs/flow-logs.md` keeps the Goldmane/Whisker queries for deriving a guest list from
+**real traffic instead of guesses**. Two lessons from the first attempt:
+
+- **Staging previews only where the staged policy is the deciding one** — a namespace with
+  any permissive netpol just unions and previews nothing.
+- **Put the `staged` flag in code from day one.** The first attempt proved the mechanism by
+  hand and never implemented it, so every candidate namespace had to be fenced blind.
 
 ## Open items with no home elsewhere
 
@@ -279,16 +293,6 @@ a few days of real traffic (a login, an Argo sync, a fresh image pull) → flip
   and it plans `No changes`. That outage is the one justified use of `-target` (the 3+6
   ListenerSets).
 
-- **The egress firewall is one module now: `basic_egress` (2026-09-16).** `basic_internet` +
-  `allow_api` were merged into it and its five default-`true` posture booleans replaced by an
-  opt-in interface (`allow_namespaces` / `allow_k8s_api` / `allow_internet` / `allow_cidrs`,
-  plus an optional `pod_selector` that makes any call pod-scoped — the shape `allow_api` had).
-  At the same time `kube-auth`, `vaultwarden`, `longhorn-system` and `kube-storage` had their
-  internet egress closed (`longhorn-system`/`kube-storage` had no egress policy at all before).
-  The rename was proven zero-diff on **all three stacks** (core `0 to add / 0 to change / 0 to
-  destroy` + 1 `moved`, mantle `0/0/0` + 2 `moved`), and both storage classes were re-tested
-  with a live PVC mount under the new policies. Evidence, traps and the still-open monitoring
-  piece: `progress.md`.
 
 ## Settled — don't relitigate
 

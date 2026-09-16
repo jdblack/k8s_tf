@@ -257,11 +257,10 @@ throwaway group (both deleted afterwards; no production volume was reverted):
 | Run skipped when nothing changed | 5 executions, 1 snapshot |
 | Manager API reachability | port-forward fails; apiserver service-proxy fails on some DNAT picks (`dial tcp <pod-ip>:9500: i/o timeout`); `kubectl exec` into a manager pod → `http://longhorn-backend:9500` works |
 
-The manager's netpol only admits traffic from manager/ui/csi-plugin pods, or
-from pods labelled `longhorn.io/managed-by=longhorn-manager` plus
-`recurring-job.longhorn.io/*` / `longhorn.io/job-task` — relevant if you ever
-reach for a helper pod instead of `exec`. (`longhorn-manager` itself ships
-`/usr/bin/curl`, so you will not need one.)
+There is **no netpol on the manager** (the firewall system was deleted 2026-09-16), so a
+helper pod can reach `longhorn-backend:9500` like anything else. `longhorn-manager` itself
+ships `/usr/bin/curl`, so `kubectl exec` into it is still the shortest path — and it is the
+path the `http://longhorn-backend:9500` result above came from.
 
 ## Gaps
 

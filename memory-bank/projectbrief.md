@@ -16,8 +16,11 @@ plane are **not** managed here.
   order, with no hand-run `kubectl apply` step for anything this repo owns.
 - `tofu plan` is the drift check. Resources are typed (`kubernetes_*`) rather
   than `kubectl_manifest` on purpose, so out-of-band edits show as diffs.
-- Least-privilege NetworkPolicies per namespace (in progress — see
-  `memory-bank/progress.md`).
+- **No network-policy layer (deleted 2026-09-16).** The `firewalls/` library and every
+  per-app netpol were removed so every workload can reach every other one, and the
+  least-privilege version that existed first was retired with them. The lone exception
+  is whisker's tier CRs, which are *required* for it to work (see `memory-bank/progress.md`).
+  If a policy layer is ever rebuilt, start from `.clinedocs/calico-netpols.md`.
 - Version-pin every chart you touch.
 
 ## Non-goals / explicitly out of scope

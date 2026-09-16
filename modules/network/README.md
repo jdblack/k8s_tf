@@ -26,20 +26,24 @@ own namespaces.
 
 | Path | What it is |
 |---|---|
-| [`firewalls/`](firewalls/README.md) | NetworkPolicy helper library — `basic_egress` (egress, namespace-wide or pod-scoped via `pod_selector`), `limited_ingress` over the shared [`policy`](firewalls/policy/README.md) renderer |
 | [`gateway/`](gateway/README.md) | One NGINX Gateway Fabric instance per Gateway (control plane + Gateway resource) |
 | [`gateway/expose/`](gateway/expose/README.md) | One call to publish an app: HTTPS ListenerSet (+ cert/grants) and optional HTTPRoute |
 | [`gateway/listener_set/`](gateway/listener_set/README.md) | App-owned HTTPS listener on a Gateway + auto cert + ReferenceGrants (used by `expose`) |
 | [`gateway/http_route/`](gateway/http_route/README.md) | App-owned hostname → Service route with external-dns annotation (used by `expose`) |
 | [`wireguard/`](wireguard/README.md) | VPN operator + peers (own namespace `kube-network-vpn`) |
-| [`whisker/`](whisker/README.md) | Calico Whisker flow-log UI: authentik outpost + listener + netpols — instantiated by `stacks/mantle`, because it needs the authentik provider |
+| [`whisker/`](whisker/README.md) | Calico Whisker flow-log UI: authentik outpost + listener + the tier CRs the operator's own policy forces — instantiated by `stacks/mantle`, because it needs the authentik provider |
 | [`dns/route53_record/`](dns/route53_record/README.md) | Terraform-authoritative Route53 record, for hosts external-dns cannot publish |
 
-## Why this shapes the firewalls
+## NetworkPolicy: none, on purpose
 
-`kube-network`'s shared gateway data planes are ordinary pods proxying
-cross-namespace, so a gateway-fronted namespace must allow ingress from
-`kube-network` (`firewalls/limited_ingress`) and an app calling a gateway URL —
-SSO against `auth.<domain>` — needs `kube-network` in `allow_namespaces` on
-`firewalls/basic_egress`. Composition and the decision table:
-[`firewalls/README.md`](firewalls/README.md).
+There is **no NetworkPolicy layer in this repo** (the `firewalls/` library and every
+per-app netpol were deleted 2026-09-16): every namespace reaches every other
+namespace, the internet, and the API. Anything below that reads like a policy
+rationale is history kept for the rebuild.
+
+One exception is not ours: the tigera-operator (v3.32.2+) enforces its own tier
+`calico-system` (`defaultAction: Deny`), so pods in `calico-system` are dropped
+both ways regardless of what this repo does. `whisker/tier.tf` carries three Calico
+CRs in that tier purely to let whisker and its SSO outpost function — delete them
+and the UI breaks again. Details: [`whisker/README.md`](whisker/README.md) and
+`.clinedocs/calico-netpols.md`.

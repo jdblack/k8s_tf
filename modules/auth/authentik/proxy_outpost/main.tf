@@ -1,7 +1,6 @@
 # The proxy-outpost pattern for apps that speak no OIDC/SAML, in one module: the authentik
 # side (proxy provider + application + access group + outpost + the outpost's API token)
-# and the Kubernetes side (Secret + Deployment + Service + egress carve-out) in the
-# namespace being protected.
+# and the Kubernetes side (Secret + Deployment + Service) in the namespace being protected.
 #
 # The gateway routes the public host to the OUTPOST, not to the app: the outpost
 # authenticates the user against core, injects X-authentik-* headers, then reverse-proxies
@@ -99,8 +98,7 @@ resource "authentik_token" "outpost" {
 }
 
 # Terraform-owned pods, because authentik chart 2025.10.x no longer embeds proxy outposts.
-# That also keeps a from-scratch rebuild tofu-driven and means the protected namespace's
-# egress firewall applies to the outpost like any other workload.
+# That also keeps a from-scratch rebuild tofu-driven.
 resource "kubernetes_secret_v1" "api" {
   metadata {
     name      = "${var.service_name}-api"
@@ -185,24 +183,3 @@ resource "kubernetes_service_v1" "outpost" {
   }
 }
 
-# Egress carve-out for the outpost only: authentik core's pods on 9000 post-DNAT (the
-# Service is authentik-server:80, but Calico evaluates egress after DNAT, so the allow has
-# to name the pod's real port). Additive to a namespace-wide firewall where one exists: in
-# `media` the namespace supplies same-namespace + DNS, while calico-system (whisker) and
-# kube-storage (SeaweedFS admin) have no namespace-wide posture, so those callers add a
-# second pod-scoped policy for DNS + the app.
-module "core_egress" {
-  source       = "../../../network/firewalls/policy"
-  name         = "authentik-outpost-core"
-  namespace    = var.namespace
-  pod_selector = local.outpost_labels
-  policy_types = ["Egress"]
-
-  egress_rules = [{
-    peers = [{
-      namespace_selector = { "kubernetes.io/metadata.name" = var.core_namespace }
-      pod_selector       = { "app.kubernetes.io/name" = "authentik" }
-    }]
-    ports = [{ protocol = "TCP", port = 9000 }]
-  }]
-}

@@ -30,8 +30,7 @@ apps run `AuthenticationMethod = External`; qBittorrent instead whitelists the p
 Both are one-time, hand-run steps — see the main README.
 
 Terraform owns the pods because authentik chart 2025.10.x no longer embeds proxy outposts;
-that also makes a from-scratch rebuild `tofu`-driven and puts the outpost under the
-protected namespace's egress firewall like any other workload.
+that also makes a from-scratch rebuild `tofu`-driven.
 
 ## What it creates
 
@@ -46,7 +45,6 @@ protected namespace's egress firewall like any other workload.
 | Secret `<service_name>-api` | `AUTHENTIK_HOST` (`core_url`), `AUTHENTIK_HOST_BROWSER` (`browser_url`), `AUTHENTIK_TOKEN` |
 | Deployment `<service_name>` | one replica, image `var.image:var.image_tag`, ports `9000` (http) / `9443` (https), labels `app.kubernetes.io/name=authentik-outpost` + `instance=<outpost_name>` |
 | Service `<service_name>` | ClusterIP, ports 9000 + 9443 — **this is what the app's HTTPRoute points at** |
-| netpol `authentik-outpost-core` | egress to authentik core only (see below) |
 
 ## Inputs / outputs
 
@@ -71,18 +69,14 @@ Both are locals here rather than caller inputs: three callers used to pass the s
 strings, and the literal only ever needs updating in one place. `auth.<domain>` mirrors
 core's `local.fqdn` (pinned in `stacks/core/auth.tf`).
 
-## The egress carve-out
+## Egress
 
-The outpost's own policy is **egress-only and default-deny**: it may reach authentik core's
-pods on **port 9000 post-DNAT** (the Service is `authentik-server:80`, but Calico evaluates
-egress after DNAT, so the allow has to name the pod's real port). It is rendered with
-[`../../../network/firewalls/policy`](../../../network/firewalls/policy/README.md) so it
-matches the rest of the firewall library.
-
-In `media` that is additive to the namespace-wide `basic_egress` posture, which supplies
-same-namespace + DNS. In `calico-system` (whisker) and `kube-storage` (seaweedfs admin)
-there is no namespace-wide egress policy to lean on, so the caller adds a second pod-scoped
-policy for DNS + the app.
+The outpost is a plain pod with **no network policy** around it: the module used to render
+an egress default-deny plus a carve-out to authentik core on **port 9000 post-DNAT** (the
+Service is `authentik-server:80`, but Calico evaluates egress after DNAT, so a policy has to
+name the pod's real port). That whole layer — and with it the `firewalls/policy` renderer
+these calls used — was deleted 2026-09-16; the note survives only because a rebuild that
+reintroduces policy has to re-derive the port from DNAT, not from the Service.
 
 ## Access control
 

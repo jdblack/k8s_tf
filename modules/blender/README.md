@@ -100,9 +100,8 @@ It is an advertiser only: it never serves SMB, and the data path is untouched
 - **`disallow-other-stacks=yes`:** if a node ever runs its own mDNS stack this
   pod CrashLoops loudly instead of duelling over 5353. That is the signal to set
   `mdns_node_selector` and pin it somewhere clean.
-- **NetworkPolicy blindness is expected.** If `blender` ever grows a
-  `security.tf`, the advertiser is outside it in both directions — don't go
-  looking for the pod in the firewall graph. If a namespace firewall lands here,
+- **No netpol layer exists here any more** (the firewall system was deleted
+  2026-09-16), so the advertiser needs no allow-list. If policy comes back,
   remember the SMB LoadBalancer is `etp=Cluster` and needs the node CIDR in its
   guest list (`.clinedocs/calico-netpols.md`); the advertiser is unaffected.
 - **subPath asymmetry:** changes to `smb.conf` need a pod restart (nothing hashes
