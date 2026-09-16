@@ -659,10 +659,11 @@ work on an existing slice, not a new decision. (b) *Still open:* the LAN exists 
 `to_cidrs = [var.deployment.network.host_cidr]`, and nothing publishes node IPs either (the API
 peer set comes from the module's own Service + Endpoints reads).
 
-**Committed 2026-09-17, `514222b` (code) + `e64a54a` (.clinedocs)** — 28 + 2 files. The layer is
-now in git, and both stacks report no changes against the live cluster. (`memory-bank/` stays
-**untracked by choice**: `b1be450` / `1912b7c` / `306d5e7` removed it from git on 2026-09-16 and
-kept the files on disk. Do not `git add` it back without asking.)
+**Committed 2026-09-17**, five commits: `514222b` (the module pair + five namespaces, 28 files),
+`e64a54a` (`.clinedocs`), `fc5fd43` (memory-bank tracked again — see below), `be82dd2` (doc debt),
+`c889d23` (six spent `moved` blocks). Both stacks report no changes against the live cluster.
+`memory-bank/` was **untracked by choice** from 2026-09-16 (`306d5e7`, `b1be450`, `1912b7c`) until
+`fc5fd43` put it back at the owner's request — it is tracked now, so keep it that way.
 
 ## What's left / open
 
@@ -715,18 +716,25 @@ kept the files on disk. Do not `git add` it back without asking.)
   inside the pod: DNS resolves, `/alive` through the self rule returns 200, and the apiserver
   ClusterIP, `example.com` and the gateway VIP all time out, each denial attributed by Whisker to
   `vaultwarden-egress`. Same method next time: read the flows, one call, plan, apply, re-plan to
-  `No changes`, then the ranked list above. **Also: commit the layer** — 9 call sites are untracked.
-- **Doc debt from the rebuild: stale claims that no policy exists** (all small, none load-bearing
-  yet). `modules/argo/core/argo-cd/locals.tf` says "Nothing in this repo manages netpols today"
-  — the `global.networkPolicy.create = false` decision still stands, the reason clause no longer
-  applies. Same one-line staleness in `modules/auth/authentik/proxy_outpost/README.md` ("no network
-  policy around it"), `modules/network/gateway/README.md` ("No netpol exists here today"), and
-  `modules/cert_manager/README.md` § *No network policy here (2026-09-16)* — that one's **why** is
-  still correct, only its "deleted with the layer" framing went stale.
-  (`modules/storage/seaweedfs_admin/README.md` said the same and was **fixed 2026-09-17**, when that
-  namespace got its floor and the outpost got its peer.)
-  `modules/storage/disaster_recovery.md`'s note is still accurate: `longhorn-system` carries only
-  chart-shipped **ingress** policies.
+  `No changes`, then the ranked list above. **Committed with everything else the same day** — see
+  the commit note above.
+- **Doc debt from the rebuild: cleared 2026-09-17 (`be82dd2`).** Five places said no policy layer
+  existed; all five now keep their reason and lose the "deleted 2026-09-16" framing —
+  `modules/argo/core/argo-cd/locals.tf` (`global.networkPolicy.create = false` still stands, and the
+  comment now records that the reason *flips* once argo gets a floor),
+  `modules/auth/authentik/proxy_outpost/README.md` (the module renders none **by design**, and the
+  label `app.kubernetes.io/name=authentik-outpost` is what any peer selects — the three outposts are
+  deployed as `authentik-outpost`, `seaweedfs-admin-auth`, `whisker-auth`),
+  `modules/network/gateway/README.md` (egress half real, ingress half unwritten),
+  `modules/cert_manager/README.md` (still none; `kube-certificates` is next), and
+  `modules/storage/disaster_recovery.md` (`longhorn-system` carries only chart ingress policies, and
+  is on the rollout list). The `seaweedfs_admin/README.md` case was fixed with the namespace itself.
+- **The last six spent `moved` blocks are gone (`c889d23`).** `1e8df09` swept 28; these six were in
+  `modules/network/whisker/main.tf` and `modules/storage/seaweedfs_admin/main.tf`, and were no-ops —
+  `tofu state list` has every object at `module.auth.*` in both. **The check worth repeating before
+  deleting any:** plan must still read `No changes` with the blocks removed, since a resource at the
+  old address would have planned a destroy. The comment on *why* a whole-module `moved` cannot move
+  an outpost into an occupied module stays in both files.
 - **The egress module has no `staged` flag.** The 2026-09 lesson was to build the preview in from
   day one; nothing stages policies now, so any future soak has to add that flag first.
 - **Off-cluster backups: nothing has one.** No Longhorn `backupTarget`, so all 8 covered

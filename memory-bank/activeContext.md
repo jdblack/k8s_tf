@@ -81,14 +81,15 @@ State and in-flight work; the open list is `progress.md`.*
   registry by its LAN CIDR" advice that used to sit in `firewalls/egress/README.md`. It also
   generalizes: **every** OIDC consumer in this repo (harbor, grafana, argo — all `auth.<domain>`,
   all `.100:443`) needs the same peer, and the three outposts need `kube-auth` on `:9000`.
-- **The 2026-09-17 layer is committed, and the stack is clean.** `514222b` — the module pair plus
-  five namespaces, 28 files — and `e64a54a` — the two `.clinedocs` notes on the API/RBAC question.
-  Both stacks report **no changes** against the live cluster, and the applies that produced them were
-  no-ops. `memory-bank/` itself stays **untracked by choice**: `306d5e7`, `b1be450` and `1912b7c`
-  removed it from git on 2026-09-16 and kept the files on disk — do not `git add` it back.
+- **The 2026-09-17 layer is committed, and the stack is clean.** Five commits: `514222b` (the module
+  pair plus five namespaces, 28 files), `e64a54a` (the two `.clinedocs` notes on the API/RBAC
+  question), `fc5fd43` (memory-bank tracked again), `be82dd2` (the last "no policy here" claims), and
+  `c889d23` (six spent `moved` blocks). Both stacks report **no changes** against the live cluster,
+  and the applies that produced them were no-ops. `memory-bank/` was untracked from 2026-09-16 until
+  `fc5fd43` — **it is tracked now**, so update it in commits rather than leaving it aside.
   Next namespace: `kube-certificates`, then `monitoring`, `argo`, `kube-network`, `kube-auth`.
 - Branch `main`, **ahead of `origin/main`, not pushed** — the 2026-09-16 sweep plus the 2026-09-17
-  firewall rebuild (`514222b`, `e64a54a`).
+  firewall rebuild and its cleanups (`514222b` … `c889d23`).
 - **VIP policy: everything floats, names are the interface.** `gateway_ips` is deleted
   from `modules/network` (with tfvars `network_ingress` and the `stacks/core/core.tf`
   argument, its only consumers); `qbittorrent_torrent_lb_ip` is unset (variable kept as
