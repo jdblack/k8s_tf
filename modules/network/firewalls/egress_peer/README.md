@@ -39,6 +39,11 @@ Renders three rules, in this order:
 Rules 1 and 2 are the same two the base builder always renders, so calling both builders on one
 pod is safe: a second DNS rule is one redundant rule in the union, not a conflict.
 
+Live call sites: `harbor/core` (`component=core`) and, since 2026-09-17, three in `argo` — repo-server
+(harbor's OCI charts), argo-cd's server and argo-wf's server (the OIDC issuers) — all of them 443 on
+`gateway-name=private`. The argo calls are three objects rather than one because a policy carries one pod
+selector, and the three dialers share no label.
+
 ## Variables
 
 | Variable | Type | Default | Means |

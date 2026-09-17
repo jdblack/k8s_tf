@@ -46,6 +46,14 @@ this covers the dataplane and the operator underneath it. Flow-query recipes:
   netpol therefore **cannot be tightened** from here: tigera's `goldmane` allows any source on
   7443 (accepted, unfixable from TF), and argo-cd's six chart netpols are switched off with
   `global.networkPolicy.create = false` rather than narrowed.
+- **`global.` in a chart value is Helm's shared-values map, not cluster scope.** argo-cd's
+  `global.networkPolicy.create` gates six `networking.k8s.io/v1 NetworkPolicy` objects that all
+  carry `namespace: <release namespace>` and one component `podSelector` each — verified by
+  rendering 10.9.1 both ways: 59 objects vs 53, delta exactly those six, none cluster-scoped.
+  The prefix exists because the chart has a `redis-ha` subchart, which inherits `global` values.
+  What *is* cluster-scoped in that chart is RBAC and CRDs (`createClusterRoles`, `crds.install`),
+  not policies. Its sibling `global.networkPolicy.defaultDenyIngress` does render a
+  `podSelector: {}` **Ingress** fence — in the release namespace, and off by default.
 - Only **selected** pods are restricted. Once any policy selects a pod for `Egress`, that pod is
   deny-by-default; pods no policy selects stay wide open — which is why the per-pod shape is a
   tightening of named targets and never a namespace-wide fence.

@@ -10,21 +10,30 @@ is elsewhere, in `../whisker`.
 | `egress_peer/` ([README](egress_peer/README.md)) | The same, for a **named** peer the base builder cannot express: namespace + pod selector + port. One call = one policy; used *alongside* an `egress` call, since netpols union. |
 | `ingress/` ([README](ingress/README.md)) | Per-pod **ingress**: own-namespace and node-address floors by default, plus namespace / cluster / internet / raw-CIDR guests, plus `from_peers` for the narrow **namespace + pod selector + named ports** guest. `policyTypes: ["Ingress"]` only. One builder, not a pair — see below. |
 
-Call sites, fourteen egress policies live: `media` (`modules/media/egress.tf`, four — the namespace floor
+Call sites, twenty egress policies live: `media` (`modules/media/egress.tf`, four — the namespace floor
 below, plus an API grant for the NGF control plane and one for the NGF cert-generator *hook pod*, plus
 the outpost's peer into `kube-auth`), `devops-harbor` (`modules/harbor/core/egress.tf`, three: DNS +
 self for every pod the chart ships, `+ allow_internet` for `component=trivy`, and the gateway peer for
-`component=core` — the first call in the repo to use `egress_peer`), **`kube-storage`
+`component=core` — the first call in the repo to use `egress_peer`), `argo` (`modules/argo/core/egress.tf`,
+four: a namespace *profile* — DNS + self + the API server + the internet, namespace-wide because argo-wf's
+workflow pods are pods nobody declares — plus the same private-gateway peer on 443 for the three pods that
+speak to it: repo-server (harbor's OCI charts), argo-cd's server and argo-wf's server (both OIDC issuers)),
+**`kube-storage`
 (`modules/storage/egress.tf`, four: the namespace profile, which here is the *closed floor* — own
 namespace + DNS and nothing else, no internet — plus the API server for the CSI controller, the CSI
 node DaemonSet's `driver-registrar` and `snapshot-controller`; and
 `modules/storage/seaweedfs_admin/egress.tf`, one: the co-located outpost's peer into `kube-auth` on
-:9000)**, `blender`'s share (`modules/blender/egress.tf`, one — DNS plus its own namespace, nothing
+:9000)**, **`kube-certificates` (`modules/cert_manager/egress.tf`, two: the namespace-wide base — DNS +
+self + the API server, since every pod that chart renders including its `startupapicheck` hook Job is an
+API client — plus `+ allow_internet` for the controller alone, which needs ACME and the Route53 API)**,
+`blender`'s share (`modules/blender/egress.tf`, one — DNS plus its own namespace, nothing
 else) and `vaultwarden` (`modules/vaultwarden/egress.tf`, the same two-rule shape, selected by the
 Deployment's labels). The per-pod tables and the measured evidence behind each peer are in
 [`../../media/README.md`](../../media/README.md),
 [`../../storage/README.md`](../../storage/README.md),
-[`../../vaultwarden/README.md`](../../vaultwarden/README.md) and a one-line note on each call.
+[`../../cert_manager/README.md`](../../cert_manager/README.md),
+[`../../vaultwarden/README.md`](../../vaultwarden/README.md) and a one-line note on each call —
+`argo/core` has no README at all, so there its comments and the memory bank are the only copy.
 
 **Per-pod closing is not namespace closing — hence a namespace-wide call.** A pod-scoped policy
 governs the pods its selector matches and says nothing at all about the rest: an unselected pod falls

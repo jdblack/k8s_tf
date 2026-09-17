@@ -46,6 +46,42 @@ State and in-flight work; the open list is `progress.md`.*
   CSI registrar writes CRDs, so it needs the API" from "the chart ships a `pods` CRUD role nothing
   uses".
 
+- **`kube-certificates` is the fifth namespace closed, and the second in a row to need no probe of the
+  pods themselves (2026-09-17).** Two policies (`modules/cert_manager/egress.tf`): a namespace-wide base
+  = DNS + self + **the API server**, and `allow_internet` for `component=controller` alone. The API grant
+  is deliberately on the *namespace* rather than on three pod-scoped calls, because every pod that chart
+  renders is an API client — controller, cainjector, webhook and the `startupapicheck` hook Job, which
+  carries only `job-name` labels: the NGF cert-generator shape that a closed floor broke once already.
+  The controller's internet grant is the load-bearing, invisible half: ACME registration, the Route53 API
+  for DNS-01, and the public recursors `locals.tf` pins — the 30-day flow window holds **zero** records
+  for this namespace, so it came from RBAC (nine `cert-manager-*` ClusterRoleBindings), the controller's
+  own `"Caches populated"` reflector lines, and every ACME `order` reading `valid`. Probes on both
+  selectors: API **403**, `acme-v02…` **200**, `1.1.1.1` **301**, `nslookup @8.8.8.8` answers; LAN `:80`,
+  a `media` pod on `:8989` and (for the base-selected probe) all public egress time out. Post-apply plan:
+  `No changes`. **Ingress stays absent on purpose here** — the apiserver reaches the webhook from the
+  nodes, so any inbound restriction breaks issuance cluster-wide — and the ingress guest list is empty
+  anyway: no ServiceMonitor exists for the chart, so nothing scrapes it.
+
+- **`argo` is the sixth namespace closed, and the first where the namespace-wide selector is *forced*
+  (2026-09-17).** Four policies (`modules/argo/core/egress.tf`): a **namespace profile** — DNS + self +
+  the API server + the public internet — plus three `egress_peer` calls for the private gateway's data
+  plane on 443. The reason the floor has to be namespace-wide is argo-wf: its **workflow pods** are pods
+  nobody declares, they run arbitrary containers, and their executor patches its own `Workflow` CR — a
+  per-pod audit cannot see them. What the change *removes* is the point: every argo pod could previously
+  reach the LAN, the gateway VIP and every other namespace's pods. The three peers are for the only three
+  dialers, and the guest list was read, not guessed — the measured flows (github over public :22, the
+  `otwld.github.io` helm repo over :443, and `harbor.<domain>` OCI through the gateway on :443) line up
+  one-for-one with the four live Applications' `repoURL`s, and the peer is the **gateway pod, not an
+  authentik pod** (the harbor lesson). Acceptance test worth reusing: force-refresh the Applications
+  (`argocd.argoproj.io/refresh=normal`) *after* the apply — all four came back `Synced`/`Healthy` with no
+  conditions, so repo-server really re-fetched from all three upstreams through the new policies; and
+  `argo-cd.<domain>/auth/login` still **303**s to the authentik authorize URL with `client_id=argo-cd`.
+  Probes: OIDC discovery **200**, `harbor.<domain>/v2/` **401**, `github.com` **200**, API **403**, and
+  the unlabelled base pod reaches the internet + API but **no** gateway peer. Zero Deny from any real
+  argo pod in the window after; post-apply plan `No changes`. **Not done on purpose:** no ingress rules —
+  inbound is untouched and nothing needs fencing, since the only guests are the gateway (already inside
+  the cluster) and Prometheus, which does not scrape argo at all.
+
 - **The inbound direction has its first policy, and it closed a namespace without a CIDR peer
   (2026-09-17).** `kube-storage-baseline-ingress` (`modules/storage/ingress.tf`): namespace-wide, four
   rules — self, the node floor, the private gateway's data plane on the three backend ports its own

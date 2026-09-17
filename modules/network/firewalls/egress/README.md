@@ -1,8 +1,10 @@
 # egress
 
 One call renders exactly one `NetworkPolicy`, `policyTypes: ["Egress"]`. Callers state intent;
-the module decides selectors, CIDRs and rule order. Fourteen policies are live across
-`modules/media`, `modules/harbor`, `modules/storage`, `modules/blender` and `modules/vaultwarden`; a
+the module decides selectors, CIDRs and rule order. Twenty policies are live across
+`modules/media`, `modules/harbor`, `modules/storage`, `modules/cert_manager`, `modules/argo`,
+`modules/blender` and
+`modules/vaultwarden`; a
 peer that needs a pod selector *and* a port is the one thing this module cannot say — that is
 [`../egress_peer`](../egress_peer/README.md). [`../README.md`](../README.md) carries the wiring
 state, including the two shapes a namespace-wide call can take (a closed floor, or the namespace

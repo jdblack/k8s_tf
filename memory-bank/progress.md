@@ -51,7 +51,7 @@ not current state.*
 - **Egress policy is per-pod and opt-in: `modules/network/firewalls/egress` (2026-09-17).** One call
   renders one `Egress`-only NetworkPolicy; DNS and own-namespace always, every other peer an
   explicit switch. A second builder, `network/firewalls/egress_peer`, joined it the same day for
-  the one shape the first cannot say: **namespace + pod selector + port**. **14 egress policies live** —
+  the one shape the first cannot say: **namespace + pod selector + port**. **20 egress policies live** —
   `blender` (DNS + self), `vaultwarden` (DNS + self), `media` (4: the **namespace profile**
   `media-baseline-egress` — `podSelector: {}` with own namespace + DNS + the public internet — plus
   three exceptions, the gateway and its cert-generator hook pod for the API server and the outpost for
@@ -61,7 +61,12 @@ not current state.*
   peer)**, and
   `devops-harbor` (3: DNS + self for all seven chart pods,
   `+ allow_internet` for `component=trivy`, and the private gateway's data plane on 443 for
-  `component=core` — that last one is the only `egress_peer` call). None of these types `Ingress`, so they
+  `component=core` — that last one the first `egress_peer` call), `kube-certificates` (2: the
+  namespace-wide base with DNS + self + the API server — every pod that chart renders is an API client,
+  hook Job included — plus the internet for the controller alone, which needs ACME and Route 53), and
+  `argo` (4: the namespace profile with the API server *and* the internet, because argo-wf's workflow pods
+  are pods nobody declares, plus the same private-gateway 443 peer for the three dialers — repo-server for
+  harbor's OCI charts, argo-cd's server and argo-wf's server for their OIDC issuers). None of these types `Ingress`, so they
   tighten egress rather than fencing a namespace (inbound is the bullet above) — and where a per-pod list
   leaves a hole, a
   namespace-wide call closes it (the `media` section below argues both shapes: closed floor vs
@@ -658,12 +663,57 @@ is what keeps the whole thing a tightening of named pods instead of a fence arou
   registries 401 (reachable), `harbor.<domain>/api/v2.0/health` **200** through the gateway, and
   the negative controls still denied (another namespace's pod times out, and harbor-core has no
   public egress at all). Post-apply plan: `No changes`.
+- `kube-certificates` — 2, applied and probe-verified 2026-09-17 (`modules/cert_manager/egress.tf`):
+  the namespace-wide base is DNS + self + **the API server**, and `allow_internet` goes on the
+  controller alone. Two decisions worth carrying: (a) the API grant is on the namespace rather than on
+  three pod-scoped calls because everything the chart renders is an API client — controller, cainjector,
+  webhook *and* the `startupapicheck` hook Job, which is a pod carrying only `job-name` labels, i.e. the
+  NGF cert-generator shape that would have broken the next `helm upgrade`; (b) the controller's internet
+  grant is load-bearing and invisible — ACME registration, the Route53 API for DNS-01, and the public
+  recursors `locals.tf` pins with `--dns01-recursive-nameservers-only`, none of which appear in a flow
+  window (the 30-day one holds **zero** records for this namespace). Established instead from nine
+  `cert-manager-*` ClusterRoleBindings, the controller's own `"Caches populated"` reflectors, and every
+  ACME order reading `valid` 2d9h earlier. Probes, both selectors: API **403**, `acme-v02…` **200**,
+  `1.1.1.1` **301**, `nslookup @8.8.8.8` answers, while LAN `:80` and a `media` pod on `:8989` time out
+  and the unlabelled base pod gets no internet. Whisker confirms `→ PRIVATE NETWORK:6443 Allow` for the
+  API hop. Post-apply plan: `No changes`. **Ingress stays absent here on purpose** — the apiserver calls
+  the webhook from the nodes, so any inbound restriction breaks issuance cluster-wide, and nothing
+  scrapes these pods (no ServiceMonitor; the `prometheus.io/scrape` annotations are inert), so the
+  ingress guest list is empty anyway.
+- `argo` — 4, applied and probe-verified 2026-09-17 (`modules/argo/core/egress.tf`), taken *out of order*
+  (ahead of `monitoring`) because its four live Applications make the end-to-end test cheap. The shape is
+  the **namespace profile** again, and here that is forced rather than chosen: `argo` holds three charts
+  (argo-cd, argo-workflows, argo-events) plus **argo-wf's workflow pods — pods nobody declares**, running
+  arbitrary containers with an executor that patches its own `Workflow` CR, which is exactly what the
+  namespace-wide `podSelector: {}` is for. So the floor is DNS + self + `allow_k8s_api` +
+  `allow_internet`, and what it *removes* is the interesting half: every argo pod could reach the LAN, the
+  gateway VIP and every other namespace's pods. Three `egress_peer` calls add the private gateway's data
+  plane on 443 for the only three dialers: repo-server (`harbor.<domain>/library` over OCI — the
+  `corsless` and `llm-embedder` Applications), argo-cd's server and argo-wf's server (both OIDC issuers at
+  `auth.<domain>`). The peer is the **gateway pod, not an authentik pod**, the harbor lesson; and it is
+  three objects because a policy carries one pod selector and the three dialers share no label. No guest
+  was invented: the three measured flows (public :22 github, public :443 the `otwld.github.io` helm repo,
+  gateway :443 harbor's OCI) line up one-for-one with the four live Applications' `repoURL`s.
+  **Acceptance test, and the strongest one this layer has had:** all four Applications were force-refreshed
+  (`argocd.argoproj.io/refresh=normal`) *after* the apply and came back `Synced`/`Healthy` with **no
+  conditions** — i.e. the repo-server really did re-fetch from github, from a public helm repo and from
+  harbor's OCI endpoint through the new peer. SSO checked outside-in too:
+  `argo-cd.<domain>/auth/login` → **303** to `auth.<domain>/application/o/authorize/?client_id=argo-cd`,
+  UI **200**. Probes, one per selector: OIDC discovery **200**, `harbor.<domain>/v2/` **401** (reachable,
+  unauthorized), `github.com` **200**, `10.96.0.1:443/api` **403**; the unlabelled base pod gets the same
+  API **403** and public **200** but **no** gateway peer (OIDC/harbor time out); LAN `:80` and
+  `authentik-server:9000` time out for all three, denied by the new policies. Whisker over the 25 minutes
+  after the change: **zero Deny from any real argo pod**, and the three gateway dials read
+  `repo-server → private-private-*:443 Allow`. Post-apply plan: `No changes`. Not done, on purpose: the
+  gpg-keys/tls-certs ConfigMaps are empty and notifications has no services configured, so nothing else
+  in the namespace has an off-cluster destination to name.
 
 **The one rule the rebuild produced: guests come from measured flows, never from guessing.**
 Every profile was read off Whisker records (`.clinedocs/flow-logs.md` — `items` not `flows`, the
 two filter shapes, and a capped result set that under-reports when you widen the window). The same
 survey ranked the remainder, and it is the order the next slices should follow: ~~`kube-storage`~~ (closed 2026-09-17),
-then `kube-certificates`, `monitoring`, `argo`, `kube-network`, `kube-auth`.
+~~`kube-certificates`~~ (closed 2026-09-17), then `monitoring` (**next**), ~~`argo`~~ (closed 2026-09-17,
+taken early — its four live Applications made the end-to-end test cheap), `kube-network`, `kube-auth`.
 (`vaultwarden` was ranked first and landed 2026-09-17 — two rules, no API and no internet;
 `devops-harbor` followed the same day.) **The corollary, learned there: a quiet flow window is not
 a licence.** Harbor's two real requirements are both invisible in it — trivy's DB pulls are bursty
@@ -672,8 +722,10 @@ probing live* instead: the DB-stored `oidc_endpoint`, `SCANNER_TRIVY_DB_REPOSITO
 from inside the pod. A DNS + self policy would have passed every flow-log check and broken OIDC on
 the first key-cache expiry.
 `longhorn-system` and `kube-network-vpn` are
-structurally awkward (control loops, host networking); `ai`, `calico-system` and `kube-system` are
-not this repo's to police.
+structurally awkward (control loops, host networking) — the first is *half* done as of 2026-09-17: it
+took one additive ingress policy for the Prometheus scrape (`modules/storage/longhorn_netpols.tf`,
+the chart already owns the rest of that direction) and its **egress half is still open, the last
+namespace with none**; `ai`, `calico-system` and `kube-system` are not this repo's to police.
 
 **Module gaps: one closed, one left.** (a) *Closed 2026-09-17* by
 `network/firewalls/egress_peer` — the second builder the README asked for, one call = one policy
@@ -770,9 +822,38 @@ peer set comes from the module's own Service + Endpoints reads).
   label `app.kubernetes.io/name=authentik-outpost` is what any peer selects — the three outposts are
   deployed as `authentik-outpost`, `seaweedfs-admin-auth`, `whisker-auth`),
   `modules/network/gateway/README.md` (egress half real, ingress half unwritten),
-  `modules/cert_manager/README.md` (still none; `kube-certificates` is next), and
-  `modules/storage/disaster_recovery.md` (`longhorn-system` carries only chart ingress policies, and
-  is on the rollout list). The `seaweedfs_admin/README.md` case was fixed with the namespace itself.
+  `modules/cert_manager/README.md` (still none at the time; `kube-certificates` was next — **closed the
+  same day**, see the slice record above), and
+  `modules/storage/disaster_recovery.md` (`longhorn-system` carried only chart ingress policies and was
+  on the rollout list; **both halves of that are now stale by design** — the Longhorn slice below
+  rewrote that paragraph and the operational claim inside it). The `seaweedfs_admin/README.md` case was
+  fixed with the namespace itself.
+- **Longhorn's ingress half: the scrape that only *looked* healthy (2026-09-17).** The slot opened by
+  `up{job="longhorn-backend"}` reading `1` on all six manager pods while Whisker's 7-day window held
+  exactly three `monitoring → 9500` denies — my own probes. Both were true: the chart's
+  `networkPolicies.restrictInternalTraffic` (default `true`, nothing in this repo sets it) landed six
+  **Ingress** policies on 2026-09-01, and the scrape had been riding a connection opened before that;
+  **a connection that never ends is never emitted**, so the flow log had no successful scrape to
+  show. Every metric was real and every target was doomed — the first Prometheus restart was an
+  outage with no other symptom. The other chart gate, `networkPolicies.enabled: false`, only ever
+  governs the UI frontend policy, which is why the count is six and not seven: `longhornUI.replicas=0`
+  leaves no `longhorn-ui` pod to select. Fix is one additive call
+  (`modules/storage/longhorn_netpols.tf`, `monitoring`/`app.kubernetes.io/name=prometheus` → TCP 9500,
+  `allow_namespace`/`allow_nodes` off) — an *ingress* call in a file whose sibling is egress, because
+  Calico only unions: this direction the chart already owns and we can only add, the other direction
+  has no owner and that is why it is the one still open. **Verified by forcing the reconnect rather
+  than trusting the next plan:** pod deleted, new pod IP, `6/6` up with scrape ages under 30s, flow
+  log attributing them to `longhorn-manager-metrics-ingress`. Three negative controls in the same
+  window: a `default` pod times out on `:9500` and `:9503` but gets **http 200 on `:9502`** (the chart's
+  webhook policy is `from: any`, and the three labels on a manager pod make three policies union onto
+  it — that webhook allow is also what admits the kubelet's `:9502` healthz), and a `monitoring` pod
+  without the `prometheus` label times out, so the grant is pod-scoped. **Two read-the-socket lessons
+  worth keeping:** an allowed port with nothing listening answers *refused*, not timeout, while a
+  `Service` port kube-proxy has no rule for *drops* — so `longhorn-admission-webhook:9501` times out
+  over the ClusterIP and refuses on the pod IP (the service publishes 9502 only), and
+  `/proc/net/tcp` inside the manager pod is what settled it: 9500, 9502, 9503, no 9501. Accepted gaps:
+  that `9501` door (open to any source, only the chart can narrow it) and the egress half. Details and
+  the trap list in `modules/storage/README.md`.
 - **The last six spent `moved` blocks are gone (`c889d23`).** `1e8df09` swept 28; these six were in
   `modules/network/whisker/main.tf` and `modules/storage/seaweedfs_admin/main.tf`, and were no-ops —
   `tofu state list` has every object at `module.auth.*` in both. **The check worth repeating before

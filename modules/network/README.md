@@ -31,7 +31,7 @@ own namespaces.
 | [`gateway/listener_set/`](gateway/listener_set/README.md) | App-owned HTTPS listener on a Gateway + auto cert + ReferenceGrants (used by `expose`) |
 | [`gateway/http_route/`](gateway/http_route/README.md) | App-owned hostname → Service route with external-dns annotation (used by `expose`) |
 | [`firewalls/`](firewalls/README.md) | `NetworkPolicy` builders, one call = one object: **`egress`** per pod profile, **`egress_peer`** for one namespace + pod + port, **`ingress`** for the inbound direction |
-| [`firewalls/egress/`](firewalls/egress/README.md) | **Egress**: DNS always, own-namespace by default, plus namespace / API-server / cluster / internet / raw-CIDR peers. Call sites: `media` (4), `kube-storage` (4), `harbor` (3), `seaweedfs_admin` (1), `blender` (1), `vaultwarden` (1) |
+| [`firewalls/egress/`](firewalls/egress/README.md) | **Egress**: DNS always, own-namespace by default, plus namespace / API-server / cluster / internet / raw-CIDR peers. Call sites: `media` (4), `kube-storage` (4), `argo` (4), `harbor` (3), `cert_manager` (2), `seaweedfs_admin` (1), `blender` (1), `vaultwarden` (1) |
 | [`firewalls/ingress/`](firewalls/ingress/README.md) | **Ingress**: own namespace and the node addresses always, every other guest named explicitly, with its own ports. Call site so far: `kube-storage` (1) |
 | [`wireguard/`](wireguard/README.md) | VPN operator + peers (own namespace `kube-network-vpn`) |
 | [`whisker/`](whisker/README.md) | Calico Whisker flow-log UI: authentik outpost + listener + the tier CRs the operator's own policy forces — instantiated by `stacks/mantle`, because it needs the authentik provider |

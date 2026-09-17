@@ -17,6 +17,7 @@ Installed by `stacks/core`. Two ClusterIssuers:
 | Helm release `cert-manager` | pinned `v1.21.2`; `crds.enabled` + `crds.keep`, the **gateway-shim** (`enableGatewayAPI`) and ListenerSets feature gate so an annotated ListenerSet gets its `cert-<fqdn>` secret automatically; `--dns01-recursive-nameservers[-only]` at public resolvers |
 | ClusterIssuer `letsencrypt` | `dns01/route53`, `hostedZoneID` from `var.data["R53_ZONEID"]`; credentials from `var.data` |
 | Secret `certman-route53-letsencrypt` | the Route53 key the solver reads |
+| NetworkPolicies, 2 | `cert-manager-egress` (namespace-wide: DNS + self + the API server) and `cert-manager-controller-egress` (`+ allow_internet` for the controller) — see below |
 
 No `Certificate` is ever written by hand:
 [`../network/gateway/expose`](../network/gateway/expose/README.md) annotates the
@@ -101,15 +102,55 @@ The CA's *name* is not a literal anywhere: `ca.tf` reads it from
 names from it, so that key is **not** dead — deleting it renames the Secret,
 ClusterIssuer and ConfigMap.
 
-## No network policy here (as of 2026-09-17)
+## Egress: two policies, and the API grant is namespace-wide
 
-The module installs none — `kube-certificates` is next in the rollout, and the layer's **ingress** half
-exists only since 2026-09-17 (`kube-storage`). DNS is certain; whether these pods need the API server is
-the thing to measure, and
-a quiet flow window cannot answer it (watches never end, so they are never emitted — see
-`.clinedocs/flow-logs.md`). The reason this namespace has never had **ingress** rules stands, and is
-the part worth keeping: the kube-apiserver calls the cert-manager webhook from the nodes — host
-traffic, not a pod namespace — so any ingress restriction here breaks issuance cluster-wide.
+`egress.tf`, written to the layer's method (no separate rollout step — the module owns its own call):
+
+| Policy | Selects | Grants |
+|---|---|---|
+| `cert-manager-egress` | **every** pod (`podSelector: {}`) | own namespace + DNS + the API server (both halves: ClusterIP :443, control-plane :6443) |
+| `cert-manager-controller-egress` | `name=cert-manager` + `component=controller` | the public internet |
+
+The base carries the API grant for the *namespace* rather than three pod-scoped calls, and that is the
+deliberate part: everything this chart renders is an API client (the controller's watches and leader
+election, cainjector's writes, the webhook's `subjectaccessreviews`, the `startupapicheck` hook Job) —
+and the hook is a pod with only `job-name` labels, i.e. the exact shape that armed NGF's cert-generator
+hook in `media`. A closed floor plus three grants would look tidier and break on the next
+`helm upgrade`.
+
+The internet grant is on the controller alone, and it is not optional: ACME registration/renewals at
+`acme-v02.api.letsencrypt.org`, the Route53 API for the DNS-01 TXT, and the public recursors
+`locals.tf` pins (`--dns01-recursive-nameservers-only` sends *all* DNS-01 lookups to 8.8.8.8/1.1.1.1,
+never to the pod's LAN resolver). cainjector and the webhook stay API-only.
+
+**Measured, because this namespace is invisible to flow logs** — a 30-day Whisker window holds **zero**
+records for `kube-certificates` (watches never end and are never emitted; `.clinedocs/flow-logs.md`),
+so the guests came from configuration plus live probes:
+
+- API: nine `cert-manager-*` ClusterRoleBindings on the `cert-manager` ServiceAccount, and the log's own
+  reflectors (`"Caches populated" type=*v1.Gateway/*v1.HTTPRoute`) — informers are a client by
+  construction. `curlimages/curl` pods carrying each selector, after the apply, against
+  `https://10.96.0.1:443/api`: **403 both** (reachable, unauthorized), the API hop appearing in Whisker as
+  `→ PRIVATE NETWORK:6443 Allow` (post-DNAT to `192.168.0.74`).
+- Internet: every ACME `order` is `valid` from 2d9h ago — DNS-01 via Route53, i.e. a public API call —
+  and the controller's log has `verified existing registration with ACME server`. Same probes:
+  `acme-v02.api.letsencrypt.org` **200** and `https://1.1.1.1` **301** from the controller-selected pod,
+  and `nslookup … 8.8.8.8` / `1.1.1.1` answer (the load-bearing case — renewals die silently without it).
+- Lease renewals are the reason this is not deferrable: certs renew ~17 days out, so a missing peer
+  looks like nothing until the first renewal attempt.
+- Negative controls, both pods: LAN `192.168.0.1` and a `media` pod on `:8989` time out, and the
+  unlabelled-base pod (`app=egress-probe`) gets **no** internet at all while still reaching the API —
+  i.e. the floor is real and the internet grant is not inherited.
+- Post-apply plan: `No changes`. Neither policy touches the running pods (netpols union, and both
+  selectors keep DNS + self).
+
+## Still no ingress here, on purpose
+
+The reason this namespace has never had **ingress** rules stands: the kube-apiserver calls the
+cert-manager webhook from the nodes — host traffic, not a pod namespace — so any ingress restriction
+here breaks issuance cluster-wide. The pods' `prometheus.io/scrape` annotations are inert
+(kube-prometheus-stack ignores annotations; there is no ServiceMonitor and no `up{namespace=…}` series),
+so nothing scrapes them either, and the ingress half has **no guests at all** to name.
 
 ## If a private CA ever comes back
 

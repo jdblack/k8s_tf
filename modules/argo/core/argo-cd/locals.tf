@@ -3,9 +3,8 @@ locals {
   helm_values = {
     global = {
       domain = local.fqdn
-      # Chart >=10.0.0 ships per-component ingress NetworkPolicies, on by default; this repo has none
-      # for argo yet, so off -- flip once argo gets an egress floor. 10.9.1 then renders exactly the
-      # same 54 objects as 9.2.4.
+      # Chart >=10.0.0 ships per-component *ingress* NetworkPolicies, on by default; the repo has no
+      # ingress for argo yet, so off -- an egress floor (2026-09-17) does not make this true.
       networkPolicy = {
         create = false
       }
