@@ -202,6 +202,27 @@ State and in-flight work; the open list is `progress.md`.*
   `:21010` still connect, plex through the public gateway returns its own `HTTP/2 401`, every pod stays
   Ready (the node floor), 0 `Deny` into `media` in Whisker afterwards, and `stacks/mantle` re-plans
   `No changes`. `longhorn-system` is what the new operator unlocks next.
+- **`longhorn-system` closed the same way, and the exclusion turned out to be unnecessary (2026-09-17).**
+  The chart's six policies are not a namespace curtain: they select `longhorn.io/component=…` and
+  `app=longhorn-manager`, so the four `csi-*` sidecars, `longhorn-csi-plugin`, `longhorn-driver-deployer`,
+  the `engine-image-ei-*` pods and the snapshot Jobs had sat on the namespace's default-allow since the
+  chart landed, and the two shapes the chart *does* give are easy to misread — `longhorn-webhook` omits
+  `from` entirely (any source, TCP 9501/9502, which is what admits the apiserver and the kubelet probe),
+  while `longhorn-manager` / `instance-manager` list bare podSelectors, i.e. this namespace and only the
+  pods named. Since nothing here needs to stay outside a curtain (the only cross-namespace guest is
+  Prometheus, already granted by the additive scrape call) the shape is a **plain namespace-wide call with
+  the floor as its whole guest list** — no `pod_selector_expressions` at all, so the operator item was not
+  a prerequisite after all. Trade named at the call: unioning the floor widens the chart's short
+  in-namespace guest lists to the whole namespace, which is what the module's `allow_namespace` default
+  means anywhere else.
+  Acceptance, all live: 29/29 pods Running, all 15 volumes `attached`/`healthy`, `up == 0` nowhere in the
+  cluster, 0 `Deny` into the namespace, and a scratch `longhorn` PVC + pod in `default` provisioning,
+  attaching, mounting, writing `MOUNT_OK` and deleting cleanly — the one test that exercises
+  csi-provisioner → manager → instance-manager (iSCSI `3260`) → the node's `iscsid`, i.e. the path the
+  node floor exists for. Landmine re-hit exactly as documented: the new call in `module.storage` deferred
+  the `kubernetes_nodes` reads in the three `stacks/core` modules that `depends_on` it, and the first
+  apply died with the provider's `match_labels: was MapValEmpty, but now null`; the re-plan was
+  `No changes` and needed no second apply.
 - **The node floor admitted the wrong address, and a webhook is how you find out (2026-09-17).** The
   curtain on `kube-certificates` is what broke it: annotating any `Certificate` came back
   `failed calling webhook "webhook.cert-manager.io": context deadline exceeded` — the apiserver's own
@@ -459,7 +480,9 @@ a blanket selector would select it, and host-netns enforcement is untested), `va
 (namespace-wide since 2026-09-17: verified as its only pod, so the blanket selector costs nothing and
 covers whatever a chart upgrade leaves behind), `devops-harbor`, `kube-storage` (closed floor: self +
 DNS, no internet), `argo`, `kube-certificates`, `kube-network`'s NGF control plane; ingress in
-`kube-storage` (namespace-wide) and `longhorn-system` (pod-scoped, the Prometheus scrape), plus the six
+`kube-storage` (namespace-wide) and `longhorn-system` (namespace-wide since 2026-09-17: the floor alone,
+which is what finally governs the pods the chart's own six policies never selected; the additive
+Prometheus-scrape call rides beside it), plus the six
 curtains that landed 2026-09-17 — `monitoring`, `kube-auth`, `argo`, `devops-harbor`, `vaultwarden`,
 `kube-certificates` (all namespace-wide) — plus `media` (namespace-wide minus three carved-out pods,
 rule 4's first exclusion). `monitoring` and `kube-network` are the two that carry one
@@ -482,16 +505,16 @@ direction on purpose: both were declined an egress curtain, argued in the declin
    `authentik-ingress`). It holds the credentials everything else trusts, so the curtain
    goes on the inbound side; guests are the three outposts on `:9000` plus the gateway, and they were
    read off the live listeners before the policy was written, never assumed.
-5. **`longhorn-system` ingress curtain (rule 2)** — unblocked by item 1 and not yet written. The chart
-   selects its own six policies' pods, so the curtain's job is the leftovers that no chart policy
-   selects (the four `csi-*` sidecars, `longhorn-csi-plugin`, `longhorn-driver-deployer`, the
-   `engine-image-ei-*` pods, snapshot Jobs) — and stating *that* set is the open design question: the
-   leftovers span two label keys (`app` and `longhorn.io/component`), and expressions AND, so "all pods
-   except the chart's" is not one selector. `app NotIn (…)` happens to select the label-less
-   `engine-image` and `instance-manager` pods too, which is either the whole answer or the reason to keep
-   `longhorn-manager-metrics-ingress` as-is and write nothing. **Decide the selector shape before writing
-   it.** Any curtain here must leave `app=longhorn-manager` to the existing additive call, or that call
-   goes redundant under the union (the rule-4 *mirror* case).
+5. **`longhorn-system` ingress curtain (rule 2). DONE 2026-09-17**
+   (`modules/storage/longhorn_netpols.tf`, `longhorn-system-ingress`). The selector shape resolved by
+   *not* needing an expression: the chart's six policies cover only the pods they name, nothing in the
+   namespace has to stay *outside* a curtain, and the only cross-namespace guest is Prometheus (the
+   additive call that was already there). So it is a plain namespace-wide call with the floor as its
+   whole guest list — and it is the first thing that governs the leftovers (four `csi-*` sidecars,
+   `longhorn-csi-plugin`, `longhorn-driver-deployer`, `engine-image-ei-*`, snapshot Jobs), which had sat
+   on the namespace's default-allow since the chart landed. Trade named at the call: unioning the floor
+   widens the chart's short in-namespace guest lists on `longhorn-manager` / `instance-manager` to the
+   whole namespace, which is where the module's `allow_namespace = true` default lands anyway.
 6. **`kube-network`'s gateway control plane (rule 1) — DONE 2026-09-17**
    (`modules/network/netpols.tf`, `ngf-control-plane-egress` + one call per cert-generator hook pod) —
    the NGF controller pods and the gateway's

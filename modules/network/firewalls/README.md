@@ -77,16 +77,18 @@ Deployment's labels). The per-pod tables and the measured evidence behind each p
 [`../../vaultwarden/README.md`](../../vaultwarden/README.md) and a one-line note on each call —
 `argo/core` has no README at all, so there its comments and the memory bank are the only copy.
 
-Call sites, **ten ingress policies live (2026-09-17)**: `kube-storage`
-(`modules/storage/ingress.tf`, four rules — the first one), `longhorn-system`
-(`modules/storage/longhorn_netpols.tf`, the additive Prometheus-scrape policy), the six rule-2
+Call sites, **eleven ingress policies live (2026-09-17)**: `kube-storage`
+(`modules/storage/ingress.tf`, four rules — the first one), the six rule-2
 curtains added the same day — `monitoring` (gateway → grafana `:3000`, namespace-wide),
 `kube-auth` (the gateway plus the three proxy outposts on the server pod's `:9000`, namespace-wide),
 `argo` (gateway on `:8080` and `:2746`, namespace-wide because argo-wf's workflow pods are undeclared),
 `devops-harbor` (`:8080` for core and portal), `vaultwarden` (`:80`) and `kube-certificates`
-(**the floor alone** — the apiserver's webhook call is the namespace's only inbound) — and `media`
+(**the floor alone** — the apiserver's webhook call is the namespace's only inbound) — plus `media`
 (`modules/media/ingress.tf`, rule 4's first exclusion: the floor for every pod here except plex,
-qbittorrent and the gateway data plane). Guest lists are one-line comments at each call; the measured
+qbittorrent and the gateway data plane) and `longhorn-system`
+(`modules/storage/longhorn_netpols.tf`, two calls: that namespace's floor-only curtain, which is what
+finally governs the pods the Longhorn chart's own six policies never selected, and the additive
+Prometheus scrape). Guest lists are one-line comments at each call; the measured
 reads and the acceptance probes are in `activeContext.md`.
 
 **Per-pod closing is not namespace closing — hence a namespace-wide call.** A pod-scoped policy

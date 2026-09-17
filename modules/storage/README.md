@@ -15,7 +15,7 @@ that lands on them. Applied from `stacks/core` (the `seaweedfs_admin` UI is a
 | `namespace.tf` | the `kube-storage` namespace |
 | `egress.tf` | **egress policy for the whole namespace**: the closed floor + three API exceptions (see below) |
 | `ingress.tf` | **ingress policy for the whole namespace**: self + the node addresses + the private gateway's data plane on the three route ports + Prometheus on `:9327` (see below) |
-| `longhorn_netpols.tf` | **the one ingress door into `longhorn-system`**: Prometheus → `longhorn-manager:9500`, additive over the chart's six (see below) |
+| `longhorn_netpols.tf` | **the `longhorn-system` ingress side**: a namespace-wide curtain (self + the node addresses) and the one additive door, Prometheus → `longhorn-manager:9500` (see below) |
 | `backup.yaml` | **orphaned** — a hand-applied `VolumeSnapshot` for `sonarr-config`; nothing references it (see `../../memory-bank/progress.md`) |
 
 ## Egress: the namespace is closed, four policies (2026-09-17)
@@ -47,34 +47,52 @@ to the apiserver — the role is shipped, not used. Full reasoning in `egress.tf
 still lists from sonarr; SSO on `admin.seaweedfs.<domain>` still returns 302; and the 30-minute flow
 window after the change held 66 records with **zero Deny**.
 
-## Ingress into `longhorn-system`: one additive door (2026-09-17)
+## Ingress into `longhorn-system`: a namespace curtain plus one additive door (2026-09-17)
 
 The Longhorn chart ships its own ingress policy set for `networkPolicies.restrictInternalTraffic`
-(default `true`), so this namespace was already default-deny inbound on the day it was deployed —
-six policies, all Ingress, no egress. That set is an in-namespace mesh plus a webhook allow
-(`from: any` on `:9501`/`:9502`); `longhorn-manager` admits in-namespace peers on **every port** and
-nothing else, which is why `up{job="longhorn-backend"}` read 1 on all six pods while the flow log had
-never seen a *successful* Prometheus scrape: the sample was riding a connection opened before the
-chart policies landed on 2026-09-01, and **a connection that never ends is never emitted into the
-flow log**. The break was invisible until Prometheus restarted.
+(default `true`) — six policies, all Ingress, no egress. **They select only the pods they name**
+(`longhorn.io/component=…`, `app=longhorn-manager`), so they are not a namespace curtain: the four
+`csi-*` sidecars, `longhorn-csi-plugin`, `longhorn-driver-deployer`, the `engine-image-ei-*` pods and the
+snapshot Jobs sat on the namespace's default-allow until ours landed. What the chart does give is an
+in-namespace mesh plus a webhook allow — and reading its two rule shapes is worth doing before trusting
+either: `longhorn-webhook` omits `from` entirely on TCP `:9501`/`:9502`, i.e. *any* source (the apiserver
+and the kubelet's `/v1/healthz` probe ride that), while `longhorn-manager` and `instance-manager` list
+**podSelectors with no namespaceSelector**, i.e. this namespace and only the pods named — manager, ui,
+csi-plugin, the recurring-job and `longhorn.io/job-task` pods.
 
-Calico only **unions** policies, so this file can open a door and never close one — it exists for the
-door, not as a fence:
+That is also why `up{job="longhorn-backend"}` read 1 on all six manager pods while the flow log had never
+seen a *successful* Prometheus scrape: the sample was riding a connection opened before the chart
+policies landed on 2026-09-01, and **a connection that never ends is never emitted into the flow log**.
+The break was invisible until Prometheus restarted.
 
-| Policy | Selects | Adds |
+Calico only **unions** policies, so no call here can close a chart door. Both ours are written for what
+the chart does *not* cover:
+
+| Policy | Selects | Renders |
 |---|---|---|
-| `longhorn-manager-metrics-ingress` | `app=longhorn-manager` | `monitoring` / `app.kubernetes.io/name=prometheus` → TCP 9500, and nothing else (`allow_namespace` and `allow_nodes` both off) |
+| `longhorn-system-ingress` | the whole namespace (`pod_selector` omitted) | self + the node addresses, nothing else — the curtain, and the only thing governing the pods no chart policy selects |
+| `longhorn-manager-metrics-ingress` | `app=longhorn-manager` | `monitoring` / `app.kubernetes.io/name=prometheus` → TCP 9500 (`allow_namespace` and `allow_nodes` both off; the curtain supplies those two rules now) |
+
+The curtain needs **no exclusion**, unlike `media`'s: nothing here has to stay outside it, because the
+chart's own policies are the wider set on the pods they select. Unioning a floor onto them does widen one
+thing — the manager's and instance-manager's in-namespace guests become "any pod in `longhorn-system`, any
+port" instead of the chart's short lists (upstream's list, for instance, omits
+`csi-plugin → instance-manager`, which the CSI node plugin needs) — and that widening is confined to the
+namespace, which is the module's default for exactly this reason.
 
 Three traps recorded here, because each one costs a debugging cycle:
 
 - **Three policies union onto the manager pod** (`longhorn-manager`, plus the webhook and
   recovery-backend policies, by three different labels on the same pod) — that is what keeps the
   kubelet's `/v1/healthz` probe on `:9502` working. Setting `restrictInternalTraffic: false` is
-  therefore *not* a fix for anything: it takes the webhook allow with it and every manager pod goes
-  `NotReady` with an unqualified deny in place.
+  therefore *not* a fix for anything: it takes the webhook allow with it — the curtain's node floor is
+  what is left, and it does cover the kubelet and the apiserver, but not the chart's in-namespace lists.
 - **`allow_k8s_api` reads the `kubernetes` Service and its Endpoints, and this module is
   `depends_on = [module.network]`** — never add a `depends_on` to a firewall call here, or a plan
-  with pending network changes dies with `inconsistent final plan`.
+  with pending network changes dies with `inconsistent final plan`. Adding a firewall *call* here defers
+  the `kubernetes_nodes` read inside every other ingress module in `stacks/core` (they are `depends_on
+  module.storage`), and the first apply then dies with the documented provider bug — the second plan
+  reads `No changes` and a re-apply is clean.
 - **A port allowed by policy with nothing listening answers `connection refused`, not timeout** — and
   the reverse conflation is worse: a `Service` port that kube-proxy has no rule for *drops*, so
   `curl https://longhorn-admission-webhook:9501` times out while the pod IP on `:9501` refuses. The
@@ -91,12 +109,20 @@ Three traps recorded here, because each one costs a debugging cycle:
   with a `Deny / EndOfTier / trigger=instance-manager` record. Ports that answer nothing to a *denied*
   source and are *known* to be listening behind the policy is the shape you want.
 
-**Verified on apply:** the policy landed alone (plan `1 to add`), then a forced reconnect — Prometheus
-pod deleted, new pod IP — came back with **6/6 targets up** and scrape ages under 30s, and the flow
-log attributes them to `longhorn-manager-metrics-ingress` (363 KB out, 14 KB in). Negative controls in
-the same window: a pod in `default` times out on 9500 and 9503 and gets http 200 on 9502, and a pod in
-`monitoring` that does not carry the `prometheus` label times out too — the grant is pod-scoped, not
-namespace-wide.
+**Verified on apply, the door (2026-09-17):** the policy landed alone (plan `1 to add`), then a forced
+reconnect — Prometheus pod deleted, new pod IP — came back with **6/6 targets up** and scrape ages under
+30s, and the flow log attributes them to `longhorn-manager-metrics-ingress` (363 KB out, 14 KB in).
+Negative controls in the same window: a pod in `default` times out on 9500 and 9503 and gets http 200 on
+9502, and a pod in `monitoring` that does not carry the `prometheus` label times out too — the grant is
+pod-scoped, not namespace-wide.
+
+**Verified on apply, the curtain (2026-09-17):** 29/29 pods Running (the `csi-*` sidecars, the six
+`csi-plugin` DaemonSet pods at 3/3, the manager DaemonSet at 2/2, plus the snapshot Job's Completed pod), all 15 volumes `attached`/`healthy`,
+`up == 0` **nowhere** in the cluster afterwards (6/6 longhorn targets included), 0 `Deny` into
+`longhorn-system` in Whisker, and — the test that actually exercises the path — a scratch `longhorn` PVC
+plus a pod in `default` provisioning, attaching, mounting, writing and reading a file (`MOUNT_OK`) and
+then deleting cleanly. That path runs csi-provisioner → longhorn-manager → instance-manager (iSCSI
+`3260`) → the node's own `iscsid`, which is why the node floor has to carry both node addresses.
 
 Not done, on purpose: the egress half (this namespace is the last one with none, and its wildcards are
 the `longhorn-driver-deployer` and Job pods, which carry `longhorn.io/job-task` instead of `app`), and

@@ -23,7 +23,7 @@ not current state.*
   `.107` — are assignments, not config. The only two addresses DNS cannot cover are the
   router NAT rules (WAN 443 → public gateway, WAN 21010 → torrent); see
   `modules/network/gateways.tf`.
-- **Ingress has one builder, and ten policies are live (2026-09-17).**
+- **Ingress has one builder, and eleven policies are live (2026-09-17).**
   `modules/network/firewalls/ingress` renders a whole `Ingress`-only NetworkPolicy from one call:
   `allow_namespace` + `allow_nodes` on by default, `allow_cluster` / `allow_internet` / `from_namespaces`
   / `from_cidrs` as the curated switches, `pod_selector_expressions` for the exclusion a `matchLabels`
@@ -74,6 +74,22 @@ not current state.*
   Acceptance: five gateway hostnames `302`, plex `:32400` and qbittorrent `:21010` still connect, plex
   through the public gateway answers its own `HTTP/2 401`, all pods Ready, 0 `Deny` into `media`, and
   `stacks/mantle` back to `No changes`.
+  **`longhorn-system` closed the same day, and it needed no exclusion at all** —
+  `modules/storage/longhorn_netpols.tf`, `longhorn-system-ingress`, namespace-wide with the floor as its
+  whole guest list. The chart's six policies select only the pods they name, so the four `csi-*` sidecars,
+  `longhorn-csi-plugin`, `longhorn-driver-deployer`, the `engine-image-ei-*` pods and the snapshot Jobs had
+  been on the namespace's default-allow since the chart landed; the only cross-namespace guest is
+  Prometheus (the additive scrape call that was already there), and nothing there has to stay *outside* a
+  curtain, so the operator item was never a prerequisite for this one. Unioning the floor does widen the
+  chart's short in-namespace guest lists on `longhorn-manager` / `instance-manager` to the whole
+  namespace — same as every other namespace here. Acceptance: 29/29 pods Running, 15/15 volumes
+  `attached`/`healthy`, `up == 0` nowhere in the cluster, 0 `Deny` into the namespace, and a scratch
+  `longhorn` PVC + pod in `default` provisioning, attaching, mounting, writing and reading a file
+  (`MOUNT_OK`) and deleting cleanly — the CSI → manager → instance-manager → node `iscsid` path the node
+  floor exists for. The documented core landmine re-armed and behaved: the new call deferred the
+  `kubernetes_nodes` reads in the three `stacks/core` modules that `depends_on` `module.storage`, the
+  first apply died on the provider's `match_labels: was MapValEmpty, but now null`, and the re-plan was
+  `No changes` — no second apply needed.
   Detail:
   `modules/network/firewalls/ingress/README.md`, index in `modules/network/firewalls/README.md`.
 - **Egress policy is back, namespace curtain first: `modules/network/firewalls/egress`
