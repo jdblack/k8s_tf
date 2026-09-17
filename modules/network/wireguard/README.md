@@ -11,6 +11,10 @@ server plus one `WireguardPeer` CR per peer.
   config as the `Endpoint`. Router must forward UDP 51820 -> the LoadBalancer IP.
 - `dns`/`dns_search_domains` are pushed to clients, so away-from-home peers
   resolve internal names through the VPN.
+- No NetworkPolicy here, on purpose: the server pod *forwards* peers' traffic, so its
+  egress **is** everything a peer can reach — the whole cluster, the LAN and the
+  internet. A curtain could only be a full list of that, and a miss would look like a
+  broken VPN rather than like policy (`memory-bank/activeContext.md`, § The policy layer).
 
 ## Retrieve a peer config
 

@@ -586,13 +586,15 @@ phase.
   reaches every other pod there on any port, `9113` and `9000` included. If that ever matters, the NGF
   control plane is a rule-4 *mirror* case that **is** expressible today — a pod-scoped ingress policy
   on it narrows hard, unlike `longhorn-manager`, which a namespace-wide curtain would swallow.
-- **`kube-network-vpn` — corrected 2026-09-17: it is *not* host-network, so pod policy does select it.**
-  Live read: `wg-server-dep-*` is `hostNetwork: <none>`, `dnsPolicy: ClusterFirst`, pod IP
-  `10.244.233.190` (the wireguard-operator's controller-manager likewise), so the old "no namespaced
-  policy reaches it, ever" was wrong on the facts. The decline stands on the real reason: that pod
-  *forwards other clients' traffic* — VPN peers' LAN, internet and pod-CIDR flows leave through it — so
-  its egress is an unbounded, mutating hole list, i.e. rule 3's reader-cost argument, and it needs a
-  design decision (curtain the client-facing ports vs. keep the fall-through) rather than a commit.
+- **`kube-network-vpn` — deliberately unpoliced; decided 2026-09-17, no curtain, here or later.**
+  The pod's job *is* to be the door: it forwards peers' traffic, so its egress **is** every peer's
+  reach — the whole cluster, the LAN and the internet. A curtain would have to enumerate all of it
+  (rule 3's reader-cost argument), and any miss reads as a broken VPN rather than as policy, so the
+  fall-through is the correct setting and not a deferral. Two corrections belong with the decision:
+  it is **not** host-network (`wg-server-dep-*` is `hostNetwork: <none>`, `dnsPolicy: ClusterFirst`,
+  pod IP `10.244.233.190` — the old "no namespaced policy reaches it, ever" was wrong on the
+  facts), and `wg-server-svc` (`192.168.0.107`) is **`etp=Cluster`**, so a peer's arrival at the VIP
+  reaches the pod as a node address rather than as its own.
   Genuinely unreachable by pod policy: `blender`'s mDNS advertiser, `calico-node` and `metallb-speaker`,
   all verified `hostNetwork: true` — the "limits to name" in
   `modules/network/firewalls/README.md`.

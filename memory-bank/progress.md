@@ -799,7 +799,9 @@ the module change (`matchExpressions`) and those two slices. The plan, ordered b
 the declines written down, is `activeContext.md` § The policy layer.
 `longhorn-system` took one additive ingress policy for the Prometheus scrape (2026-09-17,
 `modules/storage/longhorn_netpols.tf`); `ai`, `calico-system` and `kube-system` are not this repo's to
-police, and `kube-network-vpn` is host-network, which no namespaced policy reaches at all.
+police, and `kube-network-vpn` is **deliberately unpoliced** — decided 2026-09-17: the pod forwards
+peers' traffic, so its egress *is* their whole-cluster reach (`activeContext.md` § The policy layer;
+the older "it is host-network, which no policy reaches" reason was wrong on the facts).
 
 **Module gaps: one closed, one left.** (a) *Closed 2026-09-17* by
 `network/firewalls/egress_peer` — the second builder the README asked for, one call = one policy

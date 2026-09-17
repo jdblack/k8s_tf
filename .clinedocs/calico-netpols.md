@@ -37,8 +37,17 @@ this covers the dataplane and the operator underneath it. Flow-query recipes:
   `gateway.networking.k8s.io/gateway-name=<gw>`). Reading the deny is how this was established:
   `policies.enforced[].trigger.name` named `harbor-egress`, `kind: EndOfTier`.
 - Related: the apiserver calls webhooks/aggregation from a **remote node**, so those paths need
-  the **node CIDR**. Same root cause makes `externalTrafficPolicy=Cluster` LoadBalancers
-  (blender samba, WireGuard) break under a firewall while `etp=Local` (media, both gateways) pass.
+  the **node CIDR**.
+- **`externalTrafficPolicy` decides *which* source address a curtain has to list** (measured
+  2026-09-17: one LAN client, `192.168.0.50`, against two VIPs, read from `/proc/net/tcp` in each
+  pod). `etp=Local` preserves the client — `plex` (`192.168.0.104:32400`) saw `192.168.0.50`, a
+  stranger to every floor rule, so that path needs the LAN CIDR as an explicit guest. `etp=Cluster`
+  SNATs on the way in (and Calico's IPIP re-SNATs the cross-node hop) — `blender-samba`
+  (`192.168.0.103`) saw `10.244.16.128`, the **announcing node's `tunl0` address**, which
+  `node_ips` already grants (`blender`, `wireguard`). So a floor-only curtain is transparent to LAN
+  clients on a `Cluster` VIP and silently drops them on a `Local` one. An earlier note here had it
+  the other way round; the two addresses above are the correction. Whisker cannot tell them apart —
+  both read as `PRIVATE NETWORK`, since `192.168.0.50` is RFC1918 too.
 
 ## netpols only UNION
 

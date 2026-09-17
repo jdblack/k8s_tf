@@ -134,13 +134,16 @@ is the curtain those targets are holes in (`media`, `kube-storage`).
 - The apiserver calls webhooks/aggregation from a **remote node** → those paths
   need the **node CIDR** in the guest list, which the ingress curtain's `allow_nodes`
   floor grants by default (InternalIP + the `tunl0` address, per node). **The `etp`
-  half of this claim was inverted and is corrected 2026-09-17:** a `etp=Cluster`
-  LoadBalancer has its client SNAT'd to a node address before the pod sees it, so it
-  lands *inside* that floor — `blender-samba`, the only Cluster one here, reads as
-  `PRIVATE NETWORK` in the flow, i.e. an in-cluster address, not the LAN client. It is
-  `etp=Local` (media, both gateways) that preserves the real client IP, so *that* is
-  the shape an explicit CIDR guest has to name. End-to-end confirmation is the pending
-  `blender` ingress call (`activeContext.md` § The policy layer), not a commit.
+  half of this claim was inverted and is corrected 2026-09-17.** Measured that day with one
+  LAN client (`192.168.0.50`) against two VIPs, read from `/proc/net/tcp` **inside each pod**:
+  `plex` (`etp=Local`, `192.168.0.104:32400`) shows the pod the **real client** `192.168.0.50` —
+  a stranger to every floor rule, so *that* is the shape an explicit CIDR guest must name — while
+  `blender-samba` (`etp=Cluster`, `192.168.0.103`) shows `10.244.16.128`, the **announcing node's
+  `tunl0` address**, a source `node_ips` already grants. So a floor-only curtain is transparent to
+  LAN clients on a `Cluster` VIP and silently drops them on a `Local` one. Whisker alone could not
+  settle this — both read as `PRIVATE NETWORK`, since `192.168.0.50` is RFC1918 too. A `blender`
+  ingress curtain, whenever one is written (`blender/egress.tf` is its only policy today), would
+  confirm it end-to-end, but the claim no longer rests on that.
 - `calicoctl` on PATH is **3.32.0 vs cluster v3.32.2 → refuses to run**. Pass
   `--allow-version-mismatch` on every call (re-verified 2026-09-17; the env var does NOT work).
 
