@@ -23,7 +23,7 @@ not current state.*
   `.107` — are assignments, not config. The only two addresses DNS cannot cover are the
   router NAT rules (WAN 443 → public gateway, WAN 21010 → torrent); see
   `modules/network/gateways.tf`.
-- **Ingress has one builder, and its first policy is live (2026-09-17).**
+- **Ingress has one builder, and nine policies are live (2026-09-17).**
   `modules/network/firewalls/ingress` renders a whole `Ingress`-only NetworkPolicy from one call:
   `allow_namespace` + `allow_nodes` on by default, `allow_cluster` / `allow_internet` / `from_namespaces`
   / `from_cidrs` as the curated switches, and `from_peers`
@@ -33,8 +33,13 @@ not current state.*
   diverged — the node floor rendered as empty `from {}` peers, i.e. *from anywhere*, an allow-all-inbound
   where a floor was intended (caught by the live-cluster plan). Folded into `ingress` and the peer module
   deleted; `egress_peer` stays only because six call sites use it. The direction's one real divergence is
-  the **node `ipBlock` floor** (kubelet probes and the apiserver's calls into a pod come from the node's
-  host network, so no `namespaceSelector` can match them — the ingress answer to losing DNS).
+  the **node `ipBlock` floor** — kubelet probes and the apiserver's calls into a pod come from the node's
+  host network, so no `namespaceSelector` can match them — and **it renders two addresses per node**:
+  the `InternalIP` (same-node sources) and the Calico IPIP tunnel address, because a cross-node host
+  source is MASQUERADEd to the sending node's `tunl0` address. The first curtain to rely on the floor
+  without it (`cert-manager-ingress`) dropped the apiserver's webhook call and broke issuance
+  cluster-wide; the mechanism, the capture that proved it, and the fix are in `activeContext.md` and
+  `.clinedocs/calico-netpols.md`.
   **`kube-storage` is the first caller and the first live ingress policy: `kube-storage-baseline-ingress`
   (`modules/storage/ingress.tf`, applied 2026-09-17).** Namespace-wide, because the guest list is the same
   for every role; four rules — self, the node floor, the private gateway's data plane (the three HTTPRoutes
@@ -46,6 +51,13 @@ not current state.*
   → 302 to the outpost, 0 Deny in the window after, and Whisker names the guest as
   `kube-network/private-private-*` on `:9333` and `:9000`. The scrape guest was found in
   `up{namespace="kube-storage"}`, **not** in a flow (keep-alive ⇒ no record; `.clinedocs/flow-logs.md`).
+  **Eight more followed in one pass later the same day** — `longhorn-system` (the additive scrape
+  policy) and the six rule-2 curtains (`monitoring`, `kube-auth`, `argo`, `devops-harbor`,
+  `vaultwarden`, `kube-certificates`), all namespace-wide with a guest list read off the live listeners,
+  plus `kube-network`'s NGF control plane on the egress side. Acceptance across all of them: eight
+  gateway hostnames answer with TLS verified, **zero** `up == 0` across Prometheus's 25 jobs, 0 `Deny`
+  per namespace in the 25 minutes after, and a scratch `Certificate` issued `Ready` end-to-end (the
+  webhook path, after the fix).
   Detail:
   `modules/network/firewalls/ingress/README.md`, index in `modules/network/firewalls/README.md`.
 - **Egress policy is back, namespace curtain first: `modules/network/firewalls/egress`
@@ -736,13 +748,13 @@ trivy's DB pulls are bursty and harbor-core's OIDC dial is cached — so both we
 every flow-log check and broken OIDC on the first key-cache expiry.
 
 **The flow survey's ranked order is superseded** (~~`kube-storage`~~, ~~`kube-certificates`~~,
-~~`argo`~~, ~~`devops-harbor`~~, ~~`vaultwarden`~~ all closed 2026-09-17; `monitoring`, `kube-auth` and
-`kube-network` remain): it sorted namespaces by *measurement cost*, and cost is no longer the binding
-constraint. What orders the remaining work now is **rule 4 and the module change it needs** —
-`pod_selector` renders `match_labels` only, so a curtain cannot exclude a pod, and `media`'s ingress
-and `longhorn-system`'s ingress both want exactly that. The current plan — the one module change plus
-five slices, ordered by threat direction, with the declines written down — is `activeContext.md` § The
-policy layer.
+~~`argo`~~, ~~`devops-harbor`~~, ~~`vaultwarden`~~, ~~`monitoring`~~, ~~`kube-auth`~~,
+~~`kube-network`~~'s control plane all closed 2026-09-17): it sorted namespaces by *measurement cost*, and
+cost is no longer the binding constraint. What orders the remaining work now is **rule 4 and the module
+change it needs** — `pod_selector` renders `match_labels` only, so a curtain cannot exclude a pod, and
+`media`'s ingress and `longhorn-system`'s ingress both want exactly that. That is the whole remainder:
+the module change (`matchExpressions`) and those two slices. The plan, ordered by threat direction, with
+the declines written down, is `activeContext.md` § The policy layer.
 `longhorn-system` took one additive ingress policy for the Prometheus scrape (2026-09-17,
 `modules/storage/longhorn_netpols.tf`); `ai`, `calico-system` and `kube-system` are not this repo's to
 police, and `kube-network-vpn` is host-network, which no namespaced policy reaches at all.
@@ -789,7 +801,10 @@ those files present, i.e. the code matched what was running.
   and the removed-line audit shows **no non-comment HCL**. It went in on its own, ahead of the next
   egress namespace, so either can be reverted alone.
   Rule, exceptions and the audit recipe: `activeContext.md` § Current state.
-- **`monitoring`: curtain the ingress side, leave egress open by choice (rule 2).** The namespace is
+- **`monitoring`: curtain the ingress side, leave egress open by choice (rule 2). — DONE 2026-09-17**
+  (`monitoring-ingress`, namespaced-wide: the private gateway's data plane into grafana on the pod's
+  `:3000`; plan `No changes` after, 0 `Deny`, zero `up == 0` across all 25 Prometheus jobs). The
+  namespace is
   at risk *from* the cluster — it holds Grafana access and the TSDB — and its inbound guest list is the
   short one (the gateway's data plane into grafana), which makes it the cheapest curtain available.
   Egress is the direction it should **not** get one in: Prometheus is a client by construction,
@@ -800,7 +815,9 @@ those files present, i.e. the code matched what was running.
   `var.deployment.metal`), and making target discovery depend on a policy that has to name them is the
   argument against it, not a blocker to clear. Grafana's 10-minute update/plugin checks are already off
   in `modules/monitoring/prometheus/locals.tf`. Both halves are recorded as a decision in
-  `activeContext.md` § The policy layer so they are not re-argued.
+  `activeContext.md` § The policy layer so they are not re-argued. The six `node-exporter` pods sit in
+  this namespace on **host addresses** and are outside pod policy entirely — no curtain reaches them,
+  which is why the scrape to them still works and why no guest list can ever name them.
 - **Whisker's tier CRs and mantle's authentik blocker are both closed out (2026-09-16).** The
   3 CRs are imported into state and applied — the hand-applied render and the module's render
   agree, so nothing about the live policy changed; the `data.authentik_certificate_key_pair

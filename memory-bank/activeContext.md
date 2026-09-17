@@ -58,9 +58,9 @@ State and in-flight work; the open list is `progress.md`.*
   own `"Caches populated"` reflector lines, and every ACME `order` reading `valid`. Probes on both
   selectors: API **403**, `acme-v02…` **200**, `1.1.1.1` **301**, `nslookup @8.8.8.8` answers; LAN `:80`,
   a `media` pod on `:8989` and (for the base-selected probe) all public egress time out. Post-apply plan:
-  `No changes`. **Ingress stays absent on purpose here** — the apiserver reaches the webhook from the
-  nodes, so any inbound restriction breaks issuance cluster-wide — and the ingress guest list is empty
-  anyway: no ServiceMonitor exists for the chart, so nothing scrapes it.
+  `No changes`. **The ingress curtain landed later the same day, and its first apply broke issuance
+  cluster-wide** — see the entry below; the guest list is the floor alone (own namespace + node
+  addresses) plus nothing else, since no ServiceMonitor exists for the chart and DNS-01 needs no door.
 
 - **`argo` is the sixth namespace closed, and the first where the namespace-wide selector is *forced*
   (2026-09-17).** Four policies (`modules/argo/core/egress.tf`): a **namespace profile** — DNS + self +
@@ -135,8 +135,11 @@ State and in-flight work; the open list is `progress.md`.*
   bullet at the top of this file); `longhorn-system` took a pod-scoped one the same day, and the rest
   of the rollout is in § *The policy layer*. Divergences from egress, all
   direction-driven: the **node floor** (`allow_nodes`, on by default — kubelet probes and the
-  apiserver's calls into a pod originate on a node's host network, so only an `ipBlock` per node
-  `InternalIP` read live from `data.kubernetes_nodes`, v4-only, can admit them; drop it and probes die),
+  apiserver's calls into a pod originate on a node's host network, so only `ipBlock` peers can admit
+  them; **two per node** since 2026-09-17: the `InternalIP` read live from `data.kubernetes_nodes`,
+  v4-only, for same-node sources, *and* the Calico IPIP tunnel address off the same read, because a
+  cross-node host source is MASQUERADEd to the sending node's `tunl0` address — drop the floor and
+  probes die; keep only the `InternalIP` and webhooks die, measured, below),
   no service-CIDR peer (DNAT rewrites the destination, so a guest's port is the pod's port),
   `allow_internet` = `0.0.0.0/0` minus RFC1918 + link-local, and an empty call renders `ingress = []` =
   deny-all rather than "empty means anywhere". **Verified by plan against the live cluster** (scratch
@@ -152,6 +155,43 @@ State and in-flight work; the open list is `progress.md`.*
   stays (five live call sites; moving applied objects buys nothing), but the same fold is the shape to
   reach for if egress is revisited. **Rule for both: a rule's peer block must render, or the peer means
   everything.**
+- **Six ingress curtains landed in one pass, and the node floor was wrong for one of them (2026-09-17).**
+  The four rule-2 leftovers plus the two planned rule-2 slices, all namespace-wide, all measured off the
+  live listeners: `kube-auth` (`modules/auth/authentik/core/ingress.tf` — the private gateway on the
+  server pod's `:9000` plus **one peer per outpost namespace**, `media` / `kube-storage` /
+  `calico-system`, since a `from` peer ANDs namespace and pod selector and the three outposts cannot be
+  one guest; their shared label is `app.kubernetes.io/name=authentik-outpost` and their instances are
+  each call site's own), `monitoring` (gateway → grafana `:3000`),
+  `argo` (gateway on argocd-server `:8080` and argo-workflows-server `:2746`),
+  `devops-harbor` (`:8080`, harbor-core and harbor-portal), `vaultwarden` (`:80`) and
+  `kube-certificates` (**the floor alone** — the apiserver's webhook call is the namespace's only
+  inbound, which is how it broke issuance; next bullet). Plus three egress policies for `kube-network`'s
+  NGF control plane (`modules/network/netpols.tf`): both releases' controller Deployments in one call
+  (the labels are shared) and one call per **cert-generator hook pod**, named from the gateway module's
+  `cert_generator_job_name` — the transient-pod lesson below applied to `kube-network`, whose data plane
+  stays uncurtained by the standing decline.
+  Acceptance, all live: eight hostnames through the gateway VIP answer `302`/`200` with TLS verified,
+  Prometheus reads **zero** `up == 0` across its 25 jobs (the six hostNetwork node-exporters included,
+  which no policy can reach), Whisker holds 0 `Deny` in any of the six namespaces in the 25 minutes
+  after, and the `kube-auth` records *name* all three outposts as guests on `:9000` — exercised, not
+  merely quiet. Both stacks re-plan `No changes`.
+- **The node floor admitted the wrong address, and a webhook is how you find out (2026-09-17).** The
+  curtain on `kube-certificates` is what broke it: annotating any `Certificate` came back
+  `failed calling webhook "webhook.cert-manager.io": context deadline exceeded` — the apiserver's own
+  validation call, dropped. Whisker named the deciding object precisely (trigger `cert-manager-ingress`,
+  `tier: default`, `EndOfTier`, `rule_index: 0`) but gave the peer as the literal string
+  `PRIVATE NETWORK`, with no IP in any field of the record — so the source had to be **captured**, not
+  queried. A privileged `hostNetwork` pod on each end settled it in one shot: the SYN left k8smaster as
+  `10.244.16.128.56209 > 10.244.7.112.10250` inside `192.168.0.74 > 192.168.0.93`, where
+  `10.244.16.128` is k8smaster's **Calico IPIP tunnel address** (`tunl0`, the
+  `projectcalico.org/IPv4IPIPTunnelAddr` annotation), because Calico MASQUERADEs a cross-node
+  host → pod flow on its way out. `allow_nodes` rendered each node's `InternalIP` only: right for
+  kubelet probes (always same-node), wrong for every cross-node `apiserver → pod` call, and the failure
+  looks like a broken webhook rather than like policy. Fix: the module now reads both addresses per node
+  (twelve `/32` peers on this curtain), which reaches all six curtains at once; a scratch `Certificate`
+  then issued `Ready` end-to-end through the CA issuer to prove the path. **Transferable rules:** a
+  host-netns source has *two* addresses and only one of them is on the node object you were reading;
+  and a flow peer rendered as `PRIVATE NETWORK` cannot be diagnosed from Whisker at all.
 - **Per-pod closing is not namespace closing — and `media` now does it at the namespace (2026-09-16 →
   2026-09-17).** An unselected pod falls through to the Kubernetes default-allow namespace profile
   (`kns.media`: `egress: [{action: Allow}]`): LAN, gateway VIP, API server, internet. The hand-made
@@ -391,8 +431,11 @@ Curtains live: egress in `media` (the `podSelector: {}` profile — the first re
 a blanket selector would select it, and host-netns enforcement is untested), `vaultwarden`
 (namespace-wide since 2026-09-17: verified as its only pod, so the blanket selector costs nothing and
 covers whatever a chart upgrade leaves behind), `devops-harbor`, `kube-storage` (closed floor: self +
-DNS, no internet), `argo`, `kube-certificates`; ingress in `kube-storage` (namespace-wide) and
-`longhorn-system` (pod-scoped, the Prometheus scrape).
+DNS, no internet), `argo`, `kube-certificates`, `kube-network`'s NGF control plane; ingress in
+`kube-storage` (namespace-wide) and `longhorn-system` (pod-scoped, the Prometheus scrape), plus the six
+curtains that landed 2026-09-17 — `monitoring`, `kube-auth`, `argo`, `devops-harbor`, `vaultwarden`,
+`kube-certificates` (all namespace-wide). `monitoring` and `kube-network` are the two that carry one
+direction on purpose: both were declined an egress curtain, argued in the declines below.
 
 **Rule-driven, in order:**
 
@@ -404,25 +447,29 @@ DNS, no internet), `argo`, `kube-certificates`; ingress in `kube-storage` (names
    to be reachable from outside, and ingress is evaluated post-DNAT on the destination pod, so
    curtaining `media` without excluding them kills streaming and every torrent peer. Rule 4's first real
    work order.
-3. **`monitoring` ingress (rule 2).** The cheapest curtain in the cluster: the guest list is the
+3. **`monitoring` ingress (rule 2). — DONE 2026-09-17** (`modules/monitoring/prometheus/ingress.tf`,
+   `monitoring-ingress`). The cheapest curtain in the cluster: the guest list is the
    gateway's data plane into grafana and nothing else, readable straight off the live listener.
    Nothing dials *into* monitoring. Its **egress stays open by choice** — see the declines.
-4. **`kube-auth` ingress (rule 2).** It holds the credentials everything else trusts, so the curtain
-   goes on the inbound side; guests are the three outposts on `:9000` plus the gateway, and they are
-   read off the live listeners before the policy is written, never assumed.
+4. **`kube-auth` ingress (rule 2). — DONE 2026-09-17** (`modules/auth/authentik/core/ingress.tf`,
+   `authentik-ingress`). It holds the credentials everything else trusts, so the curtain
+   goes on the inbound side; guests are the three outposts on `:9000` plus the gateway, and they were
+   read off the live listeners before the policy was written, never assumed.
 5. **`longhorn-system` ingress curtain (rule 2)**, excluding `app=longhorn-manager` so
    `longhorn-manager-metrics-ingress` stays the authority instead of going redundant under the union —
-   the rule-4 *mirror* case.
-6. **`kube-network`'s gateway control plane (rule 1)** — the NGF controller pods and the core gateway's
+   the rule-4 *mirror* case. **Still open: it needs item 1.**
+6. **`kube-network`'s gateway control plane (rule 1) — DONE 2026-09-17**
+   (`modules/network/netpols.tf`, `ngf-control-plane-egress` + one call per cert-generator hook pod) —
+   the NGF controller pods and the gateway's
    cert-generator Job, whose guest list is narrow and enumerable (apiserver + DNS). `media`'s
-   `ngf-egress` / `ngf-cert-generator-egress` pair is the template. It goes in `kube-network`'s own
+   `ngf-egress` / `ngf-cert-generator-egress` pair is the template. It went in `kube-network`'s own
    file, never as a side effect of the gateway module (`progress.md`). The gateway **data plane** is a
    different animal — see the first decline below.
 
-**Rule 2's leftovers — four namespaces holding half a profile.** Only `kube-storage` and
-`longhorn-system` type `Ingress`; every other curtain is egress. Under rule 2 that is the direction
-inverted for everything that holds credentials, and each is one call with a guest list already known
-off a live listener (nothing to measure):
+**Rule 2's leftovers — closed 2026-09-17, all four.** They were the namespaces holding half a profile:
+only `kube-storage` and `longhorn-system` typed `Ingress`, with every other curtain egress, i.e. the
+direction inverted for everything that holds credentials. Each was one call with a guest list already
+known off a live listener (nothing to measure):
 
 - **`vaultwarden`** — the vault itself; guest is the gateway's data plane, the same pod `kube-storage`
   names.
@@ -431,7 +478,9 @@ off a live listener (nothing to measure):
 - **`argo`** — deploy credentials, it can write anywhere; guest is the gateway's data plane.
 - **`kube-certificates`** — Route53 creds and ACME keys; the cheapest of the four, because the only
   inbound caller is the apiserver dialing the webhook from a node's host network — i.e. the
-  `allow_nodes` floor, already on by default. Keep it on.
+  `allow_nodes` floor, already on by default. Keep it on. **And the floor as it stood was wrong:** the
+  webhook call arrives as the *sending* node's tunnel address, so this one broke issuance on its first
+  apply and the module now reads both addresses per node.
 
 Prometheus is **not** a guest to copy by reflex: `serviceMonitorSelectorNilUsesHelmValues = false`
 makes the selection cluster-wide, but the monitor population is `kube-storage`'s seaweedfs and
