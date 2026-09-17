@@ -29,6 +29,7 @@ locals {
       to = [merge(
         { namespace = peer.namespace },
         peer.pod_selector != null ? { pod_selector = peer.pod_selector } : {},
+        length(peer.pod_selector_expressions) > 0 ? { pod_selector_expressions = peer.pod_selector_expressions } : {},
       )]
     }
   ]

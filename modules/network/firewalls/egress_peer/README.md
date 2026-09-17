@@ -50,10 +50,11 @@ selector, and the three dialers share no label.
 |---|---|---|---|
 | `namespace` | `string` | — | Namespace whose pods this governs, and where the policy lives |
 | `pod_selector` | `map(string)` | `{}` | Governed pods; `{}` = every pod in the namespace |
+| `pod_selector_expressions` | `list(object)` | `[]` | `[{ key, operator, values }]` — `matchExpressions`, ANDed with `pod_selector`. `NotIn` excludes (and also matches a pod that lacks the key); an `In` here narrows the governed pods to the labelled ones |
 | `name` | `string` | `null` | `metadata.name`; wins outright over `name_prefix` |
 | `name_prefix` | `string` | `null` | Generated name, `<prefix>-<8 hex>`. Default prefix is `peer-egress` |
 | `allow_namespace` | `bool` | `true` | This namespace's own pods — the self rule |
-| `to_peers` | `list(object)` | `[]` | `{ namespace, pod_selector = <labels or null>, ports = [{port, protocol}] }`, one rule each |
+| `to_peers` | `list(object)` | `[]` | `{ namespace, pod_selector = <labels or null>, pod_selector_expressions = <expressions or null>, ports = [{port, protocol}] }`, one rule each |
 
 **What it deliberately does not have:** `allow_internet`, `allow_k8s_api`, `allow_cluster`,
 `to_cidrs`. Those are the base builder's curated knobs; a call that needs one of them is a call

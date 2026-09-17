@@ -3,12 +3,11 @@
 # `longhorn-manager` admits in-namespace peers on every port and *nothing else*, so `longhorn-system`
 # is default-deny inbound and Prometheus was simply never a guest. `networkPolicies.enabled` is the
 # chart's other gate and renders only the ui-frontend policy -- absent here because longhornUI.replicas
-# is 0, which is why the count is six and not seven.
-#
-# Calico policies only union, so this call can open a door and never close one. It is the same shape
-# as the `:9327` peer in ingress.tf: the scrape reads `up` today off a connection opened before the
-# chart policies landed, and a connection that never ends is never emitted into the flow log. The next
-# reconnect is a deny, i.e. six targets down with no other symptom.
+# is 0, which is why the count is six and not seven. Calico policies only union, so this call can open a
+# door and never close one. It is the same shape as the `:9327` peer in ingress.tf: the scrape reads `up`
+# today off a connection opened before the chart policies landed, and a connection that never ends is
+# never emitted into the flow log. The next reconnect is a deny, i.e. six targets down with no other
+# symptom.
 
 # `pod_selector` is the pod that owns :9500 rather than the namespace, because the chart's mesh rules
 # already cover everything else and the rest of this namespace has no outside guest. `allow_namespace`

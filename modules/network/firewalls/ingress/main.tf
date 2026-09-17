@@ -17,9 +17,20 @@ resource "kubernetes_network_policy_v1" "this" {
   }
 
   spec {
-    # Empty match_labels renders `podSelector: {}` = every pod in the namespace.
+    # Empty match_labels renders `podSelector: {}` = every pod in the namespace. Expressions are added
+    # only when given, so a labels-only call renders exactly what it always did.
     pod_selector {
       match_labels = var.pod_selector
+
+      dynamic "match_expressions" {
+        for_each = var.pod_selector_expressions
+
+        content {
+          key      = match_expressions.value.key
+          operator = match_expressions.value.operator
+          values   = try(match_expressions.value.values, null)
+        }
+      }
     }
 
     policy_types = ["Ingress"]
@@ -54,11 +65,23 @@ resource "kubernetes_network_policy_v1" "this" {
               }
             }
 
+            # A peer renders a podSelector when it names labels OR expressions; both land inside this one
+            # `from` entry beside the namespaceSelector, so they AND.
             dynamic "pod_selector" {
-              for_each = try(from.value.pod_selector, null) != null ? [from.value.pod_selector] : []
+              for_each = try(from.value.pod_selector, null) != null || length(try(from.value.pod_selector_expressions, [])) > 0 ? [from.value] : []
 
               content {
-                match_labels = pod_selector.value
+                match_labels = try(pod_selector.value.pod_selector, null)
+
+                dynamic "match_expressions" {
+                  for_each = try(pod_selector.value.pod_selector_expressions, [])
+
+                  content {
+                    key      = match_expressions.value.key
+                    operator = match_expressions.value.operator
+                    values   = try(match_expressions.value.values, null)
+                  }
+                }
               }
             }
 

@@ -9,6 +9,18 @@ variable "pod_selector" {
   default     = {}
 }
 
+# The exclusion mechanism: matchLabels alone cannot say "every pod except these", which is what a
+# namespace-wide curtain needs before one pod in it gets its own profile.
+variable "pod_selector_expressions" {
+  type = list(object({
+    key      = string
+    operator = string
+    values   = optional(list(string))
+  }))
+  description = "`matchExpressions` for the governed pods, ANDed with pod_selector and with each other: `[{ key, operator, values }]`, operator one of In/NotIn/Exists/DoesNotExist (values omitted for the last two). `[{ key = \"app\", operator = \"NotIn\", values = [\"plex\"] }]` is how a curtain excludes a pod from itself. `NotIn` also matches a pod that does not carry `key` at all -- measured 2026-09-17 (`.clinedocs/calico-netpols.md`) -- which makes one `NotIn` the right shape for a namespace-wide curtain (label-less pods land inside it) and an `In` the wrong shape for a floor (a pod without the key stays default-allow). There is no OR inside one policy: expressions AND, so a second key decides which pods the selector covers at all rather than adding a second exclusion."
+  default     = []
+}
+
 variable "name" {
   type        = string
   description = "metadata.name of the NetworkPolicy. Set this or name_prefix, not both -- name wins. Null (the default) = name_prefix plus a generated suffix."
@@ -40,12 +52,17 @@ variable "from_peers" {
   type = list(object({
     namespace    = string
     pod_selector = optional(map(string))
+    pod_selector_expressions = optional(list(object({
+      key      = string
+      operator = string
+      values   = optional(list(string))
+    })), [])
     ports = optional(list(object({
       port     = number
       protocol = optional(string, "TCP")
     })), [])
   }))
-  description = "Explicit cross-namespace guests: `{ namespace, pod_selector = <labels or null>, ports = [{port, protocol}] }`. One guest per rule, rendered in list order after from_cidrs, so each carries its own ports. Ports are the *destination pod's* ports, not the Service's -- kube-proxy DNATs before ingress is evaluated, the same trap as the egress direction. A null/omitted `pod_selector` means every pod in that namespace; an empty `ports` means every port -- both are the exception, since naming pods and ports is the point of this variable."
+  description = "Explicit cross-namespace guests: `{ namespace, pod_selector = <labels or null>, pod_selector_expressions = <expressions or null>, ports = [{port, protocol}] }`. One guest per rule, rendered in list order after from_cidrs, so each carries its own ports. Ports are the *destination pod's* ports, not the Service's -- kube-proxy DNATs before ingress is evaluated, the same trap as the egress direction. A null/omitted `pod_selector` means every pod in that namespace; an empty `ports` means every port -- both are the exception, since naming pods and ports is the point of this variable. Give `pod_selector_expressions` to name the guest by a `NotIn`/`Exists` instead of exact labels -- both selectors land in the one peer, so they AND."
   default     = []
 }
 

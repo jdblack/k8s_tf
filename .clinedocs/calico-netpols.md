@@ -42,6 +42,13 @@ this covers the dataplane and the operator underneath it. Flow-query recipes:
 
 ## netpols only UNION
 
+- **So the only way to keep a pod *out* of a curtain is to leave it out of the curtain's selector** —
+  `matchExpressions` with `NotIn`, since `matchLabels` cannot say "everything except". A carved-out pod
+  keeps the namespace's default-allow: it is not "restricted differently", it is unrestricted. Corollary:
+  several calls selecting one pod can only ever widen it, so a narrower profile for one pod inside a
+  closed namespace is impossible — `longhorn-manager-metrics-ingress` gets its tightness only because the
+  chart's own policies, not ours, select the rest of that namespace.
+
 - Every policy selecting a pod adds allows; nothing subtracts. An operator- or chart-shipped
   netpol therefore **cannot be tightened** from here: tigera's `goldmane` allows any source on
   7443 (accepted, unfixable from TF), and argo-cd's six chart netpols are switched off with
@@ -106,3 +113,16 @@ this covers the dataplane and the operator underneath it. Flow-query recipes:
   source as `PRIVATE NETWORK` with no IP anywhere in the record, so the capture is the only way to see
   it: `firewalls/ingress` now reads the annotation alongside `InternalIP`. The same shape governs every
   apiserver → pod webhook (admission, conversion, aggregation) and any future curtain in front of one.
+- **`NotIn` matches a pod that does not carry the key** (measured 2026-09-17). A `matchExpressions`
+  selector `key NotIn (a, b)` selects every pod whose `key` is absent, not only those with another value
+  — the same semantics `kubectl -l 'key notin (a, b)'` gives at the API server. Measured with a scratch
+  policy in a scratch namespace (`matchExpressions` on a key no pod carried, `policyTypes: [Ingress]`, no
+  rules): the dial from a sibling pod timed out with the policy present and connected the second the
+  object was deleted. It is what makes one `NotIn` the right operator for a namespace-wide curtain that
+  carves a few pods out (`media-ingress` — label-less pods and future pods land *inside*), and what makes
+  `In` unusable as a floor: `In` matches only pods carrying the key, so everything else stays
+  default-allow.
+- **Two `matchExpressions` AND, and there is no OR.** A second `NotIn` on a different key therefore
+  changes *which pods the selector covers* rather than adding a second exclusion: with the absent-key
+  semantics above, `a NotIn (x)` AND `b NotIn (y)` covers every pod that lacks either key, which is the
+  opposite of what a two-carve-out curtain needs. One key per curtain; a second set is a second call.

@@ -39,6 +39,7 @@ Renders four rules, in this order:
 |---|---|---|---|
 | `namespace` | `string` | — | Namespace whose pods this governs, and where the policy lives |
 | `pod_selector` | `map(string)` | `{}` | Governed pods — the **destination**. `{}` = every pod in the namespace |
+| `pod_selector_expressions` | `list(object)` | `[]` | `[{ key, operator, values }]` — `matchExpressions` for the governed pods, ANDed with `pod_selector`. `NotIn` is how a curtain excludes a pod from itself; it also matches a pod that lacks the key entirely |
 | `name` | `string` | `null` | `metadata.name`; wins outright over `name_prefix` |
 | `name_prefix` | `string` | `null` | Generated name, `<prefix>-<8 hex>`. Default prefix is `namespace-ingress` |
 | `allow_namespace` | `bool` | `true` | This namespace's own pods — the self rule |
@@ -47,7 +48,7 @@ Renders four rules, in this order:
 | `allow_cluster` | `bool` | `false` | The pod CIDR wholesale — any pod in the cluster. Rare; prefer `from_namespaces` / `from_peers` |
 | `allow_internet` | `bool` | `false` | Public source addresses: `0.0.0.0/0` except RFC1918 + link-local. For a WAN-forwarded `LoadBalancer` |
 | `from_cidrs` | `list(string)` | `[]` | Extra source CIDRs, one `ipBlock` peer each (the LAN, a NAS, one host, a node IP). Duplicates collapse |
-| `from_peers` | `list(object)` | `[]` | `{ namespace, pod_selector = <labels or null>, ports = [{port, protocol}] }` — one rule per guest, rendered last, each carrying its own ports. The narrow shape: which pods, which port |
+| `from_peers` | `list(object)` | `[]` | `{ namespace, pod_selector = <labels or null>, pod_selector_expressions = <expressions or null>, ports = [{port, protocol}] }` — one rule per guest, rendered last, each carrying its own ports. The narrow shape: which pods, which port |
 
 `allow_*` are the switches; `from_*` take explicit guest lists. One call = one object, so a namespace
 with two very different postures gets two calls, scoped with `pod_selector`, rather than one wide one.
@@ -142,6 +143,44 @@ module "ingress_torrent" {
 address, so a CIDR guest misses and `allow_nodes` is what admits it. That measured asymmetry —
 `etp=Cluster` LoadBalancers (blender samba, WireGuard) break under a firewall while `etp=Local` (media,
 both gateways) pass — is in `.clinedocs/calico-netpols.md`.
+
+## Carving a pod out of the curtain: `pod_selector_expressions`
+
+`pod_selector` renders `matchLabels` only, and `matchLabels` cannot say *every pod except these* — so a
+namespace-wide curtain would swallow the one pod per namespace whose door is not a pod: a WAN-facing
+`LoadBalancer`, a gateway data plane that LAN clients reach directly with their own source address
+(`media-ingress`, the first caller, 2026-09-17).
+
+```hcl
+module "ingress_media" {
+  source = "../network/firewalls/ingress"
+
+  namespace = "media"
+  name      = "media-ingress"
+
+  pod_selector_expressions = [{
+    key      = "app.kubernetes.io/name"
+    operator = "NotIn"
+    values   = ["plex-media-server", "qbittorrent", "media-private-media-private"]
+  }]
+}
+```
+
+Renders `podSelector: {matchExpressions: [ … ]}` and nothing else — a pod carrying one of those three
+values is not selected at all, so it keeps the Kubernetes default-allow instead of the curtain. That is a
+**carve, not a narrowing**: netpols union, so an excluded pod cannot be given a tighter profile, only left
+as open as it already was. Say so at the call, and only carve pods that are exposed on purpose.
+
+**`NotIn` matches a pod that does not carry the key at all** — measured 2026-09-17 with a scratch policy
+in a scratch namespace: the dial timed out with the policy present and connected the second it was
+deleted (`.clinedocs/calico-netpols.md`). Two consequences, both wanted here: a namespace-wide `NotIn`
+curtain also covers hand-made and future pods that carry no labels at all, and the pods it must *not*
+cover are exactly the ones written in `values`. The same fact makes `In` useless as a floor — `In` matches
+only pods that have the key, so a pod without it stays default-allow.
+
+One expression, one key: `matchExpressions` AND with each other, so a second key would narrow *which pods
+the curtain covers*, not add a second exclusion. A pod needing to be carved out on a different label is a
+different call, not another expression — and if the two sets have to be exhaustive, check that they are.
 
 ## Things that bite
 

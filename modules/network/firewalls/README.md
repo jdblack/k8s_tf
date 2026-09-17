@@ -22,9 +22,10 @@ which way the namespace is dangerous:
    is readable from its own file. *How* depends on the direction: on **egress** the carve is a
    **move** — a pod-scoped call only adds to the floor, so the grant has to leave the namespace
    profile first (`harbor-trivy-egress`, `cert-manager-controller-egress`) — and on **ingress** it is
-   an **exclusion** the module cannot express yet (below). Done: trivy, the cert-manager controller.
-   Pending: `plex` and `qbittorrent` in `media`. The mirror case, a pod needing to be *tighter* than
-   its namespace, is `longhorn-manager-metrics-ingress`.
+   an **exclusion** the curtain has to make in its own selector
+   (`pod_selector_expressions`, `modules/media/ingress.tf`). Done: trivy, the cert-manager
+   controller, and `media`'s plex + qbittorrent + gateway data plane. The mirror case, a pod needing
+   to be *tighter* than its namespace, is `longhorn-manager-metrics-ingress`.
 
 Two consequences: **ordering between our own policies doesn't matter** — they union inside tier
 `default` — and a brief cutover outage is accepted. Neither waives the two orderings that aren't
@@ -36,16 +37,20 @@ reachable by a namespaced policy at all — only a `GlobalNetworkPolicy` sees th
 deliberately does not use one, so they stay outside the curtain. And an omitted `namespaceSelector`
 on a peer defaults to `all()`, not to "same namespace": every peer below is written explicitly.
 
-**The one missing mechanism is the ingress exclusion.** `pod_selector` renders `match_labels` only, so
-a curtain cannot exclude a pod from itself (`matchExpressions` / `NotIn`); until the module grows that,
-`media`'s plex/qbittorrent carve-out and `longhorn-system`'s namespace curtain both wait. Egress needs
-no such mechanism — rule 4 there is a move between call sites.
+**The ingress exclusion is `pod_selector_expressions`.** `pod_selector` renders `matchLabels` only, so a
+curtain cannot exclude a pod from itself with labels; the new expression list renders `matchExpressions`
+beside them, and `NotIn` is the operator that reads as "everything except…". `NotIn` also matches a pod
+that does not carry the key (measured 2026-09-17, `.clinedocs/calico-netpols.md`), which is exactly what a
+namespace-wide curtain wants — future and label-less pods land inside it, and only the named values are
+carved out. `media`'s plex, qbittorrent and gateway data plane were the first callers; `longhorn-system`
+is the next one this unlocks. Egress needs no such mechanism — rule 4 there is a move between call
+sites.
 
 | Module | What it renders |
 |---|---|
 | `egress/` | **Egress**, `pod_selector`-scoped or namespace-wide via the default: DNS always, own-namespace by default, plus namespace / API-server / cluster / internet / raw-CIDR peers. `policyTypes: ["Egress"]` only. |
 | `egress_peer/` ([README](egress_peer/README.md)) | The same, for a **named** peer the base builder cannot express: namespace + pod selector + port. One call = one policy; used *alongside* an `egress` call, since netpols union. |
-| `ingress/` ([README](ingress/README.md)) | **Ingress**, `pod_selector`-scoped or namespace-wide via the default: own-namespace and node-address floors by default, plus namespace / cluster / internet / raw-CIDR guests, plus `from_peers` for the narrow **namespace + pod selector + named ports** guest. `policyTypes: ["Ingress"]` only. One builder, not a pair — see below. |
+| `ingress/` ([README](ingress/README.md)) | **Ingress**, `pod_selector`-scoped or namespace-wide via the default, minus any `pod_selector_expressions` carve (`NotIn`): own-namespace and node-address floors by default, plus namespace / cluster / internet / raw-CIDR guests, plus `from_peers` for the narrow **namespace + pod selector + named ports** guest. `policyTypes: ["Ingress"]` only. One builder, not a pair — see below. |
 
 Call sites, twenty egress policies live: `media` (`modules/media/egress.tf`, four — the namespace floor
 below, plus an API grant for the NGF control plane and one for the NGF cert-generator *hook pod*, plus
@@ -72,15 +77,17 @@ Deployment's labels). The per-pod tables and the measured evidence behind each p
 [`../../vaultwarden/README.md`](../../vaultwarden/README.md) and a one-line note on each call —
 `argo/core` has no README at all, so there its comments and the memory bank are the only copy.
 
-Call sites, **nine ingress policies live (2026-09-17)**: `kube-storage`
+Call sites, **ten ingress policies live (2026-09-17)**: `kube-storage`
 (`modules/storage/ingress.tf`, four rules — the first one), `longhorn-system`
-(`modules/storage/longhorn_netpols.tf`, the additive Prometheus-scrape policy), then the six rule-2
+(`modules/storage/longhorn_netpols.tf`, the additive Prometheus-scrape policy), the six rule-2
 curtains added the same day — `monitoring` (gateway → grafana `:3000`, namespace-wide),
 `kube-auth` (the gateway plus the three proxy outposts on the server pod's `:9000`, namespace-wide),
 `argo` (gateway on `:8080` and `:2746`, namespace-wide because argo-wf's workflow pods are undeclared),
 `devops-harbor` (`:8080` for core and portal), `vaultwarden` (`:80`) and `kube-certificates`
-(**the floor alone** — the apiserver's webhook call is the namespace's only inbound). Guest lists are
-one-line comments at each call; the measured reads and the acceptance probes are in `activeContext.md`.
+(**the floor alone** — the apiserver's webhook call is the namespace's only inbound) — and `media`
+(`modules/media/ingress.tf`, rule 4's first exclusion: the floor for every pod here except plex,
+qbittorrent and the gateway data plane). Guest lists are one-line comments at each call; the measured
+reads and the acceptance probes are in `activeContext.md`.
 
 **Per-pod closing is not namespace closing — hence a namespace-wide call.** A pod-scoped policy
 governs the pods its selector matches and says nothing at all about the rest: an unselected pod falls
@@ -116,8 +123,9 @@ first, not last** — it is the curtain, and the per-pod calls are the holes in 
 *after* it lands to find the guests worth naming; the ones nobody names surface as breakage, which is
 a cheaper signal than a namespace left open for a season. Note the union problem though: a
 namespace-wide grant cannot be subtracted from, so a pod that needs to be tighter than its namespace
-(rule 4 above) cannot be fixed here at all — it has to be excluded from the curtain's selector, which
-needs `matchExpressions` the module does not render yet.
+(rule 4 above) cannot be fixed by writing another call — on **ingress** the curtain's own selector has
+to exclude it (`pod_selector_expressions`), and on **egress** the grant has to move out of the
+namespace profile and into the pod's own call.
 
 **And "the pods nobody names" includes the transient ones.** Hook Jobs, CronJobs, migration Jobs and
 `kubectl run` one-offs are pods too, no per-pod selector in this repo names them, and a namespace-wide
