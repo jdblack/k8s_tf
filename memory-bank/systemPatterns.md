@@ -96,10 +96,11 @@ is the curtain those targets are holes in (`media`, `kube-storage`).
   — and it has **no CIDR peer**, because every Service in that namespace is ClusterIP, which makes the
   gateway pod the only door an off-cluster client can come through and lets a pod selector name that
   door exactly.
-- **Port-scoped cross-namespace peering is `egress_peer`** (`{namespace, pod_selector, port}`);
-  `to_namespaces` on its own still grants the whole namespace on every port, so e.g. media's outpost
-  holds a wider grant against `kube-auth` than the `:9000` it uses. Recorded in
-  `modules/network/firewalls/README.md`, not hidden.
+- **Port-scoped cross-namespace peering is `egress_peer`** (`{namespace, pod_selector, port}`), and it
+  is what every narrow peer in the repo uses — both co-located outpost peers (`media`,
+  `seaweedfs_admin`), harbor-core, and argo's three gateway peers (six calls; whisker's outpost peer
+  is a Calico tier CR instead). `to_namespaces` on its own grants the whole namespace on every port,
+  which is why **no call site uses it**; the ingress builder carries the same shape as `from_peers`.
 - **Reaching the LAN is a CIDR peer**, `to_cidrs = [var.deployment.network.host_cidr]` — the only
   declaration of the LAN anywhere; a published hostname resolves to the gateway VIP inside it, not
   to a namespace peer.

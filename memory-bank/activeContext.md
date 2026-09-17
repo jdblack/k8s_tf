@@ -126,7 +126,7 @@ State and in-flight work; the open list is `progress.md`.*
   wiring in `modules/network/firewalls/README.md`. The two directions are separate *call sites*, not
   separate philosophies: each namespace gets the curtain its threat direction calls for (egress for
   `media`, ingress for `kube-storage`), and a namespace that is dangerous neither way gets neither.
-  The ingress half landed a day later — one namespace deep, below.
+  The ingress half landed a day later — two namespaces, below.
 - **The ingress half is ONE module, and two namespaces use it (2026-09-17).**
   `network/firewalls/ingress` renders a whole `policyTypes: ["Ingress"]` policy from one call: the same
   contract as `egress` (callers state intent, `kubernetes.io/metadata.name` for namespace guests) plus
@@ -193,9 +193,11 @@ State and in-flight work; the open list is `progress.md`.*
   `c889d23` (six spent `moved` blocks). Both stacks report **no changes** against the live cluster,
   and the applies that produced them were no-ops. `memory-bank/` was untracked from 2026-09-16 until
   `fc5fd43` — **it is tracked now**, so update it in commits rather than leaving it aside.
-  Next namespace: `kube-certificates`, then `monitoring`, `argo`, `kube-network`, `kube-auth`.
-- Branch `main`, **ahead of `origin/main`, not pushed** — the 2026-09-16 sweep plus the 2026-09-17
-  firewall rebuild and its cleanups (`514222b` … `c889d23`).
+  Next namespace: `monitoring`, then `argo`, `kube-network`, `kube-auth` (`kube-certificates` closed
+  later the same day).
+- Branch `main`, **ahead of `origin/main` by 40 commits, not pushed** — the 2026-09-16 sweep, the
+  2026-09-17 firewall rebuild and its cleanups, the four-rules restatement with the 20-policy audit
+  (`514222b` … `3724502`), and this docs-vs-code audit on top of it.
 - **VIP policy: everything floats, names are the interface.** `gateway_ips` is deleted
   from `modules/network` (with tfvars `network_ingress` and the `stacks/core/core.tf`
   argument, its only consumers); `qbittorrent_torrent_lb_ip` is unset (variable kept as
@@ -465,12 +467,12 @@ phase.
   dialers are the apiserver, node IPs and peer engines — most of the cluster. Do it last, or never, and
   say which.
 
-**Two module gaps, recorded not hidden** (`modules/network/firewalls/README.md`):
-`to_namespaces` grants a whole namespace on **every** port — the narrow
-`namespace + pod selector → :9000` form the outposts used to have is not expressible, so media's
-outpost holds a wider grant than it uses; and the LAN is only reachable as an explicit
-`to_cidrs` value each caller has to be handed (`var.deployment.network.host_cidr` is the only
-declaration of it), with no helper for node addresses either.
+**Two module gaps, recorded not hidden.** `to_namespaces` grants a whole namespace on **every** port,
+which is why no call site uses it — the two co-located outposts reach `kube-auth` through `egress_peer`
+instead (one pod, one port), as do harbor-core and argo's three server pods against the gateway. And
+the LAN is only reachable as an explicit `to_cidrs` value each caller has to be handed
+(`var.deployment.network.host_cidr` is the only declaration of it), with no helper for node addresses
+either.
 
 ## This memory bank was restored, not written (2026-09-17)
 

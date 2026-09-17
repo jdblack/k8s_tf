@@ -13,8 +13,8 @@ peers connect to the `qbittorrent-torrent` VIP on port `21010` (currently
 ## Pins, and who owns what on `/media`
 
 - **Chart versions** are the `helm_version` defaults in each app module's
-  `variables.tf` (sonarr `2.2.2`, radarr `3.6.1`, prowlarr `3.8.2`, bazarr
-  `2.3.0`). qbittorrent is hand-rolled and pins an image tag instead — `image` /
+  `variables.tf` (sonarr `2.2.3`, radarr `3.6.4`, prowlarr `3.8.4`, bazarr
+  `2.3.1`). qbittorrent is hand-rolled and pins an image tag instead — `image` /
   `image_tag` in `modules/media/qbittorrent/variables.tf`; its deployment uses
   `strategy: Recreate` for the same reason the charts do (one replica + a
   ReadWriteOnce config PVC: a RollingUpdate can land the surge pod on another

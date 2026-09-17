@@ -32,7 +32,7 @@ own namespaces.
 | [`gateway/http_route/`](gateway/http_route/README.md) | App-owned hostname → Service route with external-dns annotation (used by `expose`) |
 | [`firewalls/`](firewalls/README.md) | `NetworkPolicy` builders, one call = one object: **`egress`** per pod profile, **`egress_peer`** for one namespace + pod + port, **`ingress`** for the inbound direction |
 | [`firewalls/egress/`](firewalls/egress/README.md) | **Egress**: DNS always, own-namespace by default, plus namespace / API-server / cluster / internet / raw-CIDR peers. Call sites: `media` (4), `kube-storage` (4), `argo` (4), `harbor` (3), `cert_manager` (2), `seaweedfs_admin` (1), `blender` (1), `vaultwarden` (1) |
-| [`firewalls/ingress/`](firewalls/ingress/README.md) | **Ingress**: own namespace and the node addresses always, every other guest named explicitly, with its own ports. Call site so far: `kube-storage` (1) |
+| [`firewalls/ingress/`](firewalls/ingress/README.md) | **Ingress**: own namespace and the node addresses always, every other guest named explicitly, with its own ports. Call sites so far: `kube-storage` (1, namespace-wide) and `longhorn-system` (1, pod-scoped) |
 | [`wireguard/`](wireguard/README.md) | VPN operator + peers (own namespace `kube-network-vpn`) |
 | [`whisker/`](whisker/README.md) | Calico Whisker flow-log UI: authentik outpost + listener + the tier CRs the operator's own policy forces — instantiated by `stacks/mantle`, because it needs the authentik provider |
 | [`dns/route53_record/`](dns/route53_record/README.md) | Terraform-authoritative Route53 record, for hosts external-dns cannot publish |
@@ -45,19 +45,25 @@ own namespaces.
 | Where | Policies | Profile |
 |---|---|---|
 | [`../media/egress.tf`](../media/egress.tf) | 4 | One namespace-wide call (`podSelector: {}`) = own namespace + DNS + the public internet, plus three pod-scoped exceptions: the NGF control plane and its cert-generator hook pod get the API server, the outpost gets one pod in `kube-auth` on one port. |
+| [`../argo/core/egress.tf`](../argo/core/egress.tf) | 4 | A namespace *profile*: DNS + self + the API server + the internet, namespace-wide because argo-wf's workflow pods are pods nobody declares — plus the private gateway peer on 443 for the repo-server and the two servers (OIDC issuers, OCI charts). |
 | [`../storage/egress.tf`](../storage/egress.tf) | 4 | The **closed floor** used namespace-wide (28 pods): own namespace + DNS, no internet, no LAN, no other namespace. Plus the API server for `seaweedfs-csi-controller`, `seaweedfs-csi-node` (registrar) and `snapshot-controller`. |
 | [`../storage/seaweedfs_admin/egress.tf`](../storage/seaweedfs_admin/egress.tf) | 1 | The co-located outpost's single peer: authentik's server pod in `kube-auth`, :9000. |
 | [`../harbor/core/egress.tf`](../harbor/core/egress.tf) | 3 | DNS + own namespace for all seven chart pods, `+ allow_internet` for `component=trivy`, `+` the private gateway peer for `component=core`. |
+| [`../cert_manager/egress.tf`](../cert_manager/egress.tf) | 2 | The namespace-wide base — DNS + self + the API server, since every pod that chart renders, its `startupapicheck` hook Job included, is an API client — plus `+ allow_internet` for the controller alone (ACME + the Route53 API). |
 | [`../blender/egress.tf`](../blender/egress.tf) | 1 | DNS + own namespace. The share initiates nothing. |
 | [`../vaultwarden/egress.tf`](../vaultwarden/egress.tf) | 1 | Same two-rule shape, selected by the Deployment's labels. |
 
 Every other namespace still reaches every other namespace, the internet, and the API.
 Anything that reads like a policy rationale for those is history kept for the migration.
 
-The **ingress** direction is one namespace deep: [`../storage/ingress.tf`](../storage/ingress.tf)
+The **ingress** direction is two namespaces deep: [`../storage/ingress.tf`](../storage/ingress.tf)
 governs all of `kube-storage` — its own pods, the node addresses, the private gateway's data plane on
-the three backend ports that namespace's HTTPRoutes name, and Prometheus on `:9327` (2026-09-17). So
-nothing else restricts inbound, which is why a LAN client can still reach Plex or SMB after a
+the three backend ports that namespace's HTTPRoutes name, and Prometheus on `:9327` — and
+[`../storage/longhorn_netpols.tf`](../storage/longhorn_netpols.tf) is the pod-scoped door into
+`longhorn-system` its chart policies left shut (Prometheus → `longhorn-manager:9500`); both 2026-09-17.
+Everywhere else inbound is default-allow or a chart's own doing — `longhorn-system` ships six ingress
+policies, `kube-auth`'s postgresql ships one, argo-cd's six are switched off (`global.networkPolicy.create`)
+— so nothing else here restricts inbound, which is why a LAN client can still reach Plex or SMB after a
 namespace is "locked down" — and why the S3 consumers of `kube-storage` that live outside this repo
 are covered anyway: every Service in there is ClusterIP, so the gateway pod is the only door they can
 come through, and a pod selector names that door exactly.

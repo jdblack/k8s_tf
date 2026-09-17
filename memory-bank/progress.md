@@ -32,7 +32,7 @@ not current state.*
   written first, before any caller existed, and inside the hour its duplicated `from` renderer had
   diverged — the node floor rendered as empty `from {}` peers, i.e. *from anywhere*, an allow-all-inbound
   where a floor was intended (caught by the live-cluster plan). Folded into `ingress` and the peer module
-  deleted; `egress_peer` stays only because five call sites use it. The direction's one real divergence is
+  deleted; `egress_peer` stays only because six call sites use it. The direction's one real divergence is
   the **node `ipBlock` floor** (kubelet probes and the apiserver's calls into a pod come from the node's
   host network, so no `namespaceSelector` can match them — the ingress answer to losing DNS).
   **`kube-storage` is the first caller and the first live ingress policy: `kube-storage-baseline-ingress`
@@ -977,10 +977,11 @@ those files present, i.e. the code matched what was running.
   metrics-server, snapshot-controller, plex, wireguard-operator, smartctl. Not upgradable here at
   all: the `apps` charts (ollama, corsless, llm-embedder) are `0.0.*` wildcards synced by Argo from
   the external repo.
-- **Possible module work, roughly in value order:** a **port-scoped cross-namespace peer** (the one
-  real expressiveness gap — it is why media's outpost grant is wider than the `:9000` it uses); a
-  **node-address helper** so `monitoring`-style profiles do not need a hand-built CIDR list; and a
-  `posture` wrapper so a namespace states egress + ingress in one call instead of 2-4 module calls.
+- **Possible module work, roughly in value order:** a **node-address helper** so `monitoring`-style
+  profiles do not need a hand-built CIDR list; and a `posture` wrapper so a namespace states egress +
+  ingress in one call instead of 2-4 module calls. (The port-scoped peer is no longer a gap —
+  `egress_peer` is it, and six calls use it: the two outposts, harbor-core and argo's three server
+  pods; `to_namespaces` has no call site at all.)
 - **Accepted risks**: `goldmane:7443` readable by any pod (unfixable from TF); media
   NodePort soft spot (`nodeIP:nodePort` bypass — moot while nothing is policed); `ollama`
   has no auth in front of it.

@@ -26,9 +26,12 @@ by instantiating these two submodules from its own namespace:
   when several instances share one namespace (`ngf-public` / `ngf-private`).
 - `watch_namespaces` — scope the controller to specific namespaces (`[]` =
   all). The controller always watches its own namespace.
-- `load_balancer_ip` — pin the data-plane Service to a MetalLB IP (the shared
-  public/private gateways are pinned to the former ingress-nginx IPs so
-  DNS/NAT rules keep working).
+- `load_balancer_ip` — pin the data-plane Service to a MetalLB IP when passed.
+  **Unset for every gateway in the repo** (`kube-network`'s `public`/`private`
+  and `media-private`): the addresses float, external-dns (and vaultwarden's
+  Route53 record) read the live Service, and no address is frozen in tfvars
+  (2026-09-16). It stays as the re-pin escape hatch if a router NAT rule ever
+  has to point at a fixed address.
 - `routes_namespace` — restrict which namespaces may attach `ListenerSet`s
   (`null` = any namespace, used by the shared gateways).
 
@@ -36,9 +39,10 @@ by instantiating these two submodules from its own namespace:
 
 The data plane runs as ordinary pods in the gateway namespace and proxies
 cross-namespace. **Nothing is enforced in here yet**: this namespace has no policy of its own, and
-the ingress half is one namespace deep — `kube-storage` accepts traffic from the gateway pod on the
-backend ports its HTTPRoutes name (2026-09-17); every other fronted namespace still accepts traffic
-from anywhere. The egress half is real, in both directions:
+the ingress half covers only two namespaces — `kube-storage` (namespace-wide, accepting the gateway
+pod on the backend ports its HTTPRoutes name) and `longhorn-system` (pod-scoped, for the Prometheus
+scrape of `longhorn-manager`), both 2026-09-17 — so every other fronted namespace still accepts
+traffic from anywhere. The egress half is real, in both directions:
 
 - an app calling a gateway-hosted URL needs egress to *this* namespace. `devops-harbor` states it
   (`harbor/core/egress.tf`): an `egress_peer` on 443 selected by the chart's

@@ -12,7 +12,9 @@ that lands on them. Applied from `stacks/core` (the `seaweedfs_admin` UI is a
 | `snapshot_labeler.tf` | writes the recurring-job group labels onto the Longhorn **Volume** CRs — the only writer of those labels in the repo |
 | `seaweedfs/` | SeaweedFS helm release, CSI driver, master/S3 listeners, Grafana dashboard |
 | `seaweedfs_admin/` | the `weed` admin UI, authentik-gated (called from `stacks/mantle`) |
+| `namespace.tf` | the `kube-storage` namespace |
 | `egress.tf` | **egress policy for the whole namespace**: the closed floor + three API exceptions (see below) |
+| `ingress.tf` | **ingress policy for the whole namespace**: self + the node addresses + the private gateway's data plane on the three route ports + Prometheus on `:9327` (see below) |
 | `longhorn_netpols.tf` | **the one ingress door into `longhorn-system`**: Prometheus → `longhorn-manager:9500`, additive over the chart's six (see below) |
 | `backup.yaml` | **orphaned** — a hand-applied `VolumeSnapshot` for `sonarr-config`; nothing references it (see `../../memory-bank/progress.md`) |
 

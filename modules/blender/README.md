@@ -34,6 +34,7 @@ Credentials: user `jblack`, password
 | `mdns.tf` + `mdns.service` | the Bonjour advertisement — the rest of this README |
 | `egress.tf` | the share's `NetworkPolicy`: DNS plus its own namespace, nothing else |
 | `locals.tf` | `samba_name`, `samba_host`, `mdns_name`, `samba_vip` |
+| `output.tf` | `blender_samba_pass` — `tofu -chdir=stacks/mantle output -raw blender_samba_pass` |
 
 ## Why `mdns.tf` exists, and why it is hostNetwork
 

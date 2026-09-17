@@ -2,8 +2,8 @@
 
 The monitoring stack, deployed into `monitoring` by `stacks/core`. Chart:
 [kube-prometheus-stack](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack),
-**pinned to `90.1.1`** (`variables.tf`, `helm_version`) — deliberately; see the
-note in `locals.tf` and the Conventions section of the main README.
+**pinned to `91.4.1`** (`variables.tf`, `helm_version`) — deliberately; see the
+note in `helm.tf` and the Conventions section of the main README.
 
 Everything below is a deliberate deviation from chart defaults. The comments in
 `locals.tf` carry the reasoning; this is the summary.
@@ -72,4 +72,4 @@ them up cluster-wide. See the main README's Dashboards section.
 
 `namespace`, `domain`, `cert_issuer`, `prometheus_name` (`prometheus`),
 `grafana_name` (`grafana`), `admin_group` (`authentik Admins`), `helm_version`
-(`90.1.1`), `gateway_name` (`private`), `gateway_namespace` (`kube-network`).
+(`91.4.1`), `gateway_name` (`private`), `gateway_namespace` (`kube-network`).

@@ -163,7 +163,7 @@ existed, and the cost showed up immediately — the two renderers diverged, and 
 floor rendered as **empty `from {}` peers**, which in NetworkPolicy means *from anywhere*. That is the
 argument against duplicating a renderer to serve one extra list: fold it into the builder that owns the
 floors, where there is exactly one place for a rule's peer blocks to go wrong. `egress_peer` stays for
-now only because five call sites use it and moving live `NetworkPolicy` objects buys nothing; if the
+now only because six call sites use it and moving live `NetworkPolicy` objects buys nothing; if the
 egress direction is ever revisited, the same fold is the shape to reach for.
 
 **Reaching the LAN.** `deployment.network.host_cidr` (tfenv) is the only declaration of the LAN
