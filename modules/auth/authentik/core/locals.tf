@@ -2,6 +2,14 @@ locals {
   fqdn = coalesce(var.fqdn, "${var.name}.${var.domain}")
   # One local so the ListenerSet name and the chart route's parentRef cannot drift; not var.name.
   listener_name = "auth"
+
+  # The server pod's real port: the Service fronts it on :80 and kube-proxy DNATs before ingress is
+  # evaluated, so a policy naming :80 would permit nothing. Shared by every guest in ingress.tf.
+  server_ports = [{ port = 9000 }]
+
+  # proxy_outpost's own label, the one thing the three outposts have in common; they differ by
+  # `app.kubernetes.io/instance`, which is each call site's own name.
+  outpost_selector = { "app.kubernetes.io/name" = "authentik-outpost" }
   helm_values = {
     # Kept though nothing routes to :9443 and no provider depends on the discovered cert any more:
     # removing the mount would change the chart's cert-discovery behaviour and what it imports.

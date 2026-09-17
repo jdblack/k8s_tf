@@ -51,7 +51,7 @@ variable "from_peers" {
 
 variable "allow_nodes" {
   type        = bool
-  description = "Allow the node addresses: TCP from each node's InternalIP to whatever these pods listen on. This is the direction's floor, not a guest list -- kubelet health probes and the apiserver's own calls into a pod originate on the node, so turning it off makes every governed pod go NotReady. On by default; a failed node read drops the rule rather than widening it."
+  description = "Allow each node's two addresses -- InternalIP and Calico IPIP tunnel address -- to whatever these pods listen on. This is the direction's floor, not a guest list: kubelet probes arrive from the hosting node's InternalIP, and a cross-node apiserver call arrives from the *sending* node's tunnel address, so turning it off makes every governed pod go NotReady and breaks every admission webhook. On by default; a failed node read drops the rule rather than widening it."
   default     = true
 }
 

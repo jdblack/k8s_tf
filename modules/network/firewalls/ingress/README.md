@@ -43,7 +43,7 @@ Renders four rules, in this order:
 | `name_prefix` | `string` | `null` | Generated name, `<prefix>-<8 hex>`. Default prefix is `namespace-ingress` |
 | `allow_namespace` | `bool` | `true` | This namespace's own pods — the self rule |
 | `from_namespaces` | `list(string)` | `[]` | Whole-namespace guests, by name, any pod, any port. A name given twice collapses to one rule. Shorthand for a `from_peers` entry with neither selector nor ports |
-| `allow_nodes` | `bool` | `true` | Each node's `InternalIP`, any port: kubelet probes and the apiserver's calls into a pod start there. The direction's floor |
+| `allow_nodes` | `bool` | `true` | Each node's `InternalIP` **and** Calico IPIP tunnel address, any port: kubelet probes and the apiserver's calls into a pod start there. The direction's floor |
 | `allow_cluster` | `bool` | `false` | The pod CIDR wholesale — any pod in the cluster. Rare; prefer `from_namespaces` / `from_peers` |
 | `allow_internet` | `bool` | `false` | Public source addresses: `0.0.0.0/0` except RFC1918 + link-local. For a WAN-forwarded `LoadBalancer` |
 | `from_cidrs` | `list(string)` | `[]` | Extra source CIDRs, one `ipBlock` peer each (the LAN, a NAS, one host, a node IP). Duplicates collapse |
@@ -58,13 +58,22 @@ with two very different postures gets two calls, scoped with `pod_selector`, rat
 implicit in nearly every app, so the burden sits with the caller who genuinely wants a pod walled off
 from its own namespace (`allow_namespace = false`).
 
-**The nodes.** One `ipBlock` peer per node `InternalIP`, on by default. This has no egress counterpart
-because that direction does not need it: **kubelet health probes and the apiserver's own calls into a
-pod originate on the node's host network**, not on a pod, so no `namespaceSelector` can match them.
-Without it a governed pod answers nothing, goes `NotReady`, and a rollout stalls — the ingress
-direction's version of losing DNS, which is why it is a floor rather than a curated switch. Read live
-from `data.kubernetes_nodes`, so nothing hardcodes an address; an empty read drops the rule instead of
-rendering it peerless, because a `from`-less rule means *from anywhere*.
+**The nodes.** One `ipBlock` peer per node address, on by default, and **two addresses per node** —
+because a host-netns source does not always arrive as the node's `InternalIP`. Kubelet probes do: they
+run on the node that hosts the pod. A cross-node `apiserver → pod` call does not. That traffic is
+MASQUERADEd on the way out of the source node's `tunl0`, so the pod sees the **sending node's Calico
+IPIP tunnel address** (`projectcalico.org/IPv4IPIPTunnelAddr`), an address drawn from the pod CIDR that
+belongs to no namespace and matches no selector. Both are read live from `data.kubernetes_nodes`, so
+nothing hardcodes an address; an empty read drops the rule instead of rendering it peerless, because a
+`from`-less rule means *from anywhere*.
+
+This floor has no egress counterpart because that direction does not need it: **kubelet health probes
+and the apiserver's own calls into a pod originate on a node's host network**, not on a pod, so no
+`namespaceSelector` can match them. Without it a governed pod answers nothing, goes `NotReady`, and a
+rollout stalls — the ingress direction's version of losing DNS, which is why it is a floor rather than a
+curated switch. `InternalIP` alone is not enough: it produced `context deadline exceeded: failed calling
+webhook "webhook.cert-manager.io"` on the first curtain that carried one (2026-09-17, see
+`.clinedocs/calico-netpols.md`).
 
 Neither is needed for *replies*: an established flow is not re-evaluated against policy. An ingress rule
 is for the connections others **initiate** into these pods; what the pod dials out is the
@@ -143,6 +152,12 @@ both gateways) pass — is in `.clinedocs/calico-netpols.md`.
   `metallb-speaker`, `node-exporter`, a `hostNetwork` debug pod. That is the price of having the pod
   reachable at all; `pod_selector` keeps it from covering pods nobody asked about, and a `/32` in
   `from_cidrs` is the narrower shape when you know the one address you mean.
+- **A node has two source addresses and the `InternalIP` is only one of them.** Cross-node host-netns
+  traffic reaches a pod MASQUERADEd to the *sending* node's Calico IPIP tunnel address
+  (`projectcalico.org/IPv4IPIPTunnelAddr`, out of the pod CIDR) — measured on `cert-manager-webhook`,
+  where an `InternalIP`-only node rule turned every apiserver validation call into a dropped packet and
+  the failure surfaced as `context deadline exceeded: failed calling webhook`. The module now reads both;
+  a hand-written `from_cidrs` node grant needs both too.
 - **`allow_internet` is public sources only.** RFC1918 and link-local are subtracted, which keeps it off
   the LAN, off the nodes and off every pod — and also means a LAN client is *not* covered by it.
 - **A guest's ports are the destination pod's ports, not the Service's.** kube-proxy DNATs before

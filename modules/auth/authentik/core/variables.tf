@@ -16,3 +16,11 @@ variable "fqdn" { default = "" }
 
 variable "gateway_name" { default = "private" }
 variable "gateway_namespace" { default = "kube-network" }
+
+# The namespaces holding a proxy outpost that dials this server. Names, not a selector: those
+# outposts are created by `auth/authentik/proxy_outpost` from three other namespaces this module
+# cannot see, and the label they share is that module's own.
+variable "outpost_namespaces" {
+  type    = list(string)
+  default = ["media", "kube-storage", "calico-system"]
+}

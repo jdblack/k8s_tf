@@ -72,6 +72,16 @@ Deployment's labels). The per-pod tables and the measured evidence behind each p
 [`../../vaultwarden/README.md`](../../vaultwarden/README.md) and a one-line note on each call —
 `argo/core` has no README at all, so there its comments and the memory bank are the only copy.
 
+Call sites, **nine ingress policies live (2026-09-17)**: `kube-storage`
+(`modules/storage/ingress.tf`, four rules — the first one), `longhorn-system`
+(`modules/storage/longhorn_netpols.tf`, the additive Prometheus-scrape policy), then the six rule-2
+curtains added the same day — `monitoring` (gateway → grafana `:3000`, namespace-wide),
+`kube-auth` (the gateway plus the three proxy outposts on the server pod's `:9000`, namespace-wide),
+`argo` (gateway on `:8080` and `:2746`, namespace-wide because argo-wf's workflow pods are undeclared),
+`devops-harbor` (`:8080` for core and portal), `vaultwarden` (`:80`) and `kube-certificates`
+(**the floor alone** — the apiserver's webhook call is the namespace's only inbound). Guest lists are
+one-line comments at each call; the measured reads and the acceptance probes are in `activeContext.md`.
+
 **Per-pod closing is not namespace closing — hence a namespace-wide call.** A pod-scoped policy
 governs the pods its selector matches and says nothing at all about the rest: an unselected pod falls
 through to the namespace's profile, which is the Kubernetes default-allow one (`kns.<ns>`:
@@ -148,10 +158,16 @@ The ingress direction is the mirror image of everything above, so the builder di
 direction does, not where it does not: the same self rule, the same "one call = one object, callers
 state intent" contract, the same namespace-label trick (`kubernetes.io/metadata.name`, so callers pass
 names not selectors) — plus a floor this direction needs and egress never does, **the node
-addresses** (`allow_nodes`, on by default, one `ipBlock` per node `InternalIP` read live from
-`data.kubernetes_nodes`). kubelet probes and the apiserver's own calls into a pod originate on the
-node's host network, so no `namespaceSelector` can match them: without that rule the pod answers
-nothing, goes `NotReady` and the rollout stalls. It is the ingress answer to losing DNS. And one
+addresses** (`allow_nodes`, on by default, `ipBlock` peers read live from `data.kubernetes_nodes`):
+every node's `InternalIP` **and** its Calico IPIP tunnel address (`projectcalico.org/IPv4IPIPTunnelAddr`).
+Two per node because a host-netns source arrives as one of two addresses. Kubelet probes come from the
+`InternalIP` of the node hosting the pod. A **cross-node** `apiserver → pod` call — an admission webhook
+— is MASQUERADEd on the way out of the *sending* node's `tunl0`, so the pod sees that node's tunnel
+address, an address inside the pod CIDR that no `namespaceSelector` can match. Either way the source is a
+node's host network, so no `namespaceSelector` can match it: without that rule the pod answers nothing,
+goes `NotReady` and the rollout stalls. It is the ingress answer to losing DNS — and `InternalIP` alone
+was enough to break issuance cluster-wide the first time a curtain carried one (`cert-manager-webhook`,
+2026-09-17, `.clinedocs/calico-netpols.md`). And one
 asymmetry that *removes* something: there is no service-CIDR peer here, because DNAT rewrites the
 **destination** — a guest's port is the pod's port.
 

@@ -94,3 +94,15 @@ this covers the dataplane and the operator underneath it. Flow-query recipes:
   `calico-node`/`calico-typha`, `metallb-speaker`, `tigera-operator`, the kubeadm control-plane
   pods, `node-exporter`, `smartctl`). They will never appear in a guest list, and no policy
   restricts them.
+- **A node's host network reaches a pod as two different addresses, and the apiserver is the second one.**
+  Same-node host → pod arrives from the node's `InternalIP` (kubelet probes). Cross-node host → pod is
+  MASQUERADEd on the way out of the *sending* node's `tunl0`, so the pod sees that node's Calico IPIP
+  tunnel address — `projectcalico.org/IPv4IPIPTunnelAddr`, an address inside the pod CIDR that belongs to
+  no namespace. Measured 2026-09-17 on `cert-manager-webhook` while adding an ingress curtain: the SYN
+  left k8smaster as `10.244.16.128.56209 > 10.244.7.112.10250` inside `192.168.0.74 > 192.168.0.93`,
+  where `10.244.16.128` is k8smaster's tunnel address and *not* its InternalIP; an `InternalIP`-only
+  allow dropped it and the API answered
+  `failed calling webhook "webhook.cert-manager.io": context deadline exceeded`. Whisker records such a
+  source as `PRIVATE NETWORK` with no IP anywhere in the record, so the capture is the only way to see
+  it: `firewalls/ingress` now reads the annotation alongside `InternalIP`. The same shape governs every
+  apiserver → pod webhook (admission, conversion, aggregation) and any future curtain in front of one.

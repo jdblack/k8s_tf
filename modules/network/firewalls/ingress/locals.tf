@@ -19,11 +19,20 @@ locals {
 
   # Sources on a node's host network, v4 only (/32 is right for one and wrong for a v6 address): kubelet
   # probes, apiserver -> pod, and the node-SNAT'd side of an externalTrafficPolicy=Cluster LoadBalancer.
+  # TWO addresses per node, because a host-netns source arrives as one of two different addresses
+  # depending on where its target lives: the InternalIP when the pod is on the same node, and the Calico
+  # IPIP tunnel address when it is not -- Calico MASQUERADEs that traffic on the way out of tunl0, so a
+  # pod on another node sees the *sending* node's tunnel address, an address inside the pod CIDR that no
+  # namespaceSelector can ever name. With InternalIP alone, every cross-node apiserver -> pod call (an
+  # admission webhook, i.e. cert-manager's) reads as a stranger and the curtain drops it: measured
+  # 2026-09-17 on `cert-manager-webhook`, `.clinedocs/calico-netpols.md`.
   node_ips = distinct(compact(flatten([
-    for node in try(data.kubernetes_nodes.this[0].nodes, []) : [
-      for address in try(node.status[0].addresses, []) : address.address
-      if address.type == "InternalIP" && !strcontains(address.address, ":")
-    ]
+    for node in try(data.kubernetes_nodes.this[0].nodes, []) : concat(
+      [for address in try(node.status[0].addresses, []) : address.address
+      if address.type == "InternalIP" && !strcontains(address.address, ":")],
+      [for ip in [try(node.metadata[0].annotations["projectcalico.org/IPv4IPIPTunnelAddr"], "")] : ip
+      if !strcontains(ip, ":")],
+    )
   ])))
 
   # Self is on unless the call site turns it off: intra-namespace traffic is implicit in nearly every app,
