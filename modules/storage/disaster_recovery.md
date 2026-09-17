@@ -257,9 +257,12 @@ throwaway group (both deleted afterwards; no production volume was reverted):
 | Run skipped when nothing changed | 5 executions, 1 snapshot |
 | Manager API reachability | port-forward fails; apiserver service-proxy fails on some DNAT picks (`dial tcp <pod-ip>:9500: i/o timeout`); `kubectl exec` into a manager pod → `http://longhorn-backend:9500` works |
 
-There is **no egress policy on the manager** — `longhorn-system` is on the rollout list and carries
-only the chart's own ingress policies — so a helper pod can reach `longhorn-backend:9500` like
-anything else. `longhorn-manager` itself
+There is **no egress policy on the manager** — `longhorn-system` carries the chart's ingress policies
+plus exactly one of ours (`longhorn_netpols.tf`: Prometheus → `:9500`) and no egress policy at all,
+which is the half still open. So a helper pod **in this namespace** can reach
+`longhorn-backend:9500`, and one anywhere else cannot: measured 2026-09-17, a pod in `default` gets a
+silent timeout on `:9500` and `:9503`, and `:9502` answers http 200 because the chart's webhook policy
+is `from: any`. `longhorn-manager` itself
 ships `/usr/bin/curl`, so `kubectl exec` into it is still the shortest path — and it is the
 path the `http://longhorn-backend:9500` result above came from.
 
