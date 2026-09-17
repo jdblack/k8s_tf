@@ -5,6 +5,18 @@
 State and in-flight work; the open list is `progress.md`.*
 
 ## Current state
+- **The firewall program's two open flags are settled (2026-09-17, `2b8ea0a`, memory bank only —
+  no code).** (1) **`externalTrafficPolicy` is now measured, not assumed**, and it decides *which
+  source address a curtain must name*: with one LAN client (`192.168.0.50`) against two VIPs, read
+  from `/proc/net/tcp` inside each pod, `plex` (`etp=Local`, `192.168.0.104:32400`) shows the pod the
+  **real client** — a stranger to every floor rule, so that path needs the LAN CIDR as an explicit
+  guest — while `blender-samba` (`etp=Cluster`, `192.168.0.103`) shows `10.244.16.128`, the
+  **announcing node's `tunl0`** (k8smaster: ARP for the VIP and for `.74` return the same MAC), which
+  `node_ips` already grants. The claim this memory bank carried was **inverted**;
+  `systemPatterns.md` and `.clinedocs/calico-netpols.md` now carry the corrected version with the
+  measurement. Whisker alone cannot settle it — both read as `PRIVATE NETWORK`, since `192.168.0.50`
+  is RFC1918 too. (2) **`kube-network-vpn` is declined permanently**, not deferred — see the declines
+  below.
 - **Code comments were swept to the new rule (2026-09-17), committed as `a799916`** — 55 files of
   code and docs: **53 `.tf` (`+320/−685`)** plus `.clinerules/behavior.md` (the rule itself) and
   `network/firewalls/README.md`. The record you are reading followed as itself, and two stale

@@ -40,7 +40,11 @@ not current state.*
   source is MASQUERADEd to the sending node's `tunl0` address. The first curtain to rely on the floor
   without it (`cert-manager-ingress`) dropped the apiserver's webhook call and broke issuance
   cluster-wide; the mechanism, the capture that proved it, and the fix are in `activeContext.md` and
-  `.clinedocs/calico-netpols.md`.
+  `.clinedocs/calico-netpols.md`. **And the field that decides which address a curtain has to name is
+  `externalTrafficPolicy`, measured 2026-09-17** (one LAN client, two VIPs, `/proc/net/tcp` read
+  inside each pod): `Local` (media, both gateways) delivers the real client IP, so that path needs the
+  LAN CIDR as an explicit guest; `Cluster` (blender, wireguard) lands *inside* the floor, because the
+  source is the announcing node's `tunl0` address. The memory bank had those two the other way round.
   **`kube-storage` is the first caller and the first live ingress policy: `kube-storage-baseline-ingress`
   (`modules/storage/ingress.tf`, applied 2026-09-17).** Namespace-wide, because the guest list is the same
   for every role; four rules — self, the node floor, the private gateway's data plane (the three HTTPRoutes
