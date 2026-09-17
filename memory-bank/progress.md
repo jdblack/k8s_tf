@@ -742,6 +742,12 @@ peer set comes from the module's own Service + Endpoints reads).
 **Committed 2026-09-17**, five commits: `514222b` (the module pair + five namespaces, 28 files),
 `e64a54a` (`.clinedocs`), `fc5fd43` (memory-bank tracked again — see below), `be82dd2` (doc debt),
 `c889d23` (six spent `moved` blocks). Both stacks report no changes against the live cluster.
+**Then two more, late the same day:** `5416601` (Longhorn's ingress door — the one `.tf` file plus both
+`modules/storage` docs) and `da4a78e` (the `kube-certificates` and `argo` egress slices, **applied and
+probe-verified hours earlier but still untracked**, together with the `network/firewalls` / `.clinedocs`
+doc corrections they carried). The second one was a real hole rather than tidiness: two slices live in
+the cluster with no source in git. Check before committing here: `stacks/core` plan `No changes` with
+those files present, i.e. the code matched what was running.
 `memory-bank/` was **untracked by choice** from 2026-09-16 (`306d5e7`, `b1be450`, `1912b7c`) until
 `fc5fd43` put it back at the owner's request — it is tracked now, so keep it that way.
 
@@ -828,7 +834,7 @@ peer set comes from the module's own Service + Endpoints reads).
   on the rollout list; **both halves of that are now stale by design** — the Longhorn slice below
   rewrote that paragraph and the operational claim inside it). The `seaweedfs_admin/README.md` case was
   fixed with the namespace itself.
-- **Longhorn's ingress half: the scrape that only *looked* healthy (2026-09-17).** The slot opened by
+- **Longhorn's ingress half: the scrape that only *looked* healthy (2026-09-17, `5416601`).** The slot opened by
   `up{job="longhorn-backend"}` reading `1` on all six manager pods while Whisker's 7-day window held
   exactly three `monitoring → 9500` denies — my own probes. Both were true: the chart's
   `networkPolicies.restrictInternalTraffic` (default `true`, nothing in this repo sets it) landed six
