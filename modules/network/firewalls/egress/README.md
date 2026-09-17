@@ -169,8 +169,10 @@ runtime wants for a pull. Reach for the peer builder, not the LAN.
 - **`allow_internet` excludes RFC1918 by design**, so it never covers a NAS, the LAN, or LAN
   discovery — name the CIDR you mean.
 - **Only selected pods are restricted.** Egress from a pod is denied-by-default once *some* policy
-  selects it for `Egress`. Pods no policy selects stay wide open, so a `pod_selector`-scoped call
-  tightens its own pods and leaves the rest of the namespace alone.
+  selects it for `Egress`. Pods no policy selects fall through to `kns.<ns>` — allow-all — so a
+  `pod_selector`-scoped call leaves the rest of the namespace alone, *including the next pod nobody
+  names*. Omitting `pod_selector` renders `podSelector: {}` and closes exactly that gap: the
+  namespace-wide curtain the scoped calls are holes in (`../README.md`).
 - **`allow_k8s_api` is two rules, and both fail closed.** `ports` is shared by every peer in a
   rule, so no single rule can cover both a ClusterIP and a node address — one of the two would
   match nothing. Both peer sets come from live reads (the Service, its Endpoints), and an empty

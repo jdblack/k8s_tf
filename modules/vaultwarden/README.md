@@ -85,13 +85,15 @@ The "nothing else" holds for structural reasons worth keeping in mind before wid
 - **No `/admin`.** `ADMIN_TOKEN` is unset (`secret.tf`), which disables the panel outright, so
   there is no admin-API egress to account for.
 
-The policy selects the Deployment's own labels (`local.labels` = `app.kubernetes.io/name`) rather
-than the whole namespace, so it covers exactly the pods `deployment.tf` owns. Pods no policy
-selects are unrestricted, so this tightens this workload without walling off the namespace.
-Nothing here needs an **ingress** policy *yet*: the only inbound caller is the gateway, and a policy
-typing `Ingress` is deny-all-inbound for the pods it selects — so it has to name the gateway's data-plane
-pod explicitly, which is what `kube-storage` did on 2026-09-17 (`../storage/ingress.tf`). Cheap to add
-with that guest in hand; not free to add blind.
+The policy is namespace-wide (`pod_selector` omitted), not scoped to the Deployment's labels: a
+pod-scoped selector covers only the pods it names, so the second pod or hook Job would be left
+default-allow — the fall-through that `media`'s unmanaged `utility` pod is the measured case of. The
+floor can only ever add self + DNS, so covering the whole namespace costs nothing and closes that door.
+An **ingress** curtain is rule-2 work, queued and not yet written: this namespace holds the
+credentials, so the curtain belongs on the inbound side, and the guest list is already known — the
+gateway's data-plane pod, the one `kube-storage` named on 2026-09-17 (`../storage/ingress.tf`). That
+is what removes the blindness: a policy typing `Ingress` is deny-all-inbound for the pods it selects,
+so it has to name its guest rather than discover it afterwards.
 
 ## Configuration (env, in `secret.tf`)
 

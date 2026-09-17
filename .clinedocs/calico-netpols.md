@@ -55,8 +55,10 @@ this covers the dataplane and the operator underneath it. Flow-query recipes:
   not policies. Its sibling `global.networkPolicy.defaultDenyIngress` does render a
   `podSelector: {}` **Ingress** fence — in the release namespace, and off by default.
 - Only **selected** pods are restricted. Once any policy selects a pod for `Egress`, that pod is
-  deny-by-default; pods no policy selects stay wide open — which is why the per-pod shape is a
-  tightening of named targets and never a namespace-wide fence.
+  deny-by-default; pods no policy selects fall through to `kns.<ns>`, which is allow-all in both
+  directions in all 18 namespaces. **That fall-through is the thing to close, not a reason to leave
+  it open** — the per-pod shape tightens named targets, and a namespace-wide fence is the curtain
+  those named targets are holes in. Rule of thumb: `network/firewalls/README.md`.
 - Staging previews (`StagedKubernetesNetworkPolicy` → `policies.pending`) only show where the
   staged policy is the **deciding** one: with a permissive netpol already in place the union
   means nothing is previewed. Nothing in the repo stages policies today.

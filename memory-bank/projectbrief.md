@@ -16,19 +16,25 @@ plane are **not** managed here.
   order, with no hand-run `kubectl apply` step for anything this repo owns.
 - `tofu plan` is the drift check. Resources are typed (`kubernetes_*`) rather
   than `kubectl_manifest` on purpose, so out-of-band edits show as diffs.
-- **Policy is per-pod, opt-in, and lives in `network/firewalls/`: `egress`, `egress_peer`,
-  `ingress`.** The whole firewall layer was deleted 2026-09-16 and rebuilt narrower from
-  2026-09-17: one call renders one typed `kubernetes_network_policy_v1`, so `plan` sees drift.
-  Egress has DNS and own-namespace always on, everything else behind an explicit switch
-  (`allow_k8s_api`, `allow_cluster`, `allow_internet`, `to_namespaces`, `to_cidrs`); ingress has
-  own-namespace and **the node addresses** always on — kubelet probes and the apiserver's own calls
-  into a pod arrive from the node, so that one is a floor, not a switch — and every guest named
-  explicitly. A namespace is covered only when its **observed** traffic justifies a profile
-  (Whisker flows; plus, for ingress, the live HTTPRoutes and Prometheus's `up{}`, because a scrape
-  holds its connection open and never appears in a flow), so this tightens named pods rather than
-  walling anything off — pods no policy selects stay open. Ingress went live in `kube-storage`
-  (2026-09-17) and is the only namespace with one. Whisker's tier CRs are
-  separate and load-bearing, not a restriction (`modules/network/whisker/tier.tf`).
+- **Policy is a namespace-scoped curtain first, then holes — one call = one object, in
+  `network/firewalls/`: `egress`, `egress_peer`, `ingress`.** The direction the curtain drops is
+  chosen by which way the namespace is dangerous: risky **to** the cluster (media's internet-facing
+  apps) → drop **egress**; at risk **from** the cluster (storage, the IdP) → drop **ingress**. Then
+  open what the namespace actually needs, at namespace or pod granularity, whichever is appropriate.
+  A call renders one typed `kubernetes_network_policy_v1`, so `plan` sees drift. Egress has DNS and
+  own-namespace always on, everything else behind an explicit switch (`allow_k8s_api`,
+  `allow_cluster`, `allow_internet`, `to_namespaces`, `to_cidrs`); ingress has own-namespace and
+  **the node addresses** always on — kubelet probes and the apiserver's own calls into a pod arrive
+  from the node, so that one is a floor, not a switch. **Self-talk stays open and one namespace is
+  one object** — the reader's working set is the real constraint, so rules must earn their place.
+  **A pod worse than its namespace** (plex and qbittorrent, internet-exposed while `media` as a
+  whole is not) is carved out of the namespace's holes and given its own. Ordering between our own
+  policies is irrelevant — they union inside tier `default` — and a brief cutover outage is
+  accepted; only two orderings are not ours to waive (the `egress/data.tf` deferred read, and the
+  operator's tier-100 deny). Call sites today: egress in `media`, `blender`, `vaultwarden`,
+  `kube-storage`, `kube-certificates`, `argo`, `devops-harbor`; ingress in `kube-storage` and
+  `longhorn-system`. Whisker's tier CRs are separate and load-bearing, not a restriction
+  (`modules/network/whisker/tier.tf`).
 - Version-pin every chart you touch.
 
 ## Non-goals / explicitly out of scope

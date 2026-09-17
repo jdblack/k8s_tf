@@ -67,7 +67,7 @@ Outpost-fronted apps point `route_name = "<app>-auth"` at the outpost service.
   `1 to add` in `tofu plan`, and hand-editing the Secret's `url` desyncs it.
 - `hostname` overrides for sub-subdomains (`admin.seaweedfs.<domain>`).
 
-## Pattern: policy is opt-in, one call = one policy, guests read off measured traffic
+## Pattern: namespace curtain first, holes at namespace or pod granularity
 
 Three builders in `modules/network/firewalls/`, each rendering exactly one
 `kubernetes_network_policy_v1` (typed, so `plan` sees drift): **`egress`** (`policyTypes: ["Egress"]`,
@@ -77,16 +77,19 @@ cannot say), and **`ingress`** (`policyTypes: ["Ingress"]`, added 2026-09-17). E
 explicit switch (`allow_k8s_api`, `allow_cluster`, `allow_internet`) or list (`to_namespaces`,
 `to_cidrs`). Ingress defaults: that same self rule **plus the node addresses** (`allow_nodes`) —
 kubelet probes and the apiserver's own calls into a pod arrive from the node, so without it every
-governed pod goes NotReady. A caller passes `pod_selector` so a policy scopes named pods — pods no policy selects
-stay open, which is what keeps this a tightening rather than a fence; a namespace *profile* omits it
-deliberately (`media`, `kube-storage`).
+governed pod goes NotReady. A caller passes `pod_selector` so a policy scopes named pods, and **omits
+it for the namespace-wide object** — the shape that closes the fall-through instead of leaving it
+open. That fall-through (`kns.<ns>`: allow-all, both directions, all 18 namespaces) is the default
+this layer exists to replace; the per-pod shape tightens named targets, and the namespace-wide shape
+is the curtain those targets are holes in (`media`, `kube-storage`).
 
-- **Coverage is earned, not assumed.** A namespace gets a policy only after its guests are read off
-  real traffic (`module`'s README + `.clinedocs/flow-logs.md`); one call per pod profile, and a
-  namespace with two very different profiles gets two calls with different `pod_selector`s. **A scrape
-  breaks the recipe:** a connection held open is never emitted, so Prometheus is found in
-  `up{namespace=...}`, not in a flow (measured 2026-09-17 — 13/13 targets up, zero flow records on
-  `:9327`).
+- **Curtain first, holes found cheaply after.** The curtain goes down on the threat direction; the
+  holes are then read off real traffic (`module`'s README + `.clinedocs/flow-logs.md`), one call per
+  pod profile, with a different `pod_selector` where profiles differ. Measuring is how you *find* the
+  holes, not a gate to pass before building — curtaining first is what makes the outliers surface as
+  breakage instead of being guessed at. **A scrape breaks the recipe:** a connection held open is
+  never emitted, so Prometheus is found in `up{namespace=...}`, not in a flow (measured 2026-09-17 —
+  13/13 targets up, zero flow records on `:9327`).
 - **Ingress has no safe default shape, so the first one took three sources.** A policy that types
   `Ingress` is deny-all-inbound for the pods it selects, and `kube-storage-baseline-ingress` was
   written only after its guests came from the flows, the live HTTPRoutes (peer *and* ports) and `up{}`

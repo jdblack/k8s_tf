@@ -4,11 +4,48 @@
 pods'** traffic; the Calico *tier* machinery (which is what the operator's own deny lives in)
 is elsewhere, in `../whisker`.
 
+## The rule of thumb
+
+**A namespace-scoped curtain first, then holes.** Which direction the curtain drops is decided by
+which way the namespace is dangerous:
+
+1. **Risky *to* the cluster** — reaches the internet at large, runs untrusted code (`media`: plex,
+   qbittorrent, torrent peers) → curtain **egress**.
+2. **At risk *from* the cluster** — everything else depends on it, or it holds credentials
+   (`kube-storage`, `longhorn-system`, the IdP) → curtain **ingress**.
+3. **Self-talk stays open, and one namespace is one object.** Intra-namespace traffic is implicit in
+   nearly every app, and a rule that has to be read is a rule that costs the reader. An LLM holds 26
+   cells fine; a human sees a blurred forest and reads none of them — including the one that mattered.
+   Every object here has to earn its place against that.
+4. **A pod can be worse than its namespace** — dangerous to others, or exposed to something its
+   namespace is not. Carve it out of the namespace's holes and give it its own profile, so its reach
+   is readable from its own file. *How* depends on the direction: on **egress** the carve is a
+   **move** — a pod-scoped call only adds to the floor, so the grant has to leave the namespace
+   profile first (`harbor-trivy-egress`, `cert-manager-controller-egress`) — and on **ingress** it is
+   an **exclusion** the module cannot express yet (below). Done: trivy, the cert-manager controller.
+   Pending: `plex` and `qbittorrent` in `media`. The mirror case, a pod needing to be *tighter* than
+   its namespace, is `longhorn-manager-metrics-ingress`.
+
+Two consequences: **ordering between our own policies doesn't matter** — they union inside tier
+`default` — and a brief cutover outage is accepted. Neither waives the two orderings that aren't
+ours: the deferred read in `egress/data.tf` under a pending `depends_on`, and the operator's tier-100
+`defaultAction: Deny`, which ends evaluation before tier `default` is reached.
+
+**Limits to name.** Host-network pods (`blender`'s mDNS, `calico-node`, `metallb-speaker`) are not
+reachable by a namespaced policy at all — only a `GlobalNetworkPolicy` sees them, and this layer
+deliberately does not use one, so they stay outside the curtain. And an omitted `namespaceSelector`
+on a peer defaults to `all()`, not to "same namespace": every peer below is written explicitly.
+
+**The one missing mechanism is the ingress exclusion.** `pod_selector` renders `match_labels` only, so
+a curtain cannot exclude a pod from itself (`matchExpressions` / `NotIn`); until the module grows that,
+`media`'s plex/qbittorrent carve-out and `longhorn-system`'s namespace curtain both wait. Egress needs
+no such mechanism — rule 4 there is a move between call sites.
+
 | Module | What it renders |
 |---|---|
-| `egress/` | Per-pod **egress**: DNS always, own-namespace by default, plus namespace / API-server / cluster / internet / raw-CIDR peers. `policyTypes: ["Egress"]` only. |
+| `egress/` | **Egress**, `pod_selector`-scoped or namespace-wide via the default: DNS always, own-namespace by default, plus namespace / API-server / cluster / internet / raw-CIDR peers. `policyTypes: ["Egress"]` only. |
 | `egress_peer/` ([README](egress_peer/README.md)) | The same, for a **named** peer the base builder cannot express: namespace + pod selector + port. One call = one policy; used *alongside* an `egress` call, since netpols union. |
-| `ingress/` ([README](ingress/README.md)) | Per-pod **ingress**: own-namespace and node-address floors by default, plus namespace / cluster / internet / raw-CIDR guests, plus `from_peers` for the narrow **namespace + pod selector + named ports** guest. `policyTypes: ["Ingress"]` only. One builder, not a pair — see below. |
+| `ingress/` ([README](ingress/README.md)) | **Ingress**, `pod_selector`-scoped or namespace-wide via the default: own-namespace and node-address floors by default, plus namespace / cluster / internet / raw-CIDR guests, plus `from_peers` for the narrow **namespace + pod selector + named ports** guest. `policyTypes: ["Ingress"]` only. One builder, not a pair — see below. |
 
 Call sites, twenty egress policies live: `media` (`modules/media/egress.tf`, four — the namespace floor
 below, plus an API grant for the NGF control plane and one for the NGF cert-generator *hook pod*, plus
@@ -64,12 +101,13 @@ shapes that call can take:
 
 Two consequences to carry either way: a namespace-wide call inverts the failure mode of a later call
 that *drops* the self or DNS rule (the floor widens it, and nothing in the chain notices), and the
-default is per namespace, so each namespace needs its own call. **Add it last in a namespace, never
-first:** where the pods are not yet covered per-pod, the closed floor is a cutover to DNS + self that
-breaks every peer nobody has measured yet, and a profile that *grants* something re-opens a namespace
-whose per-pod calls were written to deny exactly that. That is why the rollout below is per-namespace
-and per-pod, and why `media` got its floor only after all ten of its workloads had been read off
-measured flows.
+default is per namespace, so each namespace needs its own call. **The namespace-wide call goes in
+first, not last** — it is the curtain, and the per-pod calls are the holes in it. Read the flow logs
+*after* it lands to find the guests worth naming; the ones nobody names surface as breakage, which is
+a cheaper signal than a namespace left open for a season. Note the union problem though: a
+namespace-wide grant cannot be subtracted from, so a pod that needs to be tighter than its namespace
+(rule 4 above) cannot be fixed here at all — it has to be excluded from the curtain's selector, which
+needs `matchExpressions` the module does not render yet.
 
 **And "the pods nobody names" includes the transient ones.** Hook Jobs, CronJobs, migration Jobs and
 `kubectl run` one-offs are pods too, no per-pod selector in this repo names them, and a namespace-wide
@@ -99,14 +137,12 @@ Two things are deliberately *not* here:
   nothing until the peer became the data-plane pod on 443 (`egress_peer`, measured 2026-09-17;
   same shape as the API-server ClusterIP finding in `egress/README.md`). CIDRs are for the LAN and
   real off-cluster hosts only.
-- **A guest list nobody measured.** True of both directions, but it costs more on the way in: an
-  ingress policy that selects a pod is that pod's deny-all-inbound until every guest is named, and
-  the flows that go missing are the ones that show up as a stalled rollout rather than as app traffic
-  (probes, webhook callbacks). `ingress/` sat unwired for exactly that reason and got its first call
-  site on 2026-09-17 (`kube-storage`), where the guest list had to be read off three things rather
-  than one: the flows, the live HTTPRoutes (which name the gateway as the peer and its ports), and
-  Prometheus's `up{}` — a scrape holds its connection open, so it never appears in a flow at all.
-  No other namespace gets one until its guests have been found the same way.
+- **A guest list that has to be read off three sources, not one.** The ingress direction costs more
+  than egress because its guests are less visible: the flows, the live HTTPRoutes (which name the
+  gateway as the peer and its ports), and Prometheus's `up{}` — a scrape holds its connection open, so
+  it never appears in a flow at all. `kube-storage` got the first ingress call site on 2026-09-17 that
+  way. A stalled rollout, a failing probe and a dead exporter are the signals that a guest was missed;
+  that is the accepted cost of curtaining first, not a reason to wait for a complete list.
 
 The ingress direction is the mirror image of everything above, so the builder differs where the
 direction does, not where it does not: the same self rule, the same "one call = one object, callers

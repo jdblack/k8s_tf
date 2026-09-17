@@ -99,35 +99,41 @@ State and in-flight work; the open list is `progress.md`.*
   sha256 from four pods on four different nodes** — so the whole CSI path (pod → mount pod → filer →
   volume server) is untouched.
 
-- **Egress policy is back, per-pod and opt-in, through two modules:
+- **Egress policy is back, curtain-first then holes, through two modules:
   `network/firewalls/egress` + `network/firewalls/egress_peer`** (`1912b7c`, the second added
   2026-09-17). One call = one `policyTypes: ["Egress"]` NetworkPolicy; DNS and own-namespace
   always, everything else by explicit switch (`allow_k8s_api`, `allow_cluster`,
   `allow_internet`, `to_namespaces`, `to_cidrs`), and `egress_peer` for the one shape the first
-  cannot say — namespace + pod selector + port. Live today: **14 policies** — `blender` (1:
+  cannot say — namespace + pod selector + port. Live today: **20 policies** — `blender` (1:
   DNS + self only), `vaultwarden` (1: the same two rules, applied 2026-09-17), `media` (4: one
   namespace profile — `media-baseline-egress`, `podSelector: {}` = own namespace + DNS + the public
   internet — plus `ngf-egress` and `ngf-cert-generator-egress` for the API server and
   `authentik-outpost-egress` for one `kube-auth` peer; see the bullet below) and
   `devops-harbor` (3, applied 2026-09-17: DNS + self for all seven chart pods, `+ allow_internet`
-  for trivy, `+ the private gateway's data plane on 443` for harbor-core's OIDC) and `kube-storage`
+  for trivy, `+ the private gateway's data plane on 443` for harbor-core's OIDC) and `argo` (4,
+  applied 2026-09-16: a namespace *profile* — DNS + self + the API server + the internet,
+  namespace-wide because argo-wf's workflow pods are pods nobody declares — plus the private gateway's
+  peer on 443 for the three pods that speak to it) and `kube-certificates` (2, applied 2026-09-16: the
+  namespace-wide base — DNS + self + the API server, since every pod that chart renders including its
+  `startupapicheck` hook Job is an API client — plus `+ allow_internet` for the controller alone) and
+  `kube-storage`
   (5, applied 2026-09-17: the namespace-wide **closed floor** + the API server for the CSI controller,
   the CSI node DaemonSet and `snapshot-controller`, + the outpost's `kube-auth` peer — the bullet at
   the top of this file). `harbor/mantle`
   gets none — no pods there, and that is now the documented rule for config-only modules
   (`network/firewalls/README.md`). The per-pod tables and the evidence per peer are in
   `modules/media/README.md`, `modules/vaultwarden/README.md` and a one-line note on each call;
-  wiring in `modules/network/firewalls/README.md`. The two directions are separate rollouts: this one
-  tightens egress on named pods instead of walling off a namespace, and the ingress half followed a day
-  later — one namespace deep, below.
-- **The ingress half is ONE module, and one namespace already uses it (2026-09-17).**
+  wiring in `modules/network/firewalls/README.md`. The two directions are separate *call sites*, not
+  separate philosophies: each namespace gets the curtain its threat direction calls for (egress for
+  `media`, ingress for `kube-storage`), and a namespace that is dangerous neither way gets neither.
+  The ingress half landed a day later — one namespace deep, below.
+- **The ingress half is ONE module, and two namespaces use it (2026-09-17).**
   `network/firewalls/ingress` renders a whole `policyTypes: ["Ingress"]` policy from one call: the same
   contract as `egress` (callers state intent, `kubernetes.io/metadata.name` for namespace guests) plus
   `from_peers` — `{namespace, pod_selector, ports}`, one guest per rule, each carrying its own ports —
   which is the shape `egress` splits into a second module. `kube-storage` is its first call site (the
-  bullet at the top of this file); **nothing else has one yet**, which is the point: an ingress policy
-  that selects a pod *is* that pod's deny-all-inbound until every guest is named, and no other
-  namespace's inbound guests have been measured. Divergences from egress, all
+  bullet at the top of this file); `longhorn-system` took a pod-scoped one the same day, and the rest
+  of the rollout is in § *The policy layer*. Divergences from egress, all
   direction-driven: the **node floor** (`allow_nodes`, on by default — kubelet probes and the
   apiserver's calls into a pod originate on a node's host network, so only an `ipBlock` per node
   `InternalIP` read live from `data.kubernetes_nodes`, v4-only, can admit them; drop it and probes die),
@@ -359,28 +365,105 @@ State and in-flight work; the open list is `progress.md`.*
 
 The first attempt was a namespace-ingress rollout (staged policies → soak → enforce, `media` as
 the model) that had been running for four days; it was deleted outright on 2026-09-16 and the
-replacement is **opt-in and per-pod, measured before it is written — egress first, with the ingress
-half returning only on 2026-09-17** (`kube-storage`). Two lessons survived, and the second one is
-a standing instruction:
+replacement is **a namespace-scoped curtain with holes poked in it — egress first, with the ingress
+half returning on 2026-09-17** (`kube-storage`). Curtain first, outliers named after: measuring is
+how you *find* the holes, not a gate to pass before building. Two lessons survived, and the second
+one is a standing instruction:
 
 - **Staging previews only where the staged policy is the deciding one** — a namespace with any
   permissive netpol just unions and previews nothing.
 - **Put the `staged` flag in code from day one.** The first attempt proved the mechanism by hand
   and never implemented it, so every candidate namespace had to be fenced blind. Nothing stages
   policies today; add the flag to the module before any future "soak" step.
-- **Guest lists come from real flow data** (`.clinedocs/flow-logs.md`), never from guessing. The
-  rebuild's whole method is: measure a namespace in Whisker → name the profile it needs → one
-  call per pod profile.
+- **Guest lists come from real flow data** (`.clinedocs/flow-logs.md`), never from guessing — but
+  the flows are read *after* the curtain lands, to name the holes: one call per pod profile, and a
+  namespace nobody measured surfaces as breakage rather than as an excuse to stay open.
 
-**Where the rollout stands.** `blender` (DNS + self only) and `media` (9 policies, including the
-gateway, its data plane, and the outpost) are live. Candidates were ranked from a flow survey:
-`vaultwarden` (Tier 1 — **one pod, DNS only, no internet and no API: the admin panel is off**),
-then `kube-storage`, `kube-certificates`, `monitoring`, `argo`, `devops-harbor`, `kube-network`,
-`kube-auth`; `longhorn-system` and `kube-network-vpn` are structurally hard (control loops and
-host networking), and `ai` / `calico-system` / `kube-system` are not this repo's to police.
-`monitoring` is the one that forces a decision rather than a call: Prometheus needs
-`allow_k8s_api` (its `kubernetes_sd_configs` list pods/services/endpoints/nodes) and a peer for
-node-exporter on the **node IPs**, which nothing publishes yet.
+**Where the rollout stands.** Two questions per namespace, in this order: which way is it *dangerous*
+(rules 1/2 → which direction the curtain drops), and is a pod in it worse than its namespace (rule 4 →
+an exclusion). The old difficulty ranking is gone with the gate that produced it — a curtain is one
+call, so the queue is set by threat direction, not by which slice is cheapest to test.
+
+Curtains live: egress in `media` (the `podSelector: {}` profile — the first real curtain), `blender`
+(pod-scoped on purpose — the same namespace holds a *hostNetwork* pod that still carries pod labels, so
+a blanket selector would select it, and host-netns enforcement is untested), `vaultwarden`
+(namespace-wide since 2026-09-17: verified as its only pod, so the blanket selector costs nothing and
+covers whatever a chart upgrade leaves behind), `devops-harbor`, `kube-storage` (closed floor: self +
+DNS, no internet), `argo`, `kube-certificates`; ingress in `kube-storage` (namespace-wide) and
+`longhorn-system` (pod-scoped, the Prometheus scrape).
+
+**Rule-driven, in order:**
+
+1. **`pod_selector` gains `matchExpressions` / `NotIn`** in both builders — the one gating item. Two of
+   the slices below want a pod excluded from a curtain, and neither can be written without it.
+2. **`media` ingress (rule 4).** Today the only inbound path `media` wants is the gateway's data plane
+   and the LAN into the app UIs; everything else reaching a media pod is unwanted. Plex (`:32400`) and
+   qbittorrent (`:21010`, TCP+UDP) are the exception — they hold LoadBalancer Services that are *meant*
+   to be reachable from outside, and ingress is evaluated post-DNAT on the destination pod, so
+   curtaining `media` without excluding them kills streaming and every torrent peer. Rule 4's first real
+   work order.
+3. **`monitoring` ingress (rule 2).** The cheapest curtain in the cluster: the guest list is the
+   gateway's data plane into grafana and nothing else, readable straight off the live listener.
+   Nothing dials *into* monitoring. Its **egress stays open by choice** — see the declines.
+4. **`kube-auth` ingress (rule 2).** It holds the credentials everything else trusts, so the curtain
+   goes on the inbound side; guests are the three outposts on `:9000` plus the gateway, and they are
+   read off the live listeners before the policy is written, never assumed.
+5. **`longhorn-system` ingress curtain (rule 2)**, excluding `app=longhorn-manager` so
+   `longhorn-manager-metrics-ingress` stays the authority instead of going redundant under the union —
+   the rule-4 *mirror* case.
+6. **`kube-network`'s gateway control plane (rule 1)** — the NGF controller pods and the core gateway's
+   cert-generator Job, whose guest list is narrow and enumerable (apiserver + DNS). `media`'s
+   `ngf-egress` / `ngf-cert-generator-egress` pair is the template. It goes in `kube-network`'s own
+   file, never as a side effect of the gateway module (`progress.md`). The gateway **data plane** is a
+   different animal — see the first decline below.
+
+**Rule 2's leftovers — four namespaces holding half a profile.** Only `kube-storage` and
+`longhorn-system` type `Ingress`; every other curtain is egress. Under rule 2 that is the direction
+inverted for everything that holds credentials, and each is one call with a guest list already known
+off a live listener (nothing to measure):
+
+- **`vaultwarden`** — the vault itself; guest is the gateway's data plane, the same pod `kube-storage`
+  names.
+- **`devops-harbor`** — registry creds and robot accounts; guest is the gateway's data plane, which is
+  also how argo's OCI pulls arrive (argo peers the *gateway*, never harbor: `argo/core/locals.tf`).
+- **`argo`** — deploy credentials, it can write anywhere; guest is the gateway's data plane.
+- **`kube-certificates`** — Route53 creds and ACME keys; the cheapest of the four, because the only
+  inbound caller is the apiserver dialing the webhook from a node's host network — i.e. the
+  `allow_nodes` floor, already on by default. Keep it on.
+
+Prometheus is **not** a guest to copy by reflex: `serviceMonitorSelectorNilUsesHelmValues = false`
+makes the selection cluster-wide, but the monitor population is `kube-storage`'s seaweedfs and
+longhorn's, and `prometheus.io/scrape` appears nowhere in this repo — so check for a monitor aimed at
+the namespace before naming one as a guest. This is the same class of work as items 3–5, not a new
+phase.
+
+**Recorded declines, so they are not relitigated:**
+
+- **The gateway *data plane*'s egress.** It is rule 1 on paper — a compromised proxy is the biggest
+  pivot into the cluster — but its legitimate reach *is* the pod CIDR: every backend anyone deploys,
+  including namespaces created after the policy. A curtain there is the fall-through spelled out at
+  length, and it costs a hole per new app; enumerating it is the unbounded-list trap again. Decline the
+  curtain, and note what it means: the gateway's blast radius is bounded by its *route table*, not by
+  its netpol.
+- **`monitoring` egress.** Prometheus is a client by construction; its hole list is every scraped
+  namespace plus the pod CIDR, kubelet `:10250`, the node IPs and the API server, and it grows
+  whenever an exporter appears. One object with an unbounded, mutating hole list is worse than the
+  fall-through it replaces — rule 3's reader-cost argument points the other way here. Monitoring's cost
+  lands on the *scraped* namespaces instead: each one's ingress curtain has to name it, already paid
+  once in `longhorn-manager-metrics-ingress`.
+- **`media`'s `self` rule stays.** Replacing the namespace profile's `self` with enumerated
+  in-namespace `egress_peer`s was the open "item 1"; rule 3 declines it — it trades one readable object
+  for a list nobody will re-read. Accepted consequence, named rather than hidden: every pod in `media`
+  reaches every other pod there on any port, `9113` and `9000` included. If that ever matters, the NGF
+  control plane is a rule-4 *mirror* case that **is** expressible today — a pod-scoped ingress policy
+  on it narrows hard, unlike `longhorn-manager`, which a namespace-wide curtain would swallow.
+- **`kube-network-vpn`** is wireguard on the host network: no namespaced policy reaches it, ever. Same
+  for `blender`'s mDNS advertiser, `calico-node` and `metallb-speaker` — the "limits to name" in
+  `modules/network/firewalls/README.md`.
+- **`ai`, `calico-system`, `kube-system`** are not this repo's to police.
+- **`longhorn-system` egress** is not rule-driven: longhorn is at-risk-*from*, not risky-to, and its
+  dialers are the apiserver, node IPs and peer engines — most of the cluster. Do it last, or never, and
+  say which.
 
 **Two module gaps, recorded not hidden** (`modules/network/firewalls/README.md`):
 `to_namespaces` grants a whole namespace on **every** port — the narrow
@@ -400,10 +483,10 @@ was restored the same way, because three live docs (`modules/network/README.md`,
 `modules/network/firewalls/README.md`, `modules/network/whisker/tier.tf`) plus
 `.clinerules/resources.md` point at it.
 
-Still missing, and the reason `progress.md` carries a flow-survey section rather than a table:
-the **per-pod flow table for the namespaces that are not yet covered**. Building it is cheap
-(Whisker is already port-forwarded in the recipes) and it is what the next namespace's profile
-should be read off.
+Wanted, and a prerequisite for nothing: the **per-pod flow table for namespaces whose curtain has
+landed** — i.e. the hole list. Reading it *is* how the holes get named (`.clinedocs/flow-logs.md`;
+Whisker is already port-forwarded in the recipes), but a table built before the curtain exists
+measures the fall-through, not the profile. Tool, not gate.
 
 ## Open items with no home elsewhere
 
@@ -518,11 +601,16 @@ should be read off.
 - Typed `kubernetes_*` resources over `kubectl_manifest`, so `plan` sees drift.
 - Terraform owns groups/apps/bindings; the authentik UI owns membership.
 - No `-target` / `-exclude`.
-- **Policies are opt-in, one call per namespace, guests read off measured traffic** — egress per pod
-  profile *or* as a namespace-wide floor (`media`, `kube-storage`), plus a namespace-wide **ingress**
-  profile in `kube-storage` since 2026-09-17; never a blanket allow, and never for a namespace nobody
-  measured. Whisker's tier CRs are the exception that is not an exception: they exist so the operator's
-  own tier stops breaking whisker.
+- **The firewall frame: a namespace-scoped curtain first, then holes** — one direction or both, chosen
+  by which way the namespace is dangerous. Risky **to** the cluster → drop egress (`media`). At risk
+  **from** the cluster → drop ingress (`kube-storage`, `longhorn`). Self-talk stays open, and one
+  namespace is **one object** — the reader's working set is the constraint, not the object count. A pod
+  worse than its namespace (plex, qbittorrent; `longhorn-manager-metrics-ingress`) is carved out of the
+  namespace's holes and given its own. Ordering between our own policies doesn't matter — they union in
+  tier `default` — and a brief cutover outage is acceptable. The direction may differ per namespace, and
+  a namespace may eventually carry both. Whisker's tier CRs are the exception that is not an exception:
+  they exist so the operator's own tier stops breaking whisker. Full rule of thumb:
+  `modules/network/firewalls/README.md`.
 - Parse the **narrowest doc first**: root README → module README → `.clinedocs/`.
 - **Code comments: rare, one line max, only for the most important details and traps**
   (rule lives in `.clinerules/behavior.md`, loaded every session). Swept repo-wide 2026-09-17

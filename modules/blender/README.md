@@ -103,12 +103,14 @@ It is an advertiser only: it never serves SMB, and the data path is untouched
   `mdns_node_selector` and pin it somewhere clean.
 - **Egress policy: `blender-egress`** (`egress.tf`, via `../network/firewalls/egress`). The share
   initiates nothing, so the policy is DNS plus this namespace and nothing else — no API, no
-  internet, no LAN. It selects `app = blender-samba` rather than the namespace, so it says
-  exactly what it covers; the advertiser is hostNetwork, where pod policy does not apply.
-  SMB, the VIP and the advert are all *inbound*, and replies ride the established flow, which
-  policy does not re-evaluate. The `etp=Cluster` caveat — a LAN client's connection can arrive
-  SNATed from a node IP — is a concern for an *ingress* allow-list, if one ever lands here; this
-  egress policy needs no node CIDR.
+  internet, no LAN. It selects `app = blender-samba` rather than the whole namespace, and that is
+  load-bearing rather than cosmetic: the advertiser is hostNetwork but still carries pod labels
+  (`app = blender-mdns`), so a blanket `{}` would select it too — and whether Calico enforces pod
+  policy inside a host netns has not been tested here, while a widened selector would buy nothing
+  (`blender-samba` is the only namespaced pod in this namespace). SMB, the VIP and the advert are all
+  *inbound*, and replies ride the established flow, which policy does not re-evaluate. The
+  `etp=Cluster` caveat — a LAN client's connection can arrive SNATed from a node IP — is a concern
+  for an *ingress* allow-list, if one ever lands here; this egress policy needs no node CIDR.
 - **subPath asymmetry:** changes to `smb.conf` need a pod restart (nothing hashes
   it), while the advertiser rolls itself when its ConfigMap changes.
 

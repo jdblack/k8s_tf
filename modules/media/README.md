@@ -119,10 +119,15 @@ were no-ops. The app submodules no longer carry an `egress.tf` at all, which mea
 "what may sonarr dial?" is now "whatever the namespace may dial". Losing per-app granularity is the
 deliberate price of doing this at the namespace level, so it is recorded rather than hidden.
 
-What the floor cannot give back: a namespace-wide grant cannot be subtracted from, so **no pod in
-this namespace can be internet-less.** Nothing here wants to be today — the apps need the internet
-and the three infra pods don't care — but a future pod that should have none cannot be expressed
-without a per-app call that the floor would then widen anyway. That would need its own namespace.
+What the floor cannot give back **as it stands**: a pod-scoped call only *adds* to a floor, so the
+internet grant cannot be subtracted by writing another policy — `ngf-egress` and the outpost peer
+widen, never narrow. Subtracting means a **move**: the floor drops `allow_internet` and each app
+submodule carries its own, which is exactly how `harbor-trivy-egress`,
+`cert-manager-controller-egress` and argo's gateway peers subtract for one pod. That is expressible,
+not impossible — it is declined on object count (six app calls to replace one floor), and the
+consequence is named rather than hidden: the **NGF control plane, the outpost and any future pod here
+hold the public internet** (`0.0.0.0/0` minus RFC1918). Revisit it the day either of those two stops
+being trusted.
 
 Read off the live cluster (Whisker, `source_namespaces=media`) rather than assumed, with one
 exception: the NGF control plane's API access never appears in a flow log, because long-lived watch
@@ -171,10 +176,13 @@ Two conclusions, both structural rather than lucky:
   only pod in `media` with API access and a ServiceAccount — its metrics port answers, and the agent
   port the data planes use is inside the same all-ports grant) and the **outpost** (the auth proxy,
   and the only pod here with a reach into `kube-auth`). The outpost's side has since been narrowed to
-  one pod on one port; the flat `self` rule has not, and that is the next item. Narrowing it means
-  replacing `self` with explicit `egress_peer` calls for the integrations that actually exist; when
-  doing so, the ports are the **container** ports, because egress is evaluated post-DNAT (the Service
-  is `sonarr:80`, the container is 8989 — a policy naming 80 permits nothing).
+  one pod on one port; the flat `self` rule has **not** been narrowed and is no longer planned —
+  declined by rule 3 (`../network/firewalls/README.md`), because the enumerated version trades one
+  readable object for a dozen nobody will re-read. Accepted consequence: every media pod reaches every
+  other one on any port, `9113` and `9000` included. If it is ever narrowed, replace `self` with
+  explicit `egress_peer` calls for the integrations that exist — and use the **container** ports,
+  because egress is evaluated post-DNAT (the Service is `sonarr:80`, the container is 8989, so a policy
+  naming 80 permits nothing).
 
 The same sweep from an **unlabeled** pod (the `utility` case, so only the floor applies) is the
 namespace's actual default: internet `OPEN`, and every internal target above **blocked** — which is
@@ -221,7 +229,8 @@ Five things worth knowing before extending the list:
   pods before changing its floor.
 
 Two known asymmetries, recorded rather than hidden. The **public** gateway in `kube-network` dials
-Plex across namespaces and has no policy at all — that namespace is still default-allow throughout,
-and closing it belongs to whoever reads its flows first. And the floor's internet grant is
-namespace-wide by construction, so **no pod here can be internet-less**: a future pod that should be
-needs its own namespace, not a call site this floor would widen.
+Plex across namespaces and has no policy at all — that namespace is still default-allow throughout;
+its *control plane* pods are rule-1 work, while its *data plane* is a recorded decline (its legitimate
+reach is the whole pod CIDR, every backend anyone deploys). And the floor's internet grant is
+namespace-wide, so no pod here is internet-less today — subtracting it is a floor change, not
+another policy, and is declined above.
