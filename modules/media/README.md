@@ -100,9 +100,13 @@ weaken external exposure.)
 
 Four `Egress` policies, from 2026-09-17. The rule they implement, stated as three lines: **the
 namespace may talk to itself, it may reach the internet, and it is granted neither the LAN nor the
-cluster.** The gateway is the only thing here that gets the API server. Nothing here types `Ingress`,
-so inbound is exactly as it was: LAN clients reach Plex's LoadBalancer, peers reach the torrent port,
-the gateway reaches the outpost, and the outpost reaches the app Services.
+cluster.** The gateway is the only thing here that gets the API server.
+
+`Ingress` is one call, added the same day: **the floor is the whole guest list** — own namespace plus the
+node addresses — for every pod here except the three whose door is not a pod (below). So the door list is
+short by construction: LAN clients and torrent peers reach their LoadBalancers, the gateway data plane
+reaches the outpost and the apps (same namespace, so the self rule carries it), and nothing else in the
+cluster may open a connection here at all.
 
 | Policy | Selects | May dial |
 |---|---|---|
@@ -110,6 +114,26 @@ the gateway reaches the outpost, and the outpost reaches the app Services.
 | `ngf-egress` | `app.kubernetes.io/name=nginx-gateway-fabric` (control plane) | ... plus the API server |
 | `ngf-cert-generator-egress` | `job-name=ngf-nginx-gateway-fabric-cert-generator` (the chart's hook pod) | ... plus the API server |
 | `authentik-outpost-egress` | `app.kubernetes.io/name=authentik-outpost` | ... plus kube-auth's `authentik`/`server` pod, `:9000` only |
+| `media-ingress` | every pod *except* `app.kubernetes.io/name` `plex-media-server`, `qbittorrent`, `media-private-media-private` | may be *dialled by* own namespace and the node addresses, nothing else |
+
+**The three exclusions are the interesting half of `media-ingress`, and each is a pod whose callers are
+not pods:** plex (`:32400` through its own LoadBalancer, from the LAN and from `PUBLIC NETWORK`, plus the
+`public` gateway for the web UI — the only two cross-namespace inbound peers this namespace has),
+qbittorrent (the same shape on `:21010`), and the `media-private` data plane, which is the LAN front door
+for every arr UI. All three LoadBalancers are `externalTrafficPolicy: Local`, so a LAN client's address
+survives to the pod and no peer list can state it; the other gateway data planes in the cluster are left
+just as open (`network/netpols.tf` curates neither `private-private` nor `public-public`). Excluding a pod
+is not "restricting it differently" — a carve leaves it exactly as open as it was, since policies only
+union — so this is a decision to keep three WAN-facing doors as they are, not a tightening of them. The
+expression is a single `NotIn`, which also matches a pod that lacks the key entirely: the hand-made
+`utility` pod and anything created here later land *inside* the curtain without being written down
+(`../network/firewalls/ingress/README.md`, `.clinedocs/calico-netpols.md`).
+
+The guest list is the floor, so the flows that make the apps work are not written down and must be
+checked by shape instead: `bazarr -> sonarr :8989`, `sonarr`/`radarr -> qbittorrent :8080`, the
+outpost's config fetch, and the data plane walking the app Services on `:80` are all **in-namespace**, and
+the one of those Whisker ever shows is the data plane's gRPC to the control plane on `:8443` — nginx
+holds its upstreams open, and a connection that never ends is never emitted into the flow log.
 
 Calico unions the rules of every policy selecting a pod, so the first row is a floor and the other
 three only add. That is what makes the shape cheap — and it is why **the six apps and the gateway

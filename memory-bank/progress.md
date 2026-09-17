@@ -23,10 +23,11 @@ not current state.*
   `.107` — are assignments, not config. The only two addresses DNS cannot cover are the
   router NAT rules (WAN 443 → public gateway, WAN 21010 → torrent); see
   `modules/network/gateways.tf`.
-- **Ingress has one builder, and nine policies are live (2026-09-17).**
+- **Ingress has one builder, and ten policies are live (2026-09-17).**
   `modules/network/firewalls/ingress` renders a whole `Ingress`-only NetworkPolicy from one call:
   `allow_namespace` + `allow_nodes` on by default, `allow_cluster` / `allow_internet` / `from_namespaces`
-  / `from_cidrs` as the curated switches, and `from_peers`
+  / `from_cidrs` as the curated switches, `pod_selector_expressions` for the exclusion a `matchLabels`
+  selector cannot state, and `from_peers`
   (`{namespace, pod_selector, ports}` — one guest per rule, its own ports) for the narrow shape that the
   egress direction splits into `egress_peer`. That split is not worth repeating: `ingress_peer` was
   written first, before any caller existed, and inside the hour its duplicated `from` renderer had
@@ -58,6 +59,21 @@ not current state.*
   gateway hostnames answer with TLS verified, **zero** `up == 0` across Prometheus's 25 jobs, 0 `Deny`
   per namespace in the 25 minutes after, and a scratch `Certificate` issued `Ready` end-to-end (the
   webhook path, after the fix).
+  **Ten live, and the tenth is the first exclusion (2026-09-17).** `pod_selector_expressions` — a
+  `matchExpressions` list beside `match_labels`, plus the same field inside `from_peers` / `to_peers`
+  entries — landed in both builders, additive: the 39 existing `pod_selector` callers were untouched and
+  all three stacks re-planned `No changes` before and after the first caller was wired.
+  `modules/media/ingress.tf` (`media-ingress`) is that caller: namespace-wide minus
+  `app.kubernetes.io/name` in `{plex-media-server, qbittorrent, media-private-media-private}`, guest list
+  = the self rule and the node floor, nothing else. **The scoping assumption about `NotIn` was wrong and
+  a scratch test caught it:** `NotIn` *matches* a pod that lacks the key entirely (same as
+  `kubectl -l 'key notin (…)'`), so one `NotIn` is the right shape for a curtain — label-less pods and
+  future pods land inside it — `In` is unusable as a floor, and the planned "separate call for the
+  hand-made `utility` pod" was unnecessary. Measured with a scratch policy in a scratch namespace on a
+  key no pod carried: dial timed out with the object present, connected the second it was deleted.
+  Acceptance: five gateway hostnames `302`, plex `:32400` and qbittorrent `:21010` still connect, plex
+  through the public gateway answers its own `HTTP/2 401`, all pods Ready, 0 `Deny` into `media`, and
+  `stacks/mantle` back to `No changes`.
   Detail:
   `modules/network/firewalls/ingress/README.md`, index in `modules/network/firewalls/README.md`.
 - **Egress policy is back, namespace curtain first: `modules/network/firewalls/egress`
@@ -619,9 +635,10 @@ carve-out and its missing `matchExpressions` support: `modules/network/firewalls
   `cert-manager-controller-egress` already do, and `modules/media/README.md` records it as declined on
   object count rather than impossible. A pod that must be *narrower* than an **ingress** curtain is the
   harder one: an extra policy cannot do it, because policies union, so the pod has to be excluded from
-  the curtain's `selector` — rule 4 in `modules/network/firewalls/README.md`. That needs
-  `matchExpressions` / `NotIn` in `pod_selector`, which the module does not render yet, so the
-  carve-out stays open work. The floor is the trade, taken deliberately on the user's call.
+  the curtain's `selector` — rule 4 in `modules/network/firewalls/README.md`. That needed
+  `matchExpressions` / `NotIn` in `pod_selector`, which the module did not render until 2026-09-17 —
+  `pod_selector_expressions` now does, and `modules/media/ingress.tf` is the worked example. The floor is
+  the trade, taken deliberately on the user's call.
 - **Why that baseline exists (2026-09-16): a per-pod list closes pods, not a namespace.** `media`'s
   hand-made `utility` pod (`app: utility`, no owner, not Terraform-managed, selected by no policy)
   sat on the namespace's default-allow profile and reached `vaultwarden.linuxguru.net`

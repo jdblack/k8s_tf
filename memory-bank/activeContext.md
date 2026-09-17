@@ -175,6 +175,33 @@ State and in-flight work; the open list is `progress.md`.*
   which no policy can reach), Whisker holds 0 `Deny` in any of the six namespaces in the 25 minutes
   after, and the `kube-auth` records *name* all three outposts as guests on `:9000` — exercised, not
   merely quiet. Both stacks re-plan `No changes`.
+- **The ingress exclusion mechanism landed, and `media` is its first caller (2026-09-17).** The module
+  change is `pod_selector_expressions` in **both** builders (`firewalls/ingress`, `firewalls/egress_peer`)
+  plus a `pod_selector_expressions` field inside `from_peers` / `to_peers` entries: a `list(object({key,
+  operator, values}))` rendered as `matchExpressions` beside `match_labels`, omitted when empty. Additive
+  by construction, and proved that way before any new call site was wired — the 39 existing
+  `pod_selector` callers were untouched and all three stacks re-planned `No changes`, then `No changes`
+  again after `media` landed (an expression-only selector reads back with no `match_labels` and produces
+  no drift).
+  **The assumption this was scoped on was wrong, and a scratch test caught it:** `NotIn` *matches* a pod
+  that does not carry the key at all — same semantics as `kubectl -l 'key notin (a)'`. Measured in a
+  scratch namespace with `matchExpressions` on a key no pod carried and `policyTypes: [Ingress]` with no
+  rules: the dial timed out with the policy present and connected the second the object was deleted. So a
+  single `NotIn` is the *right* shape for a namespace-wide curtain (label-less and future pods land
+  inside it, only the named values are carved out), `In` is unusable as a floor, and the "give `utility`
+  its own call" work item died: the curtain covers it. Two expressions AND, so one key per curtain.
+  `media` (`modules/media/ingress.tf`, `media-ingress`) is namespace-wide minus `app.kubernetes.io/name`
+  in `{plex-media-server, qbittorrent, media-private-media-private}`; the guest list is the floor (self +
+  node addresses) and nothing else. The three exclusions are pods whose door is not a pod: plex and
+  qbittorrent hold WAN-facing LoadBalancers, and the `media-private` data plane is the LAN front door for
+  the arr UIs (all three `externalTrafficPolicy: Local`, so a client's address survives to the pod and no
+  peer list can name it — same standing decline as the two `kube-network` data planes). The
+  data-plane → app hops need no guest: they are in-namespace, and Whisker never shows them anyway
+  (nginx keep-alives).
+  Acceptance, all live: all five gateway hostnames answer `302`, plex's own `:32400` and qbittorrent's
+  `:21010` still connect, plex through the public gateway returns its own `HTTP/2 401`, every pod stays
+  Ready (the node floor), 0 `Deny` into `media` in Whisker afterwards, and `stacks/mantle` re-plans
+  `No changes`. `longhorn-system` is what the new operator unlocks next.
 - **The node floor admitted the wrong address, and a webhook is how you find out (2026-09-17).** The
   curtain on `kube-certificates` is what broke it: annotating any `Certificate` came back
   `failed calling webhook "webhook.cert-manager.io": context deadline exceeded` — the apiserver's own
@@ -434,19 +461,19 @@ covers whatever a chart upgrade leaves behind), `devops-harbor`, `kube-storage` 
 DNS, no internet), `argo`, `kube-certificates`, `kube-network`'s NGF control plane; ingress in
 `kube-storage` (namespace-wide) and `longhorn-system` (pod-scoped, the Prometheus scrape), plus the six
 curtains that landed 2026-09-17 — `monitoring`, `kube-auth`, `argo`, `devops-harbor`, `vaultwarden`,
-`kube-certificates` (all namespace-wide). `monitoring` and `kube-network` are the two that carry one
+`kube-certificates` (all namespace-wide) — plus `media` (namespace-wide minus three carved-out pods,
+rule 4's first exclusion). `monitoring` and `kube-network` are the two that carry one
 direction on purpose: both were declined an egress curtain, argued in the declines below.
 
 **Rule-driven, in order:**
 
-1. **`pod_selector` gains `matchExpressions` / `NotIn`** in both builders — the one gating item. Two of
-   the slices below want a pod excluded from a curtain, and neither can be written without it.
-2. **`media` ingress (rule 4).** Today the only inbound path `media` wants is the gateway's data plane
-   and the LAN into the app UIs; everything else reaching a media pod is unwanted. Plex (`:32400`) and
-   qbittorrent (`:21010`, TCP+UDP) are the exception — they hold LoadBalancer Services that are *meant*
-   to be reachable from outside, and ingress is evaluated post-DNAT on the destination pod, so
-   curtaining `media` without excluding them kills streaming and every torrent peer. Rule 4's first real
-   work order.
+1. **`pod_selector` gains `matchExpressions` / `NotIn`** in both builders. **DONE 2026-09-17** — landed as
+   `pod_selector_expressions`, additive for every existing caller, and `NotIn` is now measured to match a
+   pod that lacks the key (a correction to what this item was scoped on).
+2. **`media` ingress (rule 4). DONE 2026-09-17** (`modules/media/ingress.tf`, `media-ingress`) — the
+   namespace-wide curtain minus plex (`:32400`), qbittorrent (`:21010`, TCP+UDP) and the gateway data
+   plane, with the floor as the whole guest list. The exclusions are the accepted consequence: those three
+   doors stay exactly as open as they were, which is the point of them.
 3. **`monitoring` ingress (rule 2). — DONE 2026-09-17** (`modules/monitoring/prometheus/ingress.tf`,
    `monitoring-ingress`). The cheapest curtain in the cluster: the guest list is the
    gateway's data plane into grafana and nothing else, readable straight off the live listener.
@@ -455,9 +482,16 @@ direction on purpose: both were declined an egress curtain, argued in the declin
    `authentik-ingress`). It holds the credentials everything else trusts, so the curtain
    goes on the inbound side; guests are the three outposts on `:9000` plus the gateway, and they were
    read off the live listeners before the policy was written, never assumed.
-5. **`longhorn-system` ingress curtain (rule 2)**, excluding `app=longhorn-manager` so
-   `longhorn-manager-metrics-ingress` stays the authority instead of going redundant under the union —
-   the rule-4 *mirror* case. **Still open: it needs item 1.**
+5. **`longhorn-system` ingress curtain (rule 2)** — unblocked by item 1 and not yet written. The chart
+   selects its own six policies' pods, so the curtain's job is the leftovers that no chart policy
+   selects (the four `csi-*` sidecars, `longhorn-csi-plugin`, `longhorn-driver-deployer`, the
+   `engine-image-ei-*` pods, snapshot Jobs) — and stating *that* set is the open design question: the
+   leftovers span two label keys (`app` and `longhorn.io/component`), and expressions AND, so "all pods
+   except the chart's" is not one selector. `app NotIn (…)` happens to select the label-less
+   `engine-image` and `instance-manager` pods too, which is either the whole answer or the reason to keep
+   `longhorn-manager-metrics-ingress` as-is and write nothing. **Decide the selector shape before writing
+   it.** Any curtain here must leave `app=longhorn-manager` to the existing additive call, or that call
+   goes redundant under the union (the rule-4 *mirror* case).
 6. **`kube-network`'s gateway control plane (rule 1) — DONE 2026-09-17**
    (`modules/network/netpols.tf`, `ngf-control-plane-egress` + one call per cert-generator hook pod) —
    the NGF controller pods and the gateway's
