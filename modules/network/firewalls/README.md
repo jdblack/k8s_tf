@@ -52,7 +52,7 @@ sites.
 | `egress_peer/` ([README](egress_peer/README.md)) | The same, for a **named** peer the base builder cannot express: namespace + pod selector + port. One call = one policy; used *alongside* an `egress` call, since netpols union. |
 | `ingress/` ([README](ingress/README.md)) | **Ingress**, `pod_selector`-scoped or namespace-wide via the default, minus any `pod_selector_expressions` carve (`NotIn`): own-namespace and node-address floors by default, plus namespace / cluster / internet / raw-CIDR guests, plus `from_peers` for the narrow **namespace + pod selector + named ports** guest. `policyTypes: ["Ingress"]` only. One builder, not a pair — see below. |
 
-Call sites, twenty egress policies live: `media` (`modules/media/egress.tf`, four — the namespace floor
+Call sites, twenty-three egress policies live: `media` (`modules/media/egress.tf`, four — the namespace floor
 below, plus an API grant for the NGF control plane and one for the NGF cert-generator *hook pod*, plus
 the outpost's peer into `kube-auth`), `devops-harbor` (`modules/harbor/core/egress.tf`, three: DNS +
 self for every pod the chart ships, `+ allow_internet` for `component=trivy`, and the gateway peer for
@@ -68,6 +68,10 @@ node DaemonSet's `driver-registrar` and `snapshot-controller`; and
 :9000)**, **`kube-certificates` (`modules/cert_manager/egress.tf`, two: the namespace-wide base — DNS +
 self + the API server, since every pod that chart renders including its `startupapicheck` hook Job is an
 API client — plus `+ allow_internet` for the controller alone, which needs ACME and the Route53 API)**,
+**`kube-auth` (`modules/auth/authentik/core/egress.tf`, three: the floor, which is all the postgres pod
+ever needs, plus the API server for `component=worker` alone — the only pod that probes it — and the
+private gateway on 443 for `component=server` alone, whose *embedded* outpost websockets to
+`auth.<domain>`)**,
 `blender`'s share (`modules/blender/egress.tf`, one — DNS plus its own namespace, nothing
 else) and `vaultwarden` (`modules/vaultwarden/egress.tf`, the same two-rule shape, selected by the
 Deployment's labels). The per-pod tables and the measured evidence behind each peer are in

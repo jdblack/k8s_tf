@@ -82,6 +82,22 @@ State and in-flight work; the open list is `progress.md`.*
   inbound is untouched and nothing needs fencing, since the only guests are the gateway (already inside
   the cluster) and Prometheus, which does not scrape argo at all.
 
+- **`kube-auth` is the seventh namespace closed, and the first where the peer had to be *identified*
+  before it could be named (2026-09-17).** Three policies (`modules/auth/authentik/core/egress.tf`): the
+  floor — DNS + self, all the postgres pod ever needs — plus the API server for `component=worker` alone
+  and the private gateway's 443 for `component=server` alone. Two findings worth keeping. **Whisker calls
+  a LoadBalancer VIP "PUBLIC NETWORK":** the server's *embedded* outpost websockets to `auth.<domain>`,
+  split-horizon DNS answers the private gateway's VIP, and no policy matched — so the record read
+  `→ PUBLIC NETWORK 443` while the traffic was pod → gateway pod → back, and the same flow reads
+  `→ private-private-*:443 Allow` as soon as one admits it. Read the peer, not the label. The worker's
+  `:6443` was RBAC, not traffic — `authentik-kube-auth` → SA `authentik` →
+  `customresourcedefinitions [list]`, the `outpost_connection_discovery` probe, a write-once call that
+  neither a socket table nor a flow window shows. Verified with new connections from *inside* both pods:
+  gateway 443 → **302**, CRD list via the ClusterIP + SA token → **200**, postgres → connected,
+  `1.1.1.1` / `github.com` → **timeout**, and those two controls are the window's only `Deny`. Outpost
+  ticks every 5 min afterwards with no reconnects, SSO `authorize` 302s, 0 restarts, plan `No changes` —
+  and the documented `stacks/core` `depends_on` landmine did **not** fire here.
+
 - **The inbound direction has its first policy, and it closed a namespace without a CIDR peer
   (2026-09-17).** `kube-storage-baseline-ingress` (`modules/storage/ingress.tf`): namespace-wide, four
   rules — self, the node floor, the private gateway's data plane on the three backend ports its own
@@ -104,7 +120,7 @@ State and in-flight work; the open list is `progress.md`.*
   2026-09-17). One call = one `policyTypes: ["Egress"]` NetworkPolicy; DNS and own-namespace
   always, everything else by explicit switch (`allow_k8s_api`, `allow_cluster`,
   `allow_internet`, `to_namespaces`, `to_cidrs`), and `egress_peer` for the one shape the first
-  cannot say — namespace + pod selector + port. Live today: **20 policies** — `blender` (1:
+  cannot say — namespace + pod selector + port. Live today: **23 policies** — `blender` (1:
   DNS + self only), `vaultwarden` (1: the same two rules, applied 2026-09-17), `media` (4: one
   namespace profile — `media-baseline-egress`, `podSelector: {}` = own namespace + DNS + the public
   internet — plus `ngf-egress` and `ngf-cert-generator-egress` for the API server and
@@ -119,7 +135,10 @@ State and in-flight work; the open list is `progress.md`.*
   `kube-storage`
   (5, applied 2026-09-17: the namespace-wide **closed floor** + the API server for the CSI controller,
   the CSI node DaemonSet and `snapshot-controller`, + the outpost's `kube-auth` peer — the bullet at
-  the top of this file). `harbor/mantle`
+  the top of this file) and `kube-auth` (3, applied 2026-09-17: the floor — all postgres and the server's
+  DB client need — + the API server for `component=worker` alone and the private gateway on 443 for
+  `component=server` alone, the embedded outpost's websocket; the bullet at the top of this file).
+  `harbor/mantle`
   gets none — no pods there, and that is now the documented rule for config-only modules
   (`network/firewalls/README.md`). The per-pod tables and the evidence per peer are in
   `modules/media/README.md`, `modules/vaultwarden/README.md` and a one-line note on each call;
@@ -479,7 +498,9 @@ Curtains live: egress in `media` (the `podSelector: {}` profile — the first re
 a blanket selector would select it, and host-netns enforcement is untested), `vaultwarden`
 (namespace-wide since 2026-09-17: verified as its only pod, so the blanket selector costs nothing and
 covers whatever a chart upgrade leaves behind), `devops-harbor`, `kube-storage` (closed floor: self +
-DNS, no internet), `argo`, `kube-certificates`, `kube-network`'s NGF control plane; ingress in
+DNS, no internet), `argo`, `kube-certificates`, `kube-auth` (egress 2026-09-17: the namespace floor, plus
+an API grant scoped to `component=worker` and the private gateway's 443 peer scoped to
+`component=server`; its ingress curtain landed the same day), `kube-network`'s NGF control plane; ingress in
 `kube-storage` (namespace-wide) and `longhorn-system` (namespace-wide since 2026-09-17: the floor alone,
 which is what finally governs the pods the chart's own six policies never selected; the additive
 Prometheus-scrape call rides beside it), plus the six
@@ -565,8 +586,15 @@ phase.
   reaches every other pod there on any port, `9113` and `9000` included. If that ever matters, the NGF
   control plane is a rule-4 *mirror* case that **is** expressible today — a pod-scoped ingress policy
   on it narrows hard, unlike `longhorn-manager`, which a namespace-wide curtain would swallow.
-- **`kube-network-vpn`** is wireguard on the host network: no namespaced policy reaches it, ever. Same
-  for `blender`'s mDNS advertiser, `calico-node` and `metallb-speaker` — the "limits to name" in
+- **`kube-network-vpn` — corrected 2026-09-17: it is *not* host-network, so pod policy does select it.**
+  Live read: `wg-server-dep-*` is `hostNetwork: <none>`, `dnsPolicy: ClusterFirst`, pod IP
+  `10.244.233.190` (the wireguard-operator's controller-manager likewise), so the old "no namespaced
+  policy reaches it, ever" was wrong on the facts. The decline stands on the real reason: that pod
+  *forwards other clients' traffic* — VPN peers' LAN, internet and pod-CIDR flows leave through it — so
+  its egress is an unbounded, mutating hole list, i.e. rule 3's reader-cost argument, and it needs a
+  design decision (curtain the client-facing ports vs. keep the fall-through) rather than a commit.
+  Genuinely unreachable by pod policy: `blender`'s mDNS advertiser, `calico-node` and `metallb-speaker`,
+  all verified `hostNetwork: true` — the "limits to name" in
   `modules/network/firewalls/README.md`.
 - **`ai`, `calico-system`, `kube-system`** are not this repo's to police.
 - **`longhorn-system` egress** is not rule-driven: longhorn is at-risk-*from*, not risky-to, and its

@@ -96,7 +96,7 @@ not current state.*
   (2026-09-17).** One call
   renders one `Egress`-only NetworkPolicy; DNS and own-namespace always, every other peer an
   explicit switch. A second builder, `network/firewalls/egress_peer`, joined it the same day for
-  the one shape the first cannot say: **namespace + pod selector + port**. **20 egress policies live** —
+  the one shape the first cannot say: **namespace + pod selector + port**. **23 egress policies live** —
   `blender` (DNS + self), `vaultwarden` (DNS + self), `media` (4: the **namespace profile**
   `media-baseline-egress` — `podSelector: {}` with own namespace + DNS + the public internet — plus
   three exceptions, the gateway and its cert-generator hook pod for the API server and the outpost for
@@ -111,7 +111,15 @@ not current state.*
   hook Job included — plus the internet for the controller alone, which needs ACME and Route 53), and
   `argo` (4: the namespace profile with the API server *and* the internet, because argo-wf's workflow pods
   are pods nobody declares, plus the same private-gateway 443 peer for the three dialers — repo-server for
-  harbor's OCI charts, argo-cd's server and argo-wf's server for their OIDC issuers). None of these types `Ingress`, so they
+  harbor's OCI charts, argo-cd's server and argo-wf's server for their OIDC issuers), and `kube-auth`
+  (3, landed 2026-09-17: the floor — DNS + self, which is all the postgres pod ever dials — plus the API
+  server for `component=worker` alone, the only pod whose SA carries the CRD probe, and the private
+  gateway on 443 for `component=server` alone, whose *embedded* outpost websockets to `auth.<domain>`.
+  Nothing here wants the internet, and `locals.tf` had already killed the version check. Verified with
+  new connections from inside both pods: gateway 443 → **302**, CRD list via the ClusterIP + SA token →
+  **200**, postgres → connected, `1.1.1.1` / `github.com` → **timeout** — those two controls are the
+  window's only `Deny` records; outpost ticks every 5 min after, SSO 302s, 0 restarts, plan `No
+  changes`). None of these types `Ingress`, so they
   tighten egress rather than fencing a namespace (inbound is the bullet above) — and where a per-pod list
   leaves a hole, a
   namespace-wide call closes it (the `media` section below argues both shapes: closed floor vs
@@ -623,7 +631,8 @@ are holes in. Self-talk stays open by design and one namespace stays one object,
 never blurs the rules that matter. Full rule of thumb, including the pod-worse-than-its-namespace
 carve-out and its missing `matchExpressions` support: `modules/network/firewalls/README.md`.
 
-**Live, verified against the cluster (9 policies):**
+**Live, verified against the cluster — 9 policies at the time this section was written; the namespaces
+added later (`kube-storage`, `kube-certificates`, `argo`, `kube-auth`) are indexed above:**
 
 - `blender` — 1 policy, DNS + self: the share answers LAN clients and initiates nothing, and its
   mDNS advertiser is hostNetwork, where pod policy does not apply at all.

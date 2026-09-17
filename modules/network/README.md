@@ -52,6 +52,7 @@ own namespaces.
 | [`../cert_manager/egress.tf`](../cert_manager/egress.tf) | 2 | The namespace-wide base — DNS + self + the API server, since every pod that chart renders, its `startupapicheck` hook Job included, is an API client — plus `+ allow_internet` for the controller alone (ACME + the Route53 API). |
 | [`../blender/egress.tf`](../blender/egress.tf) | 1 | DNS + own namespace. The share initiates nothing. |
 | [`../vaultwarden/egress.tf`](../vaultwarden/egress.tf) | 1 | Same two-rule shape, selected by the Deployment's labels. |
+| [`../auth/authentik/core/egress.tf`](../auth/authentik/core/egress.tf) | 3 | The closed floor for the postgres pod, + the API server for `component=worker` alone (its CRD probe — `serviceAccountName` is unset on the server) and the private gateway peer on 443 for `component=server` alone (the embedded outpost's websocket to `auth.<domain>`). |
 
 Every other namespace still reaches every other namespace, the internet, and the API.
 Anything that reads like a policy rationale for those is history kept for the migration.
