@@ -9,8 +9,5 @@ terraform {
     helm = {
       source = "hashicorp/helm"
     }
-    random = {
-      source = "hashicorp/random"
-    }
   }
 }
