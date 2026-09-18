@@ -9,15 +9,13 @@ variable "pod_selector" {
   default     = {}
 }
 
-# The exclusion mechanism: matchLabels alone cannot say "every pod except these", which is what a
-# namespace-wide curtain needs before one pod in it gets its own profile.
 variable "pod_selector_expressions" {
   type = list(object({
     key      = string
     operator = string
     values   = optional(list(string))
   }))
-  description = "`matchExpressions` for the governed pods, ANDed with pod_selector and with each other: `[{ key, operator, values }]`, operator one of In/NotIn/Exists/DoesNotExist (values omitted for the last two). `[{ key = \"app\", operator = \"NotIn\", values = [\"plex\"] }]` is how a curtain excludes a pod from itself. `NotIn` also matches a pod that does not carry `key` at all -- measured 2026-09-17 (`.clinedocs/calico-netpols.md`) -- which makes one `NotIn` the right shape for a namespace-wide curtain (label-less pods land inside it) and an `In` the wrong shape for a floor (a pod without the key stays default-allow). There is no OR inside one policy: expressions AND, so a second key decides which pods the selector covers at all rather than adding a second exclusion."
+  description = "`matchExpressions` for the governed pods, ANDed with pod_selector and with each other: `[{ key, operator, values }]`, operator one of In/NotIn/Exists/DoesNotExist (values omitted for the last two). `[{ key = \"app\", operator = \"NotIn\", values = [\"plex\"] }]` is how a curtain excludes a pod from itself. `NotIn` also matches a pod that does not carry `key` at all (measured 2026-09-17), which makes one `NotIn` the right shape for a namespace-wide curtain (label-less pods land inside it) and an `In` the wrong shape for a floor (a pod without the key stays default-allow). There is no OR inside one policy: expressions AND, so a second key decides which pods the selector covers at all rather than adding a second exclusion."
   default     = []
 }
 
@@ -33,7 +31,6 @@ variable "name_prefix" {
   default     = null
 }
 
-# Naming: `allow_*` are the on/off switches, `from_*` take explicit guest lists.
 variable "allow_namespace" {
   type        = bool
   description = "Allow ingress from THIS namespace's own pods -- the self rule, rendered first. On by default for the same reason the egress module keeps its own namespace: losing intra-namespace traffic looks like a broken application rather than like policy."
@@ -46,8 +43,6 @@ variable "from_namespaces" {
   default     = []
 }
 
-# `from_*` takes an explicit guest list; this is the one that can also say *which pods* and *which
-# ports*, which a from_namespaces guest cannot.
 variable "from_peers" {
   type = list(object({
     namespace    = string

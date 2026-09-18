@@ -1,5 +1,3 @@
-# WireGuard VPN (nccloud/wireguard-operator). Peers reach the server via `home.linuxguru.net` (public
-# DNS -> router NAT, UDP 51820 -> MetalLB LoadBalancer IP).
 module "wireguard" {
   source = "../../modules/network/wireguard"
 

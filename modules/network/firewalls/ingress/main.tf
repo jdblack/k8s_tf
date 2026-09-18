@@ -1,6 +1,3 @@
-# One call = one NetworkPolicy, ingress only. Nothing is implicit beyond the two floors (own namespace,
-# the node addresses): a call that names no guest renders a bare Ingress policy, i.e. deny-all-inbound.
-# Exists only to make the default naming unique; an explicit `name` needs no suffix.
 resource "random_id" "suffix" {
   count       = var.name == null ? 1 : 0
   byte_length = 4
@@ -17,8 +14,6 @@ resource "kubernetes_network_policy_v1" "this" {
   }
 
   spec {
-    # Empty match_labels renders `podSelector: {}` = every pod in the namespace. Expressions are added
-    # only when given, so a labels-only call renders exactly what it always did.
     pod_selector {
       match_labels = var.pod_selector
 
@@ -48,8 +43,6 @@ resource "kubernetes_network_policy_v1" "this" {
           }
         }
 
-        # One `from` entry may carry two selector kinds: the peer builder needs namespaceSelector AND
-        # podSelector, which is an AND inside a single peer.
         dynamic "from" {
           for_each = ingress.value.from
 
@@ -58,15 +51,12 @@ resource "kubernetes_network_policy_v1" "this" {
               for_each = try(from.value.namespace, null) != null ? [from.value.namespace] : []
 
               content {
-                # The implicit per-namespace label, so callers pass names not selectors.
                 match_labels = {
                   "kubernetes.io/metadata.name" = namespace_selector.value
                 }
               }
             }
 
-            # A peer renders a podSelector when it names labels OR expressions; both land inside this one
-            # `from` entry beside the namespaceSelector, so they AND.
             dynamic "pod_selector" {
               for_each = try(from.value.pod_selector, null) != null || length(try(from.value.pod_selector_expressions, [])) > 0 ? [from.value] : []
 

@@ -1,6 +1,3 @@
-# The Gateway takes no app-specific listeners: each app declares its own via a ListenerSet. The CRD
-# requires >= 1 listener (MinItems=1), so a minimal :80 listener is declared whose selector matches no
-# namespace: plain HTTP is dropped (404), never redirected -- HTTPS is the only way in.
 resource "kubectl_manifest" "gateway" {
   yaml_body = yamlencode({
     apiVersion = "gateway.networking.k8s.io/v1"
@@ -17,7 +14,6 @@ resource "kubectl_manifest" "gateway" {
           name     = "http"
           port     = 80
           protocol = "HTTP"
-          # Selector matches no namespace, so no route can attach here.
           allowedRoutes = {
             namespaces = {
               from = "Selector"

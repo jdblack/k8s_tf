@@ -7,8 +7,6 @@ module "expose" {
   gateway_name      = var.gateway_name
   gateway_namespace = var.gateway_namespace
 
-  # Route to the outpost Service, named "<app>-auth" so it cannot collide with the
-  # chart-generated "<app>" route during the disable/apply transition.
   backend_name = var.auth_backend
   backend_port = 9000
   route_name   = "${var.name}-auth"

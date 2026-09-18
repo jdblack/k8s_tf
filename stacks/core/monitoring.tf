@@ -19,15 +19,11 @@ module "smartctl" {
 module "prometheus" {
   source    = "../../modules/monitoring/prometheus"
   namespace = "monitoring"
-  # module.storage: Grafana/Prometheus/Alertmanager PVCs live on Longhorn, so the
-  # module that installs it must be applied first.
   depends_on = [
     module.network,
     module.cert_man,
     module.storage,
   ]
-  domain = var.deployment.common.domain
-  # Listener cert only; client trust comes from authentik's public chain.
+  domain      = var.deployment.common.domain
   cert_issuer = var.deployment.cert_authorities.default
 }
-

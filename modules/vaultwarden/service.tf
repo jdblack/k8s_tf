@@ -17,7 +17,6 @@ resource "kubernetes_service_v1" "this" {
     }
   }
 
-  # Controllers (MetalLB, cloud LBs) like to write annotations on Services.
   lifecycle {
     ignore_changes = [
       metadata[0].annotations

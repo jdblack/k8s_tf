@@ -9,15 +9,13 @@ variable "pod_selector" {
   default     = {}
 }
 
-# The exclusion mechanism, shared with the ingress builder: a `matchLabels`-only selector cannot say
-# "every pod except these".
 variable "pod_selector_expressions" {
   type = list(object({
     key      = string
     operator = string
     values   = optional(list(string))
   }))
-  description = "`matchExpressions` for the governed pods, ANDed with pod_selector and with each other: `[{ key, operator, values }]`, operator one of In/NotIn/Exists/DoesNotExist (values omitted for the last two). `NotIn` also matches a pod that does not carry `key` at all -- measured 2026-09-17 (`.clinedocs/calico-netpols.md`) -- and there is no OR inside one policy: expressions AND, so a second key decides which pods the selector covers at all rather than adding a second exclusion."
+  description = "`matchExpressions` for the governed pods, ANDed with pod_selector and with each other: `[{ key, operator, values }]`, operator one of In/NotIn/Exists/DoesNotExist (values omitted for the last two). `NotIn` also matches a pod that does not carry `key` at all (measured 2026-09-17), and there is no OR inside one policy: expressions AND, so a second key decides which pods the selector covers at all rather than adding a second exclusion."
   default     = []
 }
 
@@ -39,8 +37,6 @@ variable "allow_namespace" {
   default     = true
 }
 
-# `to_*` takes an explicit peer list, like the base builder; this is the one that can also say
-# *which pods* and *which ports*, which a to_namespaces peer cannot.
 variable "to_peers" {
   type = list(object({
     namespace    = string

@@ -1,4 +1,3 @@
-
 resource "kubectl_manifest" "external_issuer" {
   yaml_body  = yamlencode(local.external_issuer)
   depends_on = [helm_release.release, kubernetes_secret_v1.certman_route53_secret]
@@ -20,11 +19,7 @@ locals {
           {
             dns01 = {
               route53 = {
-                accessKeyID = var.data["AWS_ACCESS_KEY_ID"]
-                # `hostedZoneID` is the real API field; `zoneid` is silently pruned, leaving the solver
-                # to derive the zone from SOA lookups against the pod's resolver -- which answers the LAN
-                # bind9 zone vn.linuxguru.net, so the challenge died with "zone vn.linuxguru.net not found
-                # in Route 53". Pinning it puts the TXT in linuxguru.net, the zone public resolvers serve.
+                accessKeyID  = var.data["AWS_ACCESS_KEY_ID"]
                 hostedZoneID = var.data["R53_ZONEID"]
                 region       = var.data["AWS_REGION"]
                 secretAccessKeySecretRef = {
@@ -55,4 +50,3 @@ resource "kubernetes_secret_v1" "certman_route53_secret" {
   }
   depends_on = [kubernetes_namespace_v1.namespace]
 }
-

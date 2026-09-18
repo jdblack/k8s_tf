@@ -20,8 +20,6 @@ resource "kubectl_manifest" "issuer" {
   depends_on = [helm_release.release]
 }
 
-# CA files come from the operator's machine (~/.ssl), so this resource is tied to the
-# tree it was applied from.
 resource "kubernetes_secret_v1" "ca-key" {
   type       = "kubernetes.io/tls"
   depends_on = [kubernetes_namespace_v1.namespace]
@@ -35,9 +33,6 @@ resource "kubernetes_secret_v1" "ca-key" {
   }
 }
 
-
-# Intentionally has NO `namespace` set (so it lands in `default`): kept cluster-wide
-# for anything that may need the CA cert (e.g. Harbor reads it from `default`).
 resource "kubernetes_config_map_v1" "ca-cert" {
   metadata {
     name = local.issuer_name
@@ -47,4 +42,3 @@ resource "kubernetes_config_map_v1" "ca-cert" {
   }
 
 }
-

@@ -1,5 +1,3 @@
-# Credentials the API-driven providers in providers.tf authenticate with, read from
-# Secrets the core stack creates.
 data "kubernetes_secret_v1" "harbor_auth" {
   metadata {
     namespace = var.deployment.harbor.namespace

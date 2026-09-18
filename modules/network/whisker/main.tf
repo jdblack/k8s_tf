@@ -1,5 +1,3 @@
-# authentik proxy app for whisker, plus the outpost (Deployment/Service/Secret) that fronts
-# it in this namespace.
 module "auth" {
   source = "../../auth/authentik/proxy_outpost"
 
@@ -19,7 +17,6 @@ module "auth" {
   core_namespace = var.auth_namespace
 }
 
-# Backend is the OUTPOST, not whisker itself: the route is authenticated.
 module "expose" {
   source = "../gateway/expose"
 
@@ -32,6 +29,3 @@ module "expose" {
   backend_name      = var.outpost_service
   backend_port      = 9000
 }
-
-# All policy for this namespace is in tier.tf: the tigera-operator owns it (tier
-# `calico-system`, default deny) and only a Calico CR in that tier can allow anything.

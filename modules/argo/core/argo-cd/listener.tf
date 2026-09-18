@@ -1,6 +1,3 @@
-# HTTPS listener via the shared private gateway. The HTTPRoute is rendered by the
-# argo-cd chart itself (server.httproute), so this declares only the ListenerSet; the
-# submodule creates the ReferenceGrants for both attachments.
 module "expose" {
   source            = "../../../network/gateway/expose"
   name              = var.name
@@ -10,8 +7,3 @@ module "expose" {
   gateway_name      = var.gateway_name
   gateway_namespace = var.gateway_namespace
 }
-
-# The bare host intentionally serves the chart's own login page. Do not hijack
-# `Exact /` into /auth/login: argocd-server's OIDC callback falls back to the base href
-# (`/`) when no return_url is supplied, so the browser loops with ERR_TOO_MANY_REDIRECTS.
-# Argo CD ships no setting to skip its login page -- the SSO button is the entrypoint.

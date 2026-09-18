@@ -1,6 +1,3 @@
-# Bonjour/mDNS advertiser for the Samba share (Finder's "Network" lists mDNS-SD only). hostNetwork is
-# required: mDNS is link-local multicast a pod netns cannot put on the LAN. Advertiser only -- the SMB
-# data path is untouched.
 resource "kubernetes_config_map_v1" "mdns" {
   count = var.mdns_enabled ? 1 : 0
 
@@ -28,7 +25,6 @@ resource "kubernetes_deployment_v1" "mdns" {
   }
 
   spec {
-    # >1 advertiser contests the Bonjour instance name and macOS renames it.
     replicas = 1
 
     selector {
@@ -37,11 +33,8 @@ resource "kubernetes_deployment_v1" "mdns" {
 
     template {
       metadata {
-        # NOT the samba Service's selector label: the hostNetwork pod would add a <node-ip>:445
-        # endpoint with nothing listening.
         labels = { app = local.mdns_name }
 
-        # subPath ConfigMaps never refresh in place, so force a restart on change.
         annotations = {
           "checksum/config" = sha256(jsonencode(kubernetes_config_map_v1.mdns[0].data))
         }
@@ -49,8 +42,7 @@ resource "kubernetes_deployment_v1" "mdns" {
 
       spec {
         host_network = true
-        # hostNetwork pods ignore ClusterFirst and would use the node's resolv.conf.
-        dns_policy = "ClusterFirstWithHostNet"
+        dns_policy   = "ClusterFirstWithHostNet"
 
         automount_service_account_token = false
 
@@ -60,9 +52,6 @@ resource "kubernetes_deployment_v1" "mdns" {
           name  = local.mdns_name
           image = var.mdns_image
 
-          # ENABLE_DBUS=no (none in the image; avahi exits without a bus), PUBLISH_WORKSTATION=no (else
-          # the node shows as a phantom Mac), DISALLOW_OTHER_STACKS=yes (fail loudly rather than duel
-          # mDNS on the node).
           env {
             name  = "SERVER_HOST_NAME"
             value = local.mdns_name
@@ -100,8 +89,6 @@ resource "kubernetes_deployment_v1" "mdns" {
             value = "no"
           }
 
-          # Starts as root on purpose (the daemon chroots itself); the NET_RAW drop is the point, since
-          # it would otherwise allow LAN sniffing/spoofing.
           security_context {
             capabilities {
               drop = ["NET_RAW"]
@@ -118,7 +105,6 @@ resource "kubernetes_deployment_v1" "mdns" {
             }
           }
 
-          # Whole dir, not single files: hides the image's bundled ssh/sftp services.
           volume_mount {
             name       = "services"
             mount_path = "/etc/avahi/services"

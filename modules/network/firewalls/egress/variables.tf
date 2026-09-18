@@ -21,7 +21,6 @@ variable "name_prefix" {
   default     = null
 }
 
-# Naming: `allow_*` are the on/off switches, `to_*` take explicit peer lists.
 variable "allow_namespace" {
   type        = bool
   description = "Allow egress to THIS namespace's own pods -- the self rule, rendered first. Peers in other namespaces are to_namespaces (plural). On by default: intra-namespace traffic is implicit in nearly every app, and losing it looks like a broken application rather than like policy."

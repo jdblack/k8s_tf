@@ -2,7 +2,6 @@ locals {
   fqdn = var.hostname != null ? var.hostname : "${var.name}.${var.domain}"
 }
 
-# The external-dns annotation is what points DNS for the hostname at the gateway.
 resource "kubernetes_manifest" "http_route" {
   manifest = {
     apiVersion = "gateway.networking.k8s.io/v1"

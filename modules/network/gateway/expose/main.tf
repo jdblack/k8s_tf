@@ -1,7 +1,3 @@
-# Publishes an app through a gateway: an HTTPS ListenerSet (+ grants and cert) and,
-# when backend_name is set, an HTTPRoute to it. Chart-rendered routes (harbor /
-# authentik / argo-cd) leave backend_name empty and get the listener alone.
-
 locals {
   fqdn = var.hostname != null ? var.hostname : "${var.name}.${var.domain}"
 

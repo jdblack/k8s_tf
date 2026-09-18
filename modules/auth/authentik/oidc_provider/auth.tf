@@ -1,9 +1,5 @@
-
-# OIDC signing key, OWNED here rather than looked up by name: the chart-mounted `tls` object is
-# renamed in place by 2026.8's cert discovery (which broke every `mantle` plan) and its kid rotates
-# with each cert-manager renewal. Generated here, so discovery never touches it.
 resource "tls_private_key" "signing" {
-  algorithm = "RSA" # matches the RSA key this replaces; widest client support
+  algorithm = "RSA"
   rsa_bits  = 4096
 }
 
@@ -12,8 +8,7 @@ resource "tls_self_signed_cert" "signing" {
   subject {
     common_name = "${var.name} OIDC signing"
   }
-  # Signs tokens, never presented over TLS: nothing renews, validates, or chains it.
-  validity_period_hours = 87600 # 10y
+  validity_period_hours = 87600
   allowed_uses          = ["digital_signature"]
 }
 
@@ -22,7 +17,6 @@ resource "authentik_certificate_key_pair" "signing" {
   certificate_data = tls_self_signed_cert.signing.cert_pem
   key_data         = tls_private_key.signing.private_key_pem
 }
-
 
 data "authentik_flow" "default-authorization-flow" {
   slug = "default-provider-authorization-implicit-consent"
@@ -43,8 +37,6 @@ data "authentik_property_mapping_provider_scope" "openid" {
   scope_name = "openid"
 }
 
-# Groups claim: this instance ships no 'groups' scope mapping, so each client creates its own (same
-# scope_name, unique name); a provider references only its own, so the token still carries one claim.
 resource "authentik_property_mapping_provider_scope" "groups" {
   name        = "OpenID 'groups' (${var.name})"
   scope_name  = "groups"
@@ -55,7 +47,6 @@ resource "authentik_property_mapping_provider_scope" "groups" {
     }
   EOT
 }
-
 
 resource "authentik_provider_oauth2" "oauth2" {
   name               = var.name
@@ -72,10 +63,8 @@ resource "authentik_provider_oauth2" "oauth2" {
 
   allowed_redirect_uris = [
     {
-      matching_mode = "strict"
-      url           = var.redirect_uri
-      # Declared because the API stores it and reads it back: omitted, 2026.8.0 plans a perpetual
-      # no-op removal of this one key that never converges, i.e. drift in every mantle plan.
+      matching_mode     = "strict"
+      url               = var.redirect_uri
       redirect_uri_type = "authorization"
     }
   ]
@@ -97,4 +86,3 @@ resource "authentik_application" "app" {
   meta_icon         = var.meta_icon
   open_in_new_tab   = var.open_in_new_tab
 }
-

@@ -5,7 +5,7 @@
  - Relaxed tone with humor and light swearing! 
  - Sycophancy = failure.
  - “I don’t know” > confident guess.
- - Code comments: rare, one line max, only for the most important details and traps.
+ - Code that needs comments is a bug.  Keep comments are, and one line max.
  - Add docs sparingly and keep terse. Docs=Context=Cost. 
 
 ## Tool Usage

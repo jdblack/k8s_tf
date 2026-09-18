@@ -3,8 +3,6 @@ locals {
   cert_name = "cert-${local.fqdn}"
 }
 
-# cert-manager's gateway-shim provisions the cert secret (in this namespace) from the annotation;
-# protocol = "HTTP" gives a plain listener with no cert.
 resource "kubernetes_manifest" "listener_set" {
   manifest = {
     apiVersion = "gateway.networking.k8s.io/v1"
@@ -27,8 +25,6 @@ resource "kubernetes_manifest" "listener_set" {
           port     = var.port
           protocol = var.protocol
           hostname = local.fqdn
-          # Accept routes from ANY namespace: charts that render their own route (harbor's
-          # expose.type = "route") attach cross-namespace by hostname match.
           allowedRoutes = {
             namespaces = {
               from = "All"
@@ -48,8 +44,6 @@ resource "kubernetes_manifest" "listener_set" {
   }
 }
 
-# Cross-namespace ListenerSet -> Gateway attachment needs a ReferenceGrant in the ListenerSet's
-# namespace; same-namespace needs none.
 resource "kubernetes_manifest" "reference_grant" {
   count = var.gateway_namespace != var.namespace ? 1 : 0
 
@@ -79,8 +73,6 @@ resource "kubernetes_manifest" "reference_grant" {
   }
 }
 
-# Charts that render their own HTTPRoute reference the Gateway directly, so that direction needs its
-# own grant.
 resource "kubernetes_manifest" "reference_grant_httproute" {
   count = var.gateway_namespace != var.namespace ? 1 : 0
 
@@ -109,4 +101,3 @@ resource "kubernetes_manifest" "reference_grant_httproute" {
     }
   }
 }
-

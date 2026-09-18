@@ -1,5 +1,3 @@
-# The gateway is instantiated by a caller that already owns the target
-# namespace (this module never creates one), so namespace is required.
 variable "namespace" {
   type        = string
   description = "Existing namespace to run this Gateway + NGF control plane in (caller must create it)"
@@ -45,4 +43,3 @@ variable "client_max_body_size" {
   default     = "0"
   description = "Max client request body size for all routes on this Gateway (ClientSettingsPolicy body.maxSize). 0 = unlimited (nginx otherwise defaults to 1m, which 413s large uploads); set e.g. \"100m\" to cap a public-facing gateway."
 }
-

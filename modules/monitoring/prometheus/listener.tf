@@ -1,5 +1,3 @@
-# Exposure via the shared private gateway (kube-network): HTTPS listener + HTTPRoute
-# to the prometheus-grafana ClusterIP service (TLS terminated at the gateway).
 module "expose" {
   source            = "../../network/gateway/expose"
   name              = var.grafana_name

@@ -1,7 +1,3 @@
-# Namespace profile: DNS + self + the API server + the public internet. Namespace-wide because this
-# namespace's real pod list is open-ended -- argo-wf's workflow pods run arbitrary containers and their
-# executor patches its own Workflow CR -- and the gain that matters is that nothing here reaches the LAN
-# or another namespace's pods, which every pod could before.
 module "egress" {
   source = "../../network/firewalls/egress"
 
@@ -12,7 +8,6 @@ module "egress" {
   allow_internet = true
 }
 
-# repo-server's harbor OCI charts (`harbor.<domain>/library`, the corsless and llm-embedder Applications).
 module "egress_repo_server_gateway" {
   source = "../../network/firewalls/egress_peer"
 
@@ -23,7 +18,6 @@ module "egress_repo_server_gateway" {
   to_peers = local.gateway_peer
 }
 
-# argocd-server's OIDC issuer (`auth.<domain>`) is the same gateway pod, not an authentik pod.
 module "egress_server_gateway" {
   source = "../../network/firewalls/egress_peer"
 
@@ -34,7 +28,6 @@ module "egress_server_gateway" {
   to_peers = local.gateway_peer
 }
 
-# argo-wf's server dials the same OIDC issuer; its pods are covered by the floor.
 module "egress_wf_server_gateway" {
   source = "../../network/firewalls/egress_peer"
 

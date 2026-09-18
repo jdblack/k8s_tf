@@ -1,4 +1,3 @@
-
 resource "kubernetes_namespace_v1" "namespace" {
   metadata {
     name = var.namespace
@@ -26,17 +25,11 @@ locals {
       }
     }
     expose = {
-      # Chart-native Gateway API HTTPRoute (expose.type = "route"): the shared private
-      # gateway terminates TLS and the chart routes /api/, /service/, /v2/, /c/ to
-      # harbor-core and / to harbor-portal, matching the old ingress path routing.
       type = "route"
       tls = {
         enabled = false
       }
       route = {
-        # NGF only attaches routes to ListenerSet-contributed listeners when the
-        # route parentRefs the ListenerSet itself (not the Gateway), so point the
-        # chart-rendered HTTPRoute at ours.
         parentRefs = [{
           name        = var.name
           namespace   = var.namespace
@@ -63,4 +56,3 @@ resource "helm_release" "harbor" {
   timeout    = 600
   values     = [yamlencode(local.helm_values)]
 }
-

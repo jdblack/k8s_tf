@@ -1,30 +1,20 @@
 locals {
-  # Explicit name wins outright; otherwise name_prefix (namespace-egress) + a generated 8-hex suffix,
-  # so a namespace with several calls can omit both. try() covers random_id's count = 0 branch.
   name_prefix = coalesce(var.name_prefix, "namespace-egress")
   name        = coalesce(var.name, "${local.name_prefix}-${try(random_id.suffix[0].hex, "")}")
 
-  # kubeadm stores the ClusterConfiguration as a YAML string under this key.
   kubeadm_configuration = try(
     yamldecode(data.kubernetes_config_map_v1.kubeadm[0].data["ClusterConfiguration"]),
     {}
   )
 
-  # Authoritative and read-only: kubeadm wrote podSubnet (= the Calico IPPool) and serviceSubnet
-  # (= --service-cluster-ip-range) here at bootstrap. No override exists on purpose: a second
-  # source is a second thing to drift.
   pod_cidr = try(local.kubeadm_configuration.networking.podSubnet, null)
 
   service_cidr = try(local.kubeadm_configuration.networking.serviceSubnet, null)
 
-  # RFC1918 + link-local. Also the reason allow_internet never reaches the LAN.
   private_cidrs = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "169.254.0.0/16"]
 
   api_cluster_ip = try(data.kubernetes_service_v1.kubernetes[0].spec[0].cluster_ip, "")
 
-  # The ClusterIP answers on the *Service* port, not the apiserver's bind port (:443 works here,
-  # :6443 times out), read name-first so a second port cannot shadow it. Null when the read fails,
-  # which drops the rule -- see rule_api_cluster_ip.
   api_cluster_port = try(
     [for port in data.kubernetes_service_v1.kubernetes[0].spec[0].port : port.port if port.name == "https"][0],
     try(data.kubernetes_service_v1.kubernetes[0].spec[0].port[0].port, null),
@@ -36,8 +26,6 @@ locals {
     ]
   ])))
 
-  # Self is on unless the call site turns it off; DNS has no knob at all -- a pod-scoped policy that
-  # silently loses DNS looks like a broken application.
   rule_self = var.allow_namespace ? {
     ports = []
     to    = [{ namespace = var.namespace }]
@@ -54,7 +42,6 @@ locals {
     }]
   }
 
-  # distinct(), like to_cidrs: a name repeated twice is still one peer.
   rules_namespaces = [
     for ns in distinct(var.to_namespaces) : {
       ports = []
@@ -62,10 +49,6 @@ locals {
     }
   ]
 
-  # A rule with no `to` peers means "all destinations", so a failed read drops it -- an empty peer set
-  # would widen to anywhere on that port. Two rules because `ports` is shared per rule and the Service
-  # (443) and the apiserver (6443) differ; kube-proxy DNATs before policy runs, so `<node-ip>:6443` is
-  # what matches here -- the ClusterIP half is inert but never widening, and not safe to drop.
   rule_api_cluster_ip = var.allow_k8s_api && local.api_cluster_ip != "" && local.api_cluster_port != null ? {
     ports = [{ port = local.api_cluster_port, protocol = "TCP" }]
     to    = [{ ip_block = { cidr = "${local.api_cluster_ip}/32" } }]
@@ -89,7 +72,6 @@ locals {
     to    = [{ ip_block = { cidr = "0.0.0.0/0", except = local.private_cidrs } }]
   } : null
 
-  # distinct() so a call site that names the same CIDR twice renders one peer, not two.
   cidr_peers = distinct(var.to_cidrs)
 
   rule_cidrs = length(local.cidr_peers) > 0 ? {
@@ -97,9 +79,6 @@ locals {
     to    = [for cidr in local.cidr_peers : { ip_block = { cidr = cidr } }]
   } : null
 
-  # Render order, frozen -- this list IS the rendered spec: self (unless allow_namespace = false) ->
-  # DNS -> to_namespaces -> API (ClusterIP, then the control-plane addresses) -> cluster -> internet
-  # -> to_cidrs.
   egress = concat(
     local.rule_self != null ? [local.rule_self] : [],
     [local.rule_dns],

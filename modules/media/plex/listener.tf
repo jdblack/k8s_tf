@@ -1,5 +1,3 @@
-# Web UI exposure via the shared public gateway: HTTPS listener + HTTPRoute to the same
-# PMS service the chart's LoadBalancer exposes (32400).
 module "expose" {
   source            = "../../network/gateway/expose"
   name              = var.plex_name

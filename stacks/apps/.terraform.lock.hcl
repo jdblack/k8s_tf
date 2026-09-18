@@ -1,6 +1,3 @@
-# This file is maintained automatically by "tofu init".
-# Manual edits may be lost in future updates.
-
 provider "registry.opentofu.org/argoproj-labs/argocd" {
   version     = "7.12.4"
   constraints = "7.12.4"

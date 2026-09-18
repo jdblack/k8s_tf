@@ -8,8 +8,6 @@ resource "kubernetes_deployment_v1" "this" {
   spec {
     replicas = 1
 
-    # RWO volume holding the SQLite DB: a rolling update would deadlock waiting
-    # for the old pod to release it, so take the pod down and back up.
     strategy {
       type = "Recreate"
     }
@@ -65,9 +63,6 @@ resource "kubernetes_persistent_volume_claim_v1" "data" {
   metadata {
     name      = local.data_pvc_name
     namespace = kubernetes_namespace_v1.this.metadata[0].name
-    # Deliberately unlabelled: Longhorn snapshot enrolment is cluster policy and lives
-    # on the Volume CR (modules/storage/snapshot_labeler.tf). A recurring-job label
-    # here would REPLACE the volume's whole group set instead of merging with it.
   }
 
   spec {

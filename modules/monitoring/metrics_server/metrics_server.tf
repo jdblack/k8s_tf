@@ -1,6 +1,5 @@
 variable "namespace" {}
 
-# metrics-server chart version.
 variable "helm_version" { default = "3.14.0" }
 
 resource "helm_release" "metrics_server" {

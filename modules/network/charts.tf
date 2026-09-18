@@ -15,8 +15,6 @@ locals {
 
   }
 
-  # Terraform allows a local name only once per module, so every release here reads its
-  # own key out of the shared helm_values local.
   helm_values = {
     calico = {}
 
@@ -50,8 +48,6 @@ locals {
           value = "hmac-sha256"
         }
       ]
-      # Chart 1.22.0 made `policy` required (it used to default to upsert-only); this keeps
-      # the pre-1.22 behaviour -- external-dns never deletes records it created.
       sources                   = ["service", "ingress", "gateway-httproute"]
       policy                    = "upsert-only"
       enableGatewayListenerSets = true
@@ -62,9 +58,6 @@ locals {
     }
 
     metallb = {
-      # Native BGP mode, not FRR: this cluster is L2-only (one IPAddressPool, no
-      # BGPPeers), so frr/frrk8s would be idle sidecars and CRDs. 0.16.0 deprecated FRR
-      # mode; flip frrk8s.enabled if BGP is ever needed.
       speaker = {
         frr = {
           enabled = false
@@ -76,4 +69,3 @@ locals {
     }
   }
 }
-

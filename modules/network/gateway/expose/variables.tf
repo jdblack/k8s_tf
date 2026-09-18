@@ -43,7 +43,6 @@ variable "protocol" {
   default = "HTTPS"
 }
 
-# Optional HTTPRoute. Leave empty for apps whose chart renders its own route.
 variable "backend_name" {
   type    = string
   default = ""

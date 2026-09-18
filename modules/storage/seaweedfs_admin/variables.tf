@@ -1,7 +1,3 @@
-# SSO gate for the SeaweedFS admin UI: an HTTPS listener + HTTPRoute on the private gateway targeting
-# a co-located authentik proxy outpost, so that hop is same-namespace. MANTLE only: core creates
-# authentik and cannot talk to its API in the same apply.
-
 variable "namespace" {
   type        = string
   default     = "kube-storage"
@@ -24,7 +20,6 @@ variable "app_name" {
   description = "SeaweedFS release name; used for the hostname and the admin pod selector."
 }
 
-# Defaults to admin.<app_name>.<domain>.
 variable "admin_host" {
   type    = string
   default = null
@@ -73,7 +68,6 @@ variable "group_name" {
   description = "authentik group bound to the app; add members in the UI."
 }
 
-# dashboard-icons has no seaweedfs entry, so this comes from selfh.st via jsDelivr.
 variable "icon" {
   type        = string
   default     = "https://cdn.jsdelivr.net/gh/selfhst/icons/svg/seaweedfs.svg"

@@ -1,9 +1,7 @@
 locals {
-  # admin.<release>.<domain>; the outpost owns this host.
   host = var.admin_host != null ? var.admin_host : "admin.${var.app_name}.${var.domain}"
 }
 
-# authentik: proxy provider + application for the admin UI, the outpost that fronts it, and its token.
 module "auth" {
   source = "../../auth/authentik/proxy_outpost"
 
@@ -23,12 +21,6 @@ module "auth" {
   core_namespace = var.auth_namespace
 }
 
-# The outpost moved into the `auth` module above and the `moved` blocks were dropped afterwards (state
-# lists all three at `module.auth.*`). A whole-module `moved` cannot do that job: OpenTofu refuses the
-# module-level mapping when the destination already holds resources, and destroys instead.
-
-# Listener + HTTPRoute to the OUTPOST, not the admin Service. The names carry those of core's retired
-# expose_admin, so the cert and grants are re-owned here.
 module "expose" {
   source = "../../network/gateway/expose"
 

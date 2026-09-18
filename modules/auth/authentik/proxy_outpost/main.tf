@@ -1,20 +1,11 @@
-# The proxy-outpost pattern for apps that speak no OIDC/SAML, both halves in one module: the authentik
-# side (proxy provider, application, access group, outpost, API token) plus the Secret/Deployment/Service
-# in the namespace being protected. The gateway routes the public host to the OUTPOST, not to the app,
-# and the app's own login then has to be neutralised by hand or the user is prompted twice.
 locals {
   outpost_labels = {
     "app.kubernetes.io/name"     = "authentik-outpost"
     "app.kubernetes.io/instance" = var.outpost_name
   }
 
-  # Core's server Service (chart release "authentik" -> "authentik-server"; namespace from
-  # stacks/core/auth.tf). In-cluster only, so plain HTTP is fine -- never seen by a browser.
   core_url = "http://authentik-server.${var.core_namespace}.svc.cluster.local:80"
 
-  # Browser-facing redirects during the OAuth dance. If this were empty the outpost would
-  # fall back to core_url, leaking the internal service name into redirects, so it is
-  # always set. Mirrors core's `local.fqdn`, which stacks/core/auth.tf pins to auth.<domain>.
   browser_url = "https://${coalesce(var.auth_fqdn, "auth.${var.domain}")}"
 }
 
@@ -48,7 +39,6 @@ resource "authentik_application" "app" {
   open_in_new_tab   = true
 }
 
-# No `count`: members are managed by hand in the UI, so a destroy/recreate drops them.
 resource "authentik_group" "access" {
   name = var.group_name
 }
@@ -56,7 +46,6 @@ resource "authentik_group" "access" {
 resource "authentik_policy_binding" "app" {
   for_each = var.apps
 
-  # target wants the application's UUID -- .id is the slug.
   target = authentik_application.app[each.key].uuid
   group  = authentik_group.access.id
   order  = 0
@@ -68,8 +57,6 @@ resource "authentik_outpost" "outpost" {
   protocol_providers = [for p in authentik_provider_proxy.app : p.id]
 }
 
-# authentik auto-creates a service account but never exposes its token key, so mint our own
-# non-expiring API token for it and hand that to the Deployment as AUTHENTIK_TOKEN.
 data "authentik_user" "outpost_sa" {
   username = "ak-outpost-${replace(authentik_outpost.outpost.id, "-", "")}"
 }
@@ -82,8 +69,6 @@ resource "authentik_token" "outpost" {
   retrieve_key = true
 }
 
-# Terraform-owned pods: authentik chart 2025.10.x no longer embeds proxy outposts, which also keeps a
-# from-scratch rebuild tofu-driven.
 resource "kubernetes_secret_v1" "api" {
   metadata {
     name      = "${var.service_name}-api"
@@ -142,7 +127,6 @@ resource "kubernetes_deployment_v1" "outpost" {
   }
 }
 
-# This is what the app's HTTPRoute points at.
 resource "kubernetes_service_v1" "outpost" {
   metadata {
     name      = var.service_name
@@ -167,4 +151,3 @@ resource "kubernetes_service_v1" "outpost" {
     }
   }
 }
-

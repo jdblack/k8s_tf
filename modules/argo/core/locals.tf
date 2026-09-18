@@ -1,4 +1,3 @@
-# NGF's data-plane label, spelled once for the three calls that need to reach it.
 locals {
   gateway_peer = [{
     namespace    = var.gateway_namespace

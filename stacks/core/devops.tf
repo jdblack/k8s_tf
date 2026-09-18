@@ -10,21 +10,17 @@ module "harbor" {
   namespace   = var.deployment.harbor.namespace
   auth_secret = var.deployment.harbor.auth_secret
   source      = "../../modules/harbor/core"
-  # Public issuer so the in-cluster OIDC consumers (harbor, grafana, argo) trust it
-  # without a CA bundle.
   cert_issuer = var.deployment.cert_authorities.default
   domain      = var.deployment.common.domain
   depends_on  = [module.network, module.storage, module.cert_man]
 }
 
 module "argo" {
-  count  = var.argo_enabled ? 1 : 0
-  source = "../../modules/argo/core"
-  domain = var.deployment.common.domain
-  # Listener cert only; client trust comes from authentik's public chain.
+  count       = var.argo_enabled ? 1 : 0
+  source      = "../../modules/argo/core"
+  domain      = var.deployment.common.domain
   cert_issuer = var.deployment.cert_authorities.default
 }
-
 
 output "harbor_pass" {
   value     = local.harbor_initial_pass

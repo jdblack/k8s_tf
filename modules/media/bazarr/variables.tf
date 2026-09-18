@@ -14,5 +14,4 @@ variable "cert_issuer" { type = string }
 variable "gateway_name" { default = "media-private" }
 variable "gateway_namespace" { default = "media" }
 
-# The authentik outpost Service (same namespace) always fronting this app.
 variable "auth_backend" { type = string }

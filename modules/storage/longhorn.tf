@@ -3,9 +3,7 @@ locals {
     longhorn = {
       defaultSettings = {
         concurrentAutomaticEngineUpgradePerNodeLimit = 3
-        # The manager polls longhorn.io for new releases; nothing here upgrades a release,
-        # so the check stays off.
-        upgradeChecker = false
+        upgradeChecker                               = false
       }
       csi = {
         attacherReplicaCount    = 1
@@ -51,4 +49,3 @@ resource "helm_release" "longhorn" {
     command = "kubectl -n ${self.namespace} patch lhs deleting-confirmation-flag -p '{\"value\": \"true\"}' --type=merge"
   }
 }
-

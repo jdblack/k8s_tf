@@ -1,6 +1,3 @@
-# Calico Whisker flow-log UI, in calico-system (where Whisker and Goldmane run; the
-# outpost is co-located so that hop is same-namespace).
-
 variable "namespace" {
   type        = string
   default     = "calico-system"
@@ -27,7 +24,6 @@ variable "gateway_namespace" {
   default = "kube-network"
 }
 
-# Whisker Service/port inside var.namespace (the outpost's proxy target).
 variable "whisker_service" {
   type    = string
   default = "whisker"
@@ -59,7 +55,6 @@ variable "group_name" {
   description = "authentik group bound to the app; add members in the UI."
 }
 
-# No whisker-specific tile exists, so use the brand mark from selfh.st.
 variable "icon" {
   type        = string
   default     = "https://cdn.jsdelivr.net/gh/selfhst/icons/svg/calico.svg"
