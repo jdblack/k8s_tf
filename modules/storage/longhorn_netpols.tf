@@ -3,17 +3,6 @@ module "ingress_longhorn_system" {
 
   namespace = var.longhorn_namespace
   name      = "longhorn-system-ingress"
-}
-
-module "ingress_longhorn_manager_metrics" {
-  source = "../network/firewalls/ingress"
-
-  namespace = var.longhorn_namespace
-  name      = "longhorn-manager-metrics-ingress"
-
-  pod_selector    = { "app" = "longhorn-manager" }
-  allow_namespace = false
-  allow_nodes     = false
 
   from_peers = [
     {

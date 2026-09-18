@@ -15,7 +15,8 @@ resource "kubernetes_network_policy_v1" "this" {
 
   spec {
     pod_selector {
-      match_labels = var.pod_selector
+      # An empty map and no matchLabels are the same selector to the API; the empty map fails apply (provider bug).
+      match_labels = length(var.pod_selector) > 0 ? var.pod_selector : null
     }
 
     policy_types = ["Egress"]
