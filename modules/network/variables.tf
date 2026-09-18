@@ -30,3 +30,9 @@ variable "helm_external_dns_version" {
   type    = string
   default = "1.22.0"
 }
+
+# NGF version; one of three sites. ngf-public, ngf-private and ngf must all match. Drives the CRDs too.
+variable "helm_ngf_version" {
+  default     = "2.7.1"
+  description = "nginx-gateway-fabric chart version; feeds the chart, the CRD kustomize refs and their triggers_replace."
+}

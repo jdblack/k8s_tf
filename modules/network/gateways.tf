@@ -5,6 +5,7 @@ module "gateway" {
   namespace    = var.namespace
   name         = each.key
   release_name = "ngf-${each.key}"
+  helm_version = var.helm_ngf_version
 
   depends_on = [kubernetes_namespace_v1.namespace]
 }
