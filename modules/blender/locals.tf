@@ -4,6 +4,8 @@ locals {
 
   samba_host = "samba-${var.name}.${var.domain}"
 
+  samba_fqdn = "${local.samba_host}."
+
   mdns_name = "${var.name}-mdns"
 
   samba_vip = try(kubernetes_service_v1.samba.status[0].load_balancer[0].ingress[0].ip, "")

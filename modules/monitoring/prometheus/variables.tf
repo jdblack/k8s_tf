@@ -1,8 +1,8 @@
 variable "prometheus_name" { default = "prometheus" }
 
-variable "namespace" {}
+variable "namespace" { type = string }
 variable "cert_issuer" { type = string }
-variable "domain" {}
+variable "domain" { type = string }
 variable "grafana_name" { default = "grafana" }
 
 variable "helm_version" { default = "91.4.1" }

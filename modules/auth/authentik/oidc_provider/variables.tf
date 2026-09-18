@@ -1,4 +1,4 @@
-variable "name" {}
+variable "name" { type = string }
 variable "redirect_uri" { type = string }
 
 variable "meta_icon" {

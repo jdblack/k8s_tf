@@ -7,20 +7,23 @@ module "egress_ngf" {
   allow_k8s_api = true
 }
 
-module "egress_ngf_cert_generator_public" {
+module "egress_ngf_cert_generator" {
+  for_each = module.gateway
+
   source = "./firewalls/egress"
 
   namespace     = var.namespace
-  name          = "ngf-public-cert-generator-egress"
-  pod_selector  = { "job-name" = module.gateway_public.cert_generator_job_name }
+  name          = "ngf-${each.key}-cert-generator-egress"
+  pod_selector  = { "job-name" = each.value.cert_generator_job_name }
   allow_k8s_api = true
 }
 
-module "egress_ngf_cert_generator_private" {
-  source = "./firewalls/egress"
+moved {
+  from = module.egress_ngf_cert_generator_public
+  to   = module.egress_ngf_cert_generator["public"]
+}
 
-  namespace     = var.namespace
-  name          = "ngf-private-cert-generator-egress"
-  pod_selector  = { "job-name" = module.gateway_private.cert_generator_job_name }
-  allow_k8s_api = true
+moved {
+  from = module.egress_ngf_cert_generator_private
+  to   = module.egress_ngf_cert_generator["private"]
 }

@@ -1,8 +1,8 @@
 locals {
-  argocd_initial_pass = var.argo_enabled ? module.argo.0.argocd_initial_pass : null
-  argocd_initial_user = var.argo_enabled ? module.argo.0.argocd_initial_user : null
-  harbor_registry_url = var.harbor_enabled ? module.harbor.0.registry_url : null
-  harbor_initial_pass = var.harbor_enabled ? module.harbor.0.admin_pass : null
+  argocd_initial_pass = var.argo_enabled ? module.argo[0].argocd_initial_pass : null
+  argocd_initial_user = var.argo_enabled ? module.argo[0].argocd_initial_user : null
+  harbor_registry_url = var.harbor_enabled ? module.harbor[0].registry_url : null
+  harbor_initial_pass = var.harbor_enabled ? module.harbor[0].admin_pass : null
 }
 
 module "harbor" {

@@ -20,10 +20,4 @@ resource "kubernetes_service_v1" "service" {
       target_port = var.web_port
     }
   }
-
-  lifecycle {
-    ignore_changes = [
-      metadata[0].annotations
-    ]
-  }
 }

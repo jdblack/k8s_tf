@@ -16,10 +16,4 @@ resource "kubernetes_service_v1" "this" {
       target_port = "http"
     }
   }
-
-  lifecycle {
-    ignore_changes = [
-      metadata[0].annotations
-    ]
-  }
 }

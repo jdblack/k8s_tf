@@ -1,4 +1,4 @@
-variable "namespace" {}
+variable "namespace" { type = string }
 variable "longhorn_namespace" { default = "longhorn-system" }
 
 variable "gateway_name" { default = "private" }

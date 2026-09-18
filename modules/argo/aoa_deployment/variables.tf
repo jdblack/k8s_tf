@@ -1,5 +1,5 @@
-variable "argo_namespace" {}
-variable "name" {}
+variable "argo_namespace" { type = string }
+variable "name" { type = string }
 variable "namespace" { default = "" }
 variable "create_namespace" { default = false }
 variable "project" { default = "" }

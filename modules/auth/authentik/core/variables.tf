@@ -1,11 +1,11 @@
-variable "namespace" {}
+variable "namespace" { type = string }
 variable "name" { default = "authentik" }
 
 variable "helm_version" { default = "2026.8.2" }
 
 variable "pod_cidr" { type = string }
 
-variable "domain" {}
+variable "domain" { type = string }
 variable "cert_issuer" { type = string }
 variable "fqdn" { default = "" }
 

@@ -3,7 +3,7 @@ resource "kubernetes_service_v1" "samba" {
     name      = local.samba_name
     namespace = kubernetes_namespace_v1.storage.metadata[0].name
     annotations = {
-      "external-dns.alpha.kubernetes.io/hostname" = local.samba_host
+      "external-dns.alpha.kubernetes.io/hostname" = local.samba_fqdn
     }
   }
 
@@ -23,7 +23,7 @@ resource "kubernetes_service_v1" "samba" {
 
   lifecycle {
     ignore_changes = [
-      metadata[0].annotations
+      metadata[0].annotations["metallb.io/ip-allocated-from-pool"],
     ]
   }
 }

@@ -20,11 +20,6 @@ resource "kubernetes_service_v1" "service" {
       target_port = var.web_port
     }
   }
-  lifecycle {
-    ignore_changes = [
-      metadata[0].annotations
-    ]
-  }
 }
 
 resource "kubernetes_service_v1" "torrent" {
@@ -60,7 +55,7 @@ resource "kubernetes_service_v1" "torrent" {
   }
   lifecycle {
     ignore_changes = [
-      metadata[0].annotations
+      metadata[0].annotations["metallb.io/ip-allocated-from-pool"],
     ]
   }
 
