@@ -1,5 +1,5 @@
 module "egress_outpost" {
-  source = "../../network/firewalls/egress_peer"
+  source = "../../network/firewalls/egress"
 
   namespace    = var.namespace
   name         = "authentik-outpost-egress"

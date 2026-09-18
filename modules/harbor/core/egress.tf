@@ -16,7 +16,7 @@ module "egress_trivy" {
 }
 
 module "egress_core" {
-  source = "../../network/firewalls/egress_peer"
+  source = "../../network/firewalls/egress"
 
   namespace    = var.namespace
   name         = "harbor-core-gateway-egress"

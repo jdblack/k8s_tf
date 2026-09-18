@@ -9,6 +9,16 @@ variable "pod_selector" {
   default     = {}
 }
 
+variable "pod_selector_expressions" {
+  type = list(object({
+    key      = string
+    operator = string
+    values   = optional(list(string))
+  }))
+  description = "Extra label rules for the governed pods, ANDed with pod_selector and with each other: `[{ key, operator, values }]`, operator In/NotIn/Exists/DoesNotExist (values omitted for the last two). Expressions AND, never OR."
+  default     = []
+}
+
 variable "name" {
   type        = string
   description = "metadata.name. Set this or name_prefix, not both -- name wins."
@@ -30,6 +40,24 @@ variable "allow_namespace" {
 variable "to_namespaces" {
   type        = list(string)
   description = "Other namespaces whose pods may be reached, any port. Duplicates collapse."
+  default     = []
+}
+
+variable "to_peers" {
+  type = list(object({
+    namespace    = string
+    pod_selector = optional(map(string))
+    pod_selector_expressions = optional(list(object({
+      key      = string
+      operator = string
+      values   = optional(list(string))
+    })), [])
+    ports = optional(list(object({
+      port     = number
+      protocol = optional(string, "TCP")
+    })), [])
+  }))
+  description = "Explicit peers: `{ namespace, pod_selector, pod_selector_expressions, ports = [{port, protocol}] }`, one peer per rule, in list order. A null pod_selector means every pod in that namespace and empty ports means every port -- name one or both wherever you can. Both selectors in one peer AND."
   default     = []
 }
 

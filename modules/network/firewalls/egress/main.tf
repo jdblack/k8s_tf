@@ -17,6 +17,16 @@ resource "kubernetes_network_policy_v1" "this" {
     pod_selector {
       # An empty map is the same selector as no matchLabels, but the empty map fails apply (provider bug).
       match_labels = length(var.pod_selector) > 0 ? var.pod_selector : null
+
+      dynamic "match_expressions" {
+        for_each = var.pod_selector_expressions
+
+        content {
+          key      = match_expressions.value.key
+          operator = match_expressions.value.operator
+          values   = try(match_expressions.value.values, null)
+        }
+      }
     }
 
     policy_types = ["Egress"]
@@ -49,10 +59,20 @@ resource "kubernetes_network_policy_v1" "this" {
             }
 
             dynamic "pod_selector" {
-              for_each = try(to.value.pod_selector, null) != null ? [to.value.pod_selector] : []
+              for_each = try(to.value.pod_selector, null) != null || length(try(to.value.pod_selector_expressions, [])) > 0 ? [to.value] : []
 
               content {
-                match_labels = pod_selector.value
+                match_labels = try(pod_selector.value.pod_selector, null)
+
+                dynamic "match_expressions" {
+                  for_each = try(pod_selector.value.pod_selector_expressions, [])
+
+                  content {
+                    key      = match_expressions.value.key
+                    operator = match_expressions.value.operator
+                    values   = try(match_expressions.value.values, null)
+                  }
+                }
               }
             }
 

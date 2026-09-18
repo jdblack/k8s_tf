@@ -15,7 +15,7 @@ module "egress_worker" {
 }
 
 module "egress_server_gateway" {
-  source = "../../../network/firewalls/egress_peer"
+  source = "../../../network/firewalls/egress"
 
   namespace    = var.namespace
   name         = "authentik-server-gateway-egress"

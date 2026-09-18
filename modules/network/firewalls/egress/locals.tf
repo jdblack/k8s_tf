@@ -79,6 +79,17 @@ locals {
     to    = [for cidr in local.cidr_peers : { ip_block = { cidr = cidr } }]
   } : null
 
+  rules_peers = [
+    for peer in var.to_peers : {
+      ports = peer.ports
+      to = [merge(
+        { namespace = peer.namespace },
+        peer.pod_selector != null ? { pod_selector = peer.pod_selector } : {},
+        length(peer.pod_selector_expressions) > 0 ? { pod_selector_expressions = peer.pod_selector_expressions } : {},
+      )]
+    }
+  ]
+
   egress = concat(
     local.rule_self != null ? [local.rule_self] : [],
     [local.rule_dns],
@@ -88,5 +99,6 @@ locals {
     local.rule_cluster != null ? [local.rule_cluster] : [],
     local.rule_internet != null ? [local.rule_internet] : [],
     local.rule_cidrs != null ? [local.rule_cidrs] : [],
+    local.rules_peers,
   )
 }

@@ -9,7 +9,7 @@ module "egress" {
 }
 
 module "egress_gateway" {
-  source = "../../network/firewalls/egress_peer"
+  source = "../../network/firewalls/egress"
 
   namespace = kubernetes_namespace_v1.namespace.metadata[0].name
   name      = "argo-gateway-egress"
