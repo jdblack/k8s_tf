@@ -37,4 +37,3 @@ resource "argocd_project" "project" {
     }
   }
 }
-

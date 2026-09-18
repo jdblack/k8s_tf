@@ -1,4 +1,3 @@
-
 resource "kubernetes_secret_v1" "admin_auth" {
   type = "Opaque"
   metadata {
@@ -20,4 +19,3 @@ resource "random_password" "admin_password" {
   special          = true
   override_special = "_%@"
 }
-

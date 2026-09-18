@@ -1,10 +1,5 @@
-locals {
-  needs_cidrs   = var.allow_cluster
-  needs_api_ips = var.allow_k8s_api
-}
-
 data "kubernetes_config_map_v1" "kubeadm" {
-  count = local.needs_cidrs ? 1 : 0
+  count = var.allow_cluster ? 1 : 0
 
   metadata {
     name      = "kubeadm-config"
@@ -13,7 +8,7 @@ data "kubernetes_config_map_v1" "kubeadm" {
 }
 
 data "kubernetes_service_v1" "kubernetes" {
-  count = local.needs_api_ips ? 1 : 0
+  count = var.allow_k8s_api ? 1 : 0
 
   metadata {
     name      = "kubernetes"
@@ -22,7 +17,7 @@ data "kubernetes_service_v1" "kubernetes" {
 }
 
 data "kubernetes_endpoints_v1" "kubernetes" {
-  count = local.needs_api_ips ? 1 : 0
+  count = var.allow_k8s_api ? 1 : 0
 
   metadata {
     name      = "kubernetes"

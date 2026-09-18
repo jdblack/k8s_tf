@@ -1,6 +1,6 @@
 variable "name" {
   type        = string
-  description = "App/listener name; the hostname defaults to <name>.<domain> and the ListenerSet + default route name derive from it."
+  description = "App/listener name: hostname default <name>.<domain>, and the ListenerSet and route names derive from it."
 }
 
 variable "namespace" {
@@ -14,13 +14,13 @@ variable "domain" {
 variable "hostname" {
   type        = string
   default     = null
-  description = "Optional full hostname override (sub-subdomains like admin.seaweedfs.<domain>)."
+  description = "Full hostname override; default <name>.<domain>."
 }
 
 variable "cert_issuer" {
   type        = string
   default     = ""
-  description = "ClusterIssuer for the cert-manager gateway-shim (HTTPS only)."
+  description = "ClusterIssuer for the cert-manager gateway-shim (HTTPS listeners only)."
 }
 
 variable "gateway_name" {
@@ -56,7 +56,7 @@ variable "backend_port" {
 variable "route_name" {
   type        = string
   default     = null
-  description = "HTTPRoute name (defaults to <name>); set '<name>-auth' when routing to the authentik outpost."
+  description = "HTTPRoute name; default <name>. Use '<name>-auth' when the route forwards to an authentik outpost."
 }
 
 variable "annotations" {

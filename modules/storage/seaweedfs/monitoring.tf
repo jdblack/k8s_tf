@@ -28,4 +28,3 @@ resource "kubectl_manifest" "monitor" {
     }
   })
 }
-

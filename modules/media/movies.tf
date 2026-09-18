@@ -1,4 +1,3 @@
-
 resource "kubernetes_persistent_volume_claim_v1" "movies_archive" {
   metadata {
     name      = "movies-archive"
@@ -42,5 +41,3 @@ resource "kubernetes_persistent_volume_v1" "movies_archive" {
     }
   }
 }
-
-

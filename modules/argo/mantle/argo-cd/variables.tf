@@ -1,4 +1,3 @@
-
 variable "oauth2_server" {}
 variable "namespace" { type = string }
 variable "name" { default = "argo-cd" }

@@ -1,4 +1,4 @@
 output "cert_generator_job_name" {
-  description = "Name of the chart's cert-generator Job, and therefore of the pod it creates -- the only handle on it, since the pod template sets no labels. `<fullname>-cert-generator`, matching the chart's own naming."
+  description = "cert-generator Job name, `<fullname>-cert-generator`. The chart's pod template sets no labels, so that pod is only selectable by `job-name`."
   value       = "${local.ngf_fullname}-cert-generator"
 }

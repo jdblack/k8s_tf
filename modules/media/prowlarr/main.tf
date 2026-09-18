@@ -1,4 +1,3 @@
-
 resource "helm_release" "helm" {
   name       = var.name
   repository = var.helm_repo
@@ -9,4 +8,3 @@ resource "helm_release" "helm" {
   timeout    = 600
   values     = [yamlencode(local.helm_values)]
 }
-

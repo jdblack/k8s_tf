@@ -1,45 +1,45 @@
 variable "namespace" {
   type        = string
-  description = "Existing namespace to run this Gateway + NGF control plane in (caller must create it)"
+  description = "Existing namespace for the Gateway and its NGF control plane; the caller creates it."
 }
 
 variable "helm_version" {
   type        = string
   default     = "2.7.1"
-  description = "nginx-gateway-fabric chart version. Every gateway instance in the cluster must pin the same one. The matching CRD refs live in ../api_gateway_config.tf."
+  description = "nginx-gateway-fabric chart version. Every gateway in the cluster must pin the same one; the matching CRDs live in ../api_gateway_config.tf."
 }
 
 variable "name" {
   type        = string
-  description = "Gateway instance name (namespaced). Also names the cluster-scoped GatewayClass and derives the controller name (gateway.nginx.org/<name>-controller). Every NGF installation must pass a unique value."
+  description = "Gateway name (namespaced). Also names the cluster-scoped GatewayClass and derives the controller name gateway.nginx.org/<name>-controller, so it must be unique per installation."
 }
 
 variable "release_name" {
   type        = string
   default     = "ngf"
-  description = "Helm release name for this NGF control plane. Must be unique per namespace so multiple gateway instances can share a namespace (e.g. ngf-public / ngf-private in kube-network)."
+  description = "Helm release name; unique per namespace, so gateways can share one (ngf-public / ngf-private)."
 }
 
 variable "watch_namespaces" {
   type        = list(string)
   default     = []
-  description = "Namespaces this controller watches ([] = watch all). Its own namespace is always included."
+  description = "Namespaces this controller watches; [] = all. Its own namespace is always watched."
 }
 
 variable "load_balancer_ip" {
   type        = string
   default     = null
-  description = "IP to pin the Gateway data-plane Service to (MetalLB); null lets the LoadBalancer provider assign an IP automatically"
+  description = "IP to pin the data-plane Service to (MetalLB); null = the provider assigns one."
 }
 
 variable "routes_namespace" {
   type        = string
   default     = null
-  description = "Namespace allowed to attach ListenerSets to this Gateway; null allows any namespace"
+  description = "Namespace whose ListenerSets may attach to this Gateway; null = any namespace."
 }
 
 variable "client_max_body_size" {
   type        = string
   default     = "0"
-  description = "Max client request body size for all routes on this Gateway (ClientSettingsPolicy body.maxSize). 0 = unlimited (nginx otherwise defaults to 1m, which 413s large uploads); set e.g. \"100m\" to cap a public-facing gateway."
+  description = "ClientSettingsPolicy body.maxSize for every route here. 0 = unlimited; nginx defaults to 1m, which 413s large uploads."
 }

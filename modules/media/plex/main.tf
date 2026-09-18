@@ -8,5 +8,3 @@ resource "helm_release" "plex" {
   timeout    = 600
   values     = [yamlencode(local.helm_values)]
 }
-
-

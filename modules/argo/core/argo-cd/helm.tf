@@ -1,4 +1,3 @@
-
 resource "helm_release" "argocd" {
   name            = var.name
   repository      = var.repo
@@ -11,4 +10,3 @@ resource "helm_release" "argocd" {
 
   values = [yamlencode(local.helm_values)]
 }
-

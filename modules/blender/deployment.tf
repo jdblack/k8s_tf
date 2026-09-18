@@ -1,4 +1,3 @@
-
 resource "kubernetes_deployment_v1" "samba" {
   metadata {
     name      = local.samba_name

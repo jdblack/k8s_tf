@@ -1,4 +1,3 @@
-
 locals {
   dns_server = endswith(var.internal_dns.server, ".") ? var.internal_dns.server : "${var.internal_dns.server}."
 }
@@ -15,6 +14,3 @@ resource "helm_release" "ext_dnsrelease" {
   values     = [yamlencode(local.helm_values.external_dns)]
   depends_on = [kubernetes_namespace_v1.namespace]
 }
-
-
-

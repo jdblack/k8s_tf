@@ -1,11 +1,11 @@
 variable "namespace" {
   type        = string
-  description = "Namespace whose pods this policy governs -- and where the policy object lives."
+  description = "Namespace the policy lives in and governs."
 }
 
 variable "pod_selector" {
   type        = map(string)
-  description = "Labels selecting the governed pods. Empty (default) = every pod in the namespace."
+  description = "Labels on the governed pods. Empty (default) = every pod in the namespace."
   default     = {}
 }
 
@@ -15,25 +15,25 @@ variable "pod_selector_expressions" {
     operator = string
     values   = optional(list(string))
   }))
-  description = "`matchExpressions` for the governed pods, ANDed with pod_selector and with each other: `[{ key, operator, values }]`, operator one of In/NotIn/Exists/DoesNotExist (values omitted for the last two). `NotIn` also matches a pod that does not carry `key` at all (measured 2026-09-17), and there is no OR inside one policy: expressions AND, so a second key decides which pods the selector covers at all rather than adding a second exclusion."
+  description = "Extra label rules for the governed pods, ANDed with pod_selector and with each other: `[{ key, operator, values }]`, operator In/NotIn/Exists/DoesNotExist (values omitted for the last two). NotIn also matches a pod that has no such key at all, so values lists the pods to leave out (measured 2026-09-17). Expressions AND, never OR."
   default     = []
 }
 
 variable "name" {
   type        = string
-  description = "metadata.name of the NetworkPolicy. Set this or name_prefix, not both -- name wins. Null (the default) = name_prefix plus a generated suffix."
+  description = "metadata.name. Set this or name_prefix, not both -- name wins."
   default     = null
 }
 
 variable "name_prefix" {
   type        = string
-  description = "Prefix for a generated metadata.name, `<name_prefix>-<8 hex>`. Ignored when name is set. Defaults to peer-egress, so a call that omits both is still uniquely named."
+  description = "Prefix for a generated name, `<name_prefix>-<8 hex>`. Default peer-egress."
   default     = null
 }
 
 variable "allow_namespace" {
   type        = bool
-  description = "Allow egress to THIS namespace's own pods -- the self rule, rendered first. On by default for the same reason as the base builder: losing intra-namespace traffic looks like a broken application rather than like policy. Redundant, never harmful, when a base `egress` call already covers the pod -- netpols union."
+  description = "Allow egress to this namespace's own pods, any port. Default true. Redundant but harmless next to a base `egress` call, since policies union."
   default     = true
 }
 
@@ -51,6 +51,6 @@ variable "to_peers" {
       protocol = optional(string, "TCP")
     })), [])
   }))
-  description = "Explicit cross-namespace peers: `{ namespace, pod_selector = <labels or null>, pod_selector_expressions = <expressions or null>, ports = [{port, protocol}] }`. One peer per rule, rendered in list order, so each carries its own ports. A null/omitted `pod_selector` means every pod in that namespace -- prefer naming the pods, that is the point of this builder; an empty `ports` means every port. Give `pod_selector_expressions` to name the peer by a `NotIn`/`Exists` instead of exact labels -- both selectors land in the one peer, so they AND."
+  description = "Explicit peers: `{ namespace, pod_selector, pod_selector_expressions, ports = [{port, protocol}] }`, one peer per rule, in list order. A null pod_selector means every pod in that namespace and empty ports means every port -- name one or both wherever you can. Both selectors in one peer AND."
   default     = []
 }

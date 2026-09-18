@@ -1,4 +1,3 @@
-
 resource "helm_release" "smartctl" {
   name       = var.name
   namespace  = var.namespace
@@ -9,4 +8,3 @@ resource "helm_release" "smartctl" {
   timeout    = 600
   values     = [yamlencode(local.helm_values)]
 }
-

@@ -1,23 +1,23 @@
 variable "namespace" {
   type        = string
   default     = "kube-storage"
-  description = "Namespace SeaweedFS (and this outpost + listener) run in."
+  description = "Namespace SeaweedFS, the outpost and the listener run in."
 }
 
 variable "domain" {
   type        = string
-  description = "Private domain; the admin UI is served at admin.<app_name>.<domain>."
+  description = "Private domain; admin UI at admin.<app_name>.<domain>."
 }
 
 variable "cert_issuer" {
   type        = string
-  description = "ClusterIssuer for the listener cert (see modules/cert_manager)."
+  description = "ClusterIssuer for the listener cert."
 }
 
 variable "app_name" {
   type        = string
   default     = "seaweedfs"
-  description = "SeaweedFS release name; used for the hostname and the admin pod selector."
+  description = "SeaweedFS release name; feeds the hostname and the admin pod selector."
 }
 
 variable "admin_host" {
@@ -28,7 +28,7 @@ variable "admin_host" {
 variable "admin_service" {
   type        = string
   default     = "seaweedfs-admin"
-  description = "ClusterIP Service the admin UI listens on (the outpost's proxy target)."
+  description = "ClusterIP Service the admin UI listens on; the outpost proxies to it."
 }
 
 variable "admin_port" {
@@ -71,5 +71,5 @@ variable "group_name" {
 variable "icon" {
   type        = string
   default     = "https://cdn.jsdelivr.net/gh/selfhst/icons/svg/seaweedfs.svg"
-  description = "Bookmark-tile icon URL for the authentik app; null = no icon."
+  description = "authentik app icon URL; null = none."
 }

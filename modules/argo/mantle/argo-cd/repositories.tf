@@ -15,5 +15,3 @@ resource "argocd_repository" "devops_helm" {
   enable_oci = true
   depends_on = [module.auth]
 }
-
-

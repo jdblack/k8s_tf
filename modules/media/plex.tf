@@ -8,4 +8,3 @@ module "plex" {
   gateway_name      = "public"
   gateway_namespace = "kube-network"
 }
-

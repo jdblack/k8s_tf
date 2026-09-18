@@ -1,6 +1,4 @@
 locals {
-  fqdn = "${var.name}.${var.domain}"
-
   helm_values = {
     volumes = [
       {

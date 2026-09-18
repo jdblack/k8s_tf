@@ -1,4 +1,3 @@
-
 resource "argocd_application" "deployer" {
   metadata {
     name      = local.aoa_name

@@ -19,4 +19,3 @@ module "argo_events" {
   source    = "./argo-events"
   namespace = var.namespace
 }
-

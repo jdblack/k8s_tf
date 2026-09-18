@@ -30,4 +30,3 @@ variable "helm_version" {
   type    = string
   default = "v1.21.2"
 }
-

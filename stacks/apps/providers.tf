@@ -44,4 +44,3 @@ provider "argocd" {
   username    = "admin"
   password    = data.kubernetes_secret_v1.argocd_auth.data["password"]
 }
-

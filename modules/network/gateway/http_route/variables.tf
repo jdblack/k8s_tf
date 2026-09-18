@@ -13,39 +13,39 @@ variable "domain" {
 variable "hostname" {
   type        = string
   default     = null
-  description = "Optional full hostname override for the route (defaults to <name>.<domain>); useful for sub-subdomains like admin.seaweedfs.<domain>."
+  description = "Full hostname override; default <name>.<domain>."
 }
 
 variable "backend_name" {
   type        = string
-  description = "Name of the Service this route forwards to."
+  description = "Service this route forwards to."
 }
 
 variable "backend_port" {
   type        = number
-  description = "Port of the Service this route forwards to."
+  description = "Port on that Service."
 }
 
 variable "parent_kind" {
   type        = string
   default     = "ListenerSet"
-  description = "Kind of the route's parentRef (ListenerSet, or Gateway for routes attached directly to a gateway)."
+  description = "Kind of the parentRef: ListenerSet, or Gateway for a route attached directly."
 }
 
 variable "parent_name" {
   type        = string
   default     = null
-  description = "Name of the parentRef object (defaults to the route name, i.e. the app's ListenerSet)."
+  description = "parentRef name; default the route name, i.e. the app's ListenerSet."
 }
 
 variable "parent_namespace" {
   type        = string
   default     = null
-  description = "Namespace of the parentRef object (defaults to the route namespace)."
+  description = "parentRef namespace; default the route namespace."
 }
 
 variable "annotations" {
   type        = map(string)
   default     = {}
-  description = "Extra annotations merged over the external-dns hostname annotation."
+  description = "Extra annotations, merged over the external-dns hostname annotation."
 }

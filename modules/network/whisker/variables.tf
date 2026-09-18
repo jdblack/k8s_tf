@@ -1,17 +1,17 @@
 variable "namespace" {
   type        = string
   default     = "calico-system"
-  description = "Namespace Whisker/Goldmane run in (also where the outpost + listener are created)."
+  description = "Namespace Whisker/Goldmane run in; the outpost and listener too."
 }
 
 variable "domain" {
   type        = string
-  description = "Private domain the UI is served under (hostname is whisker.<domain>)."
+  description = "Private domain; UI at whisker.<domain>."
 }
 
 variable "cert_issuer" {
   type        = string
-  description = "ClusterIssuer for the listener cert (see modules/cert_manager)."
+  description = "ClusterIssuer for the listener cert."
 }
 
 variable "gateway_name" {
@@ -58,7 +58,7 @@ variable "group_name" {
 variable "icon" {
   type        = string
   default     = "https://cdn.jsdelivr.net/gh/selfhst/icons/svg/calico.svg"
-  description = "Bookmark-tile icon URL for the authentik app; null = no icon."
+  description = "authentik app icon URL; null = none."
 }
 
 variable "system_namespace" {

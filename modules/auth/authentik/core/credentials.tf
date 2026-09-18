@@ -15,5 +15,3 @@ resource "random_password" "terraform_key" {
   special          = true
   override_special = "_%@"
 }
-
-
