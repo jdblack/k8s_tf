@@ -1,44 +1,109 @@
+locals {
+  media_volume = [{
+    name                  = "media"
+    persistentVolumeClaim = { claimName = var.movies_pvc }
+  }]
+
+  media_mount = [{ name = "media", mountPath = "/media" }]
+
+  arr_run_as = { runAsUser = 1000, runAsGroup = 1000 }
+
+  arr_config = { persistence = { size = "1Gi" } }
+}
+
 module "radarr" {
-  source            = "./radarr"
+  source = "./media_app"
+
   namespace         = var.namespace
+  name              = "radarr"
+  helm_repo         = "oci://ghcr.io/m0nsterrr/helm-charts"
+  chart             = "radarr"
+  helm_version      = "3.6.4"
   domain            = var.domain
-  movies_pvc        = var.movies_pvc
   cert_issuer       = var.cert_issuer
   gateway_name      = var.gateway_name
   gateway_namespace = var.namespace
-  auth_backend      = local.auth_outpost_service
+  backend_name      = local.auth_outpost_service
+  backend_port      = 9000
+  route_name        = "radarr-auth"
+
+  helm_values = {
+    volumes         = local.media_volume
+    volumeMounts    = local.media_mount
+    config          = local.arr_config
+    securityContext = local.arr_run_as
+  }
 }
 
 module "sonarr" {
-  source            = "./sonarr"
+  source = "./media_app"
+
   namespace         = var.namespace
+  name              = "sonarr"
+  helm_repo         = "oci://ghcr.io/m0nsterrr/helm-charts"
+  chart             = "sonarr"
+  helm_version      = "2.2.3"
   domain            = var.domain
-  movies_pvc        = var.movies_pvc
   cert_issuer       = var.cert_issuer
   gateway_name      = var.gateway_name
   gateway_namespace = var.namespace
-  auth_backend      = local.auth_outpost_service
+  backend_name      = local.auth_outpost_service
+  backend_port      = 9000
+  route_name        = "sonarr-auth"
+
+  helm_values = {
+    image           = { tag = "4", pullPolicy = "Always" }
+    volumes         = local.media_volume
+    volumeMounts    = local.media_mount
+    config          = local.arr_config
+    securityContext = local.arr_run_as
+  }
 }
 
 module "prowlarr" {
-  source            = "./prowlarr"
+  source = "./media_app"
+
   namespace         = var.namespace
+  name              = "prowlarr"
+  helm_repo         = "oci://ghcr.io/m0nsterrr/helm-charts"
+  chart             = "prowlarr"
+  helm_version      = "3.8.4"
   domain            = var.domain
   cert_issuer       = var.cert_issuer
   gateway_name      = var.gateway_name
   gateway_namespace = var.namespace
-  auth_backend      = local.auth_outpost_service
+  backend_name      = local.auth_outpost_service
+  backend_port      = 9000
+  route_name        = "prowlarr-auth"
+
+  helm_values = {
+    ingress = { enabled = false }
+  }
 }
 
 module "bazarr" {
-  source            = "./bazarr"
+  source = "./media_app"
+
   namespace         = var.namespace
+  name              = "bazarr"
+  helm_repo         = "oci://ghcr.io/m0nsterrr/helm-charts"
+  chart             = "bazarr"
+  helm_version      = "2.3.1"
   domain            = var.domain
-  movies_pvc        = var.movies_pvc
   cert_issuer       = var.cert_issuer
   gateway_name      = var.gateway_name
   gateway_namespace = var.namespace
-  auth_backend      = local.auth_outpost_service
+  backend_name      = local.auth_outpost_service
+  backend_port      = 9000
+  route_name        = "bazarr-auth"
+
+  helm_values = {
+    image           = { pullPolicy = "Always" }
+    volumes         = local.media_volume
+    volumeMounts    = local.media_mount
+    config          = local.arr_config
+    securityContext = local.arr_run_as
+  }
 }
 
 module "qbittorrent" {
@@ -54,12 +119,25 @@ module "qbittorrent" {
 }
 
 module "seerr" {
-  source            = "./seerr"
+  source = "./media_app"
+
   namespace         = var.namespace
+  name              = "seerr"
+  helm_repo         = "oci://ghcr.io/seerr-team/seerr"
+  chart             = "seerr-chart"
+  helm_version      = "3.9.1"
   domain            = var.domain
   cert_issuer       = var.cert_issuer
   gateway_name      = var.gateway_name
   gateway_namespace = var.namespace
+  backend_name      = "seerr"
+  backend_port      = 80
+
+  helm_values = {
+    nameOverride = "seerr"
+    config       = { persistence = { size = "2Gi" } }
+    route        = { main = { enabled = false } }
+  }
 }
 
 module "suggestarr" {

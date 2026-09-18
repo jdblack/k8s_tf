@@ -3,8 +3,5 @@ terraform {
     helm = {
       source = "hashicorp/helm"
     }
-    kubernetes = {
-      source = "hashicorp/kubernetes"
-    }
   }
 }
