@@ -3,4 +3,6 @@ locals {
 
   config_dir = "/app/config/config_files"
   config_pvc = "${var.name}-config"
+
+  gated = var.auth_outpost != null
 }

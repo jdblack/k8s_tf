@@ -15,13 +15,14 @@ module "plex" {
   gateway_name      = "public"
   gateway_namespace = "kube-network"
   backend_name      = "plex-plex-media-server"
-  backend_port      = 32400
+  port              = 32400
+  auth_outpost      = null
 
   helm_values = {
     extraEnv = {
       PLEX_CLAIM = var.plex_claim
-      PLEX_UID   = 1000
-      PLEX_GID   = 1000
+      PLEX_UID   = local.arr_run_as.runAsUser
+      PLEX_GID   = local.arr_run_as.runAsGroup
     }
     pms   = { configStorage = "30Gi" }
     image = { tag = "latest", pullPolicy = "Always" }

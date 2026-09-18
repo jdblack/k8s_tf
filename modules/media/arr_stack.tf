@@ -23,9 +23,7 @@ module "radarr" {
   cert_issuer       = var.cert_issuer
   gateway_name      = var.gateway_name
   gateway_namespace = var.namespace
-  backend_name      = local.auth_outpost_service
-  backend_port      = 9000
-  route_name        = "radarr-auth"
+  auth_outpost      = local.auth_outpost
 
   helm_values = {
     volumes         = local.media_volume
@@ -47,9 +45,7 @@ module "sonarr" {
   cert_issuer       = var.cert_issuer
   gateway_name      = var.gateway_name
   gateway_namespace = var.namespace
-  backend_name      = local.auth_outpost_service
-  backend_port      = 9000
-  route_name        = "sonarr-auth"
+  auth_outpost      = local.auth_outpost
 
   helm_values = {
     image           = { tag = "4", pullPolicy = "Always" }
@@ -72,9 +68,7 @@ module "prowlarr" {
   cert_issuer       = var.cert_issuer
   gateway_name      = var.gateway_name
   gateway_namespace = var.namespace
-  backend_name      = local.auth_outpost_service
-  backend_port      = 9000
-  route_name        = "prowlarr-auth"
+  auth_outpost      = local.auth_outpost
 
   helm_values = {
     ingress = { enabled = false }
@@ -93,9 +87,7 @@ module "bazarr" {
   cert_issuer       = var.cert_issuer
   gateway_name      = var.gateway_name
   gateway_namespace = var.namespace
-  backend_name      = local.auth_outpost_service
-  backend_port      = 9000
-  route_name        = "bazarr-auth"
+  auth_outpost      = local.auth_outpost
 
   helm_values = {
     image           = { pullPolicy = "Always" }
@@ -104,18 +96,6 @@ module "bazarr" {
     config          = local.arr_config
     securityContext = local.arr_run_as
   }
-}
-
-module "qbittorrent" {
-  source            = "./qbittorrent"
-  namespace         = var.namespace
-  domain            = var.domain
-  movies_pvc        = var.movies_pvc
-  cert_issuer       = var.cert_issuer
-  gateway_name      = var.gateway_name
-  gateway_namespace = var.namespace
-  auth_backend      = local.auth_outpost_service
-  torrent_lb_ip     = var.qbittorrent_torrent_lb_ip
 }
 
 module "seerr" {
@@ -130,8 +110,7 @@ module "seerr" {
   cert_issuer       = var.cert_issuer
   gateway_name      = var.gateway_name
   gateway_namespace = var.namespace
-  backend_name      = "seerr"
-  backend_port      = 80
+  auth_outpost      = null
 
   helm_values = {
     nameOverride = "seerr"
@@ -140,14 +119,29 @@ module "seerr" {
   }
 }
 
+module "qbittorrent" {
+  source = "./qbittorrent"
+
+  namespace         = var.namespace
+  domain            = var.domain
+  movies_pvc        = var.movies_pvc
+  cert_issuer       = var.cert_issuer
+  gateway_name      = var.gateway_name
+  gateway_namespace = var.namespace
+  auth_outpost      = local.auth_outpost
+  torrent_lb_ip     = var.qbittorrent_torrent_lb_ip
+}
+
 module "suggestarr" {
-  source            = "./suggestarr"
+  source = "./suggestarr"
+
   namespace         = var.namespace
   domain            = var.domain
   cert_issuer       = var.cert_issuer
   gateway_name      = var.gateway_name
   gateway_namespace = var.namespace
-  auth_backend      = local.auth_outpost_service
+  auth_outpost      = local.auth_outpost
+  icon              = ""
   pod_cidr          = var.pod_cidr
   host_cidr         = var.host_cidr
 }

@@ -2,14 +2,6 @@ variable "namespace" {
   type = string
 }
 
-variable "apps" {
-  type = map(object({
-    external_host = string
-    internal_host = string
-    icon          = optional(string)
-  }))
-}
-
 variable "outpost_name" { default = "media-proxy" }
 
 variable "service_name" { default = "authentik-outpost" }
@@ -24,6 +16,12 @@ variable "auth_fqdn" {
 }
 
 variable "core_namespace" { default = "kube-auth" }
+
+variable "http_port" {
+  type        = number
+  default     = 9000
+  description = "Port the outpost serves on; the backend_port of every route pointing at it."
+}
 
 variable "image" { default = "ghcr.io/goauthentik/proxy" }
 

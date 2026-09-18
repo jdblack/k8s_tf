@@ -1,13 +1,18 @@
+module "authentik_app" {
+  source = "../../auth/authentik/proxy_app"
+
+  name       = "whisker"
+  namespace  = var.namespace
+  domain     = var.domain
+  service    = var.whisker_service
+  port       = var.whisker_port
+  icon       = var.icon
+  outpost_id = module.auth.outpost_id
+  group_id   = module.auth.group_id
+}
+
 module "auth" {
   source = "../../auth/authentik/proxy_outpost"
-
-  apps = {
-    whisker = {
-      external_host = "https://whisker.${var.domain}"
-      internal_host = "http://${var.whisker_service}.${var.namespace}.svc.cluster.local:${var.whisker_port}"
-      icon          = var.icon
-    }
-  }
 
   outpost_name   = var.outpost_name
   group_name     = var.group_name

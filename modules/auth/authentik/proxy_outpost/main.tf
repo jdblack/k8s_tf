@@ -9,52 +9,18 @@ locals {
   browser_url = "https://${coalesce(var.auth_fqdn, "auth.${var.domain}")}"
 }
 
-data "authentik_flow" "authorization" {
-  slug = "default-provider-authorization-implicit-consent"
-}
-
-data "authentik_flow" "invalidation" {
-  slug = "default-provider-invalidation-flow"
-}
-
-resource "authentik_provider_proxy" "app" {
-  for_each = var.apps
-
-  name               = each.key
-  mode               = "proxy"
-  external_host      = each.value.external_host
-  internal_host      = each.value.internal_host
-  authorization_flow = data.authentik_flow.authorization.id
-  invalidation_flow  = data.authentik_flow.invalidation.id
-}
-
-resource "authentik_application" "app" {
-  for_each = var.apps
-
-  name              = each.key
-  slug              = each.key
-  protocol_provider = authentik_provider_proxy.app[each.key].id
-  meta_launch_url   = each.value.external_host
-  meta_icon         = each.value.icon
-  open_in_new_tab   = true
-}
-
 resource "authentik_group" "access" {
   name = var.group_name
-}
-
-resource "authentik_policy_binding" "app" {
-  for_each = var.apps
-
-  target = authentik_application.app[each.key].uuid
-  group  = authentik_group.access.id
-  order  = 0
 }
 
 resource "authentik_outpost" "outpost" {
   name               = var.outpost_name
   type               = "proxy"
-  protocol_providers = [for p in authentik_provider_proxy.app : p.id]
+  protocol_providers = []
+
+  lifecycle {
+    ignore_changes = [protocol_providers]
+  }
 }
 
 data "authentik_user" "outpost_sa" {
@@ -115,7 +81,7 @@ resource "kubernetes_deployment_v1" "outpost" {
 
           port {
             name           = "http"
-            container_port = 9000
+            container_port = var.http_port
           }
           port {
             name           = "https"
@@ -141,7 +107,7 @@ resource "kubernetes_service_v1" "outpost" {
 
     port {
       name        = "http"
-      port        = 9000
+      port        = var.http_port
       target_port = "http"
     }
     port {

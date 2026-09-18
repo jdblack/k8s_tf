@@ -1,13 +1,7 @@
-output "outpost_name" {
-  value = authentik_outpost.outpost.name
+output "outpost_id" {
+  value = authentik_outpost.outpost.id
 }
 
-output "apps" {
-  value = {
-    for slug, app in authentik_application.app :
-    slug => {
-      slug          = app.slug
-      external_host = var.apps[slug].external_host
-    }
-  }
+output "group_id" {
+  value = authentik_group.access.id
 }

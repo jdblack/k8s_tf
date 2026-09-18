@@ -16,15 +16,31 @@ variable "cert_issuer" { type = string }
 variable "gateway_name" { default = "media-private" }
 variable "gateway_namespace" { default = "media" }
 
-variable "backend_name" {
-  type        = string
-  description = "Route backend: the authentik outpost Service for an auth-gated app, else the app's own Service."
+variable "port" {
+  type        = number
+  default     = 80
+  description = "The app's own Service port: pinned into the chart values unless the caller manages the service block, and the outpost's upstream."
 }
 
-variable "backend_port" { type = number }
-
-variable "route_name" {
+variable "backend_name" {
   type        = string
   default     = null
-  description = "HTTPRoute name; default <name>."
+  description = "Route backend when ungated; default the app's own Service name."
+}
+
+variable "auth_outpost" {
+  type = object({
+    outpost_id = string
+    group_id   = string
+    service    = string
+    port       = number
+  })
+  default     = null
+  description = "Gate the app behind this outpost; null routes straight to the app."
+}
+
+variable "icon" {
+  type        = string
+  default     = null
+  description = "authentik icon URL; null guesses the dashboard-icons CDN, empty string for no icon."
 }

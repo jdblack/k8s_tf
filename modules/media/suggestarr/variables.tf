@@ -14,7 +14,22 @@ variable "cert_issuer" { type = string }
 variable "gateway_name" { default = "media-private" }
 variable "gateway_namespace" { default = "media" }
 
-variable "auth_backend" { type = string }
+variable "auth_outpost" {
+  type = object({
+    outpost_id = string
+    group_id   = string
+    service    = string
+    port       = number
+  })
+  default     = null
+  description = "Gate the app behind this outpost; null routes straight to the app."
+}
+
+variable "icon" {
+  type        = string
+  default     = null
+  description = "authentik icon URL; null guesses the dashboard-icons CDN, empty string for no icon."
+}
 
 variable "auth_trusted_header" { default = "X-authentik-username" }
 

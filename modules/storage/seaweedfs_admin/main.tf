@@ -2,16 +2,22 @@ locals {
   host = var.admin_host != null ? var.admin_host : "admin.${var.app_name}.${var.domain}"
 }
 
+module "authentik_app" {
+  source = "../../auth/authentik/proxy_app"
+
+  name       = "seaweedfs-admin"
+  namespace  = var.namespace
+  domain     = var.domain
+  hostname   = local.host
+  service    = var.admin_service
+  port       = var.admin_port
+  icon       = var.icon
+  outpost_id = module.auth.outpost_id
+  group_id   = module.auth.group_id
+}
+
 module "auth" {
   source = "../../auth/authentik/proxy_outpost"
-
-  apps = {
-    "seaweedfs-admin" = {
-      external_host = "https://${local.host}"
-      internal_host = "http://${var.admin_service}.${var.namespace}.svc.cluster.local:${var.admin_port}"
-      icon          = var.icon
-    }
-  }
 
   outpost_name   = var.outpost_name
   group_name     = var.group_name
