@@ -6,5 +6,8 @@ module "gateway" {
   routes_namespace = var.namespace
   watch_namespaces = [var.namespace]
 
+  # nginx's 60s read default severs idle websockets (arr UI "connection lost" after a tab switch).
+  proxy_timeout = { read = "1h" }
+
   depends_on = [kubernetes_namespace_v1.namespace]
 }

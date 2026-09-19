@@ -43,3 +43,9 @@ variable "client_max_body_size" {
   default     = "0"
   description = "ClientSettingsPolicy body.maxSize for every route here. 0 = unlimited; nginx defaults to 1m, which 413s large uploads."
 }
+
+variable "proxy_timeout" {
+  type        = object({ connect = optional(string), read = optional(string), send = optional(string) })
+  default     = null
+  description = "ProxySettingsPolicy upstream timeouts (1-4 digits + ms|s|m|h; bare = seconds). null = nginx defaults (60s), which drop idle websockets behind these gateways."
+}
