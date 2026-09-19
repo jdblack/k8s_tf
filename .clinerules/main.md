@@ -1,4 +1,5 @@
- - use -P with git
+## Warning
+ - You must use -P with git to avoid pagers
 
 ## Extra Tools
  - calico goldmane
