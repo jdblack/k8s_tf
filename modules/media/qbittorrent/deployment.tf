@@ -25,6 +25,10 @@ resource "kubernetes_deployment_v1" "qbittorrent" {
         labels = {
           "app.kubernetes.io/name" = var.name
         }
+
+        annotations = {
+          "backup.velero.io/backup-volumes" = local.app_data_name
+        }
       }
 
       spec {

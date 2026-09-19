@@ -8,6 +8,11 @@ module "storage" {
   source     = "../../modules/storage"
   namespace  = "kube-storage"
   depends_on = [module.network]
+
+  backup_enabled  = var.backup_enabled
+  backup_bucket   = var.deployment.backup.bucket
+  backup_region   = var.deployment.backup.region
+  backup_endpoint = var.deployment.backup.endpoint
 }
 
 module "cert_man" {

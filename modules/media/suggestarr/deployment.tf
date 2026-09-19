@@ -25,6 +25,10 @@ resource "kubernetes_deployment_v1" "suggestarr" {
         labels = {
           "app.kubernetes.io/name" = var.name
         }
+
+        annotations = {
+          "backup.velero.io/backup-volumes" = local.config_pvc
+        }
       }
 
       spec {

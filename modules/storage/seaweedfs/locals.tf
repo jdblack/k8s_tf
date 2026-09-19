@@ -25,6 +25,10 @@ locals {
         size         = "2Gi"
         storageClass = ""
       }
+      # An accidental-wipe guard, not store-loss protection: the IAM identities live here too.
+      podAnnotations = {
+        "backup.velero.io/backup-volumes" = "admin-data"
+      }
       extraArgs = ["-ip=0.0.0.0", "-allowInsecureBind"]
       ingress = {
         enabled = false
@@ -37,6 +41,9 @@ locals {
         type         = "persistentVolumeClaim"
         size         = "2Gi"
         storageClass = ""
+      }
+      podAnnotations = {
+        "backup.velero.io/backup-volumes" = "data-kube-storage"
       }
       ingress = {
         enabled = false
@@ -58,6 +65,9 @@ locals {
         type         = "persistentVolumeClaim"
         size         = "2Gi"
         storageClass = ""
+      }
+      podAnnotations = {
+        "backup.velero.io/backup-volumes" = "data-filer"
       }
     }
     worker = {

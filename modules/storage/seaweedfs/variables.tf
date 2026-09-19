@@ -7,7 +7,7 @@ variable "visibility" { default = "private" }
 variable "domains" { type = map(any) }
 variable "data_center" { type = string }
 variable "volume_replicas" { default = 6 }
-variable "worker_replicas" { default = 3 }
+variable "worker_replicas" { default = 6 }
 variable "host_path_prefix" { default = "/ssd" }
 variable "helm_version" { default = "4.40.0" }
 

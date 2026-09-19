@@ -46,6 +46,12 @@ locals {
       auth = {
         password = random_password.postgres_pass.result
       }
+      # Velero fs-backup is opt-in per pod volume; `data` is the bitnami postgres volume name.
+      primary = {
+        podAnnotations = {
+          "backup.velero.io/backup-volumes" = "data"
+        }
+      }
     }
     server = {
       route = {

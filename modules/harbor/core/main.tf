@@ -11,6 +11,12 @@ locals {
       type = "Recreate"
     }
     harborAdminPassword = random_password.admin_password.result,
+    # Velero fs-backup is opt-in per pod volume; only the config DB, never the 2Pi library.
+    database = {
+      podAnnotations = {
+        "backup.velero.io/backup-volumes" = "database-data"
+      }
+    }
     persistence = {
       persistentVolumeClaim = {
         registry = {

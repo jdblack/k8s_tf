@@ -9,3 +9,11 @@ variable "monitoring_namespace" { default = "monitoring" }
 variable "helm_longhorn_url" { default = "https://charts.longhorn.io" }
 variable "helm_longhorn_chart" { default = "longhorn" }
 variable "helm_longhorn_version" { default = "1.12.1" }
+variable "helm_snapshot_controller_version" { default = "5.3.0" }
+
+variable "backup_namespace" { default = "kube-backup" }
+
+variable "backup_enabled" { default = true }
+variable "backup_bucket" { type = string }
+variable "backup_region" { type = string }
+variable "backup_endpoint" { type = string }

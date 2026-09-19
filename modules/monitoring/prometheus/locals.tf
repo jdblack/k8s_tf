@@ -2,6 +2,10 @@ locals {
   helm_values = {
     grafana = {
       enabled = true
+      # Velero fs-backup is opt-in per pod volume; `storage` is the grafana chart's volume name.
+      podAnnotations = {
+        "backup.velero.io/backup-volumes" = "storage"
+      }
       "grafana.ini" = {
         server = {
           root_url = "https://${var.grafana_name}.${var.domain}/"

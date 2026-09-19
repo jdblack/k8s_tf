@@ -21,7 +21,8 @@ resource "kubernetes_deployment_v1" "this" {
         labels = local.labels
 
         annotations = {
-          "checksum/config" = sha256(jsonencode(kubernetes_secret_v1.config.data))
+          "checksum/config"                 = sha256(jsonencode(kubernetes_secret_v1.config.data))
+          "backup.velero.io/backup-volumes" = "data"
         }
       }
 

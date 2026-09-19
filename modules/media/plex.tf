@@ -27,6 +27,9 @@ module "plex" {
     pms   = { configStorage = "30Gi" }
     image = { tag = "latest", pullPolicy = "Always" }
 
+    # Velero fs-backup is opt-in per pod volume; `pms-config` is the chart's own volume name.
+    statefulSet = { podAnnotations = { "backup.velero.io/backup-volumes" = "pms-config" } }
+
     extraVolumes = [{
       name                  = "media"
       persistentVolumeClaim = { claimName = var.movies_pvc }

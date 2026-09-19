@@ -9,6 +9,9 @@ locals {
   arr_run_as = { runAsUser = 1000, runAsGroup = 1000 }
 
   arr_config = { persistence = { size = "1Gi" } }
+
+  # Velero fs-backup is opt-in per pod volume, and `config` is each arr chart's own volume name.
+  arr_backup_annotations = { "backup.velero.io/backup-volumes" = "config" }
 }
 
 module "radarr" {
@@ -29,6 +32,7 @@ module "radarr" {
     volumes         = local.media_volume
     volumeMounts    = local.media_mount
     config          = local.arr_config
+    podAnnotations  = local.arr_backup_annotations
     securityContext = local.arr_run_as
   }
 }
@@ -52,6 +56,7 @@ module "sonarr" {
     volumes         = local.media_volume
     volumeMounts    = local.media_mount
     config          = local.arr_config
+    podAnnotations  = local.arr_backup_annotations
     securityContext = local.arr_run_as
   }
 }
@@ -71,7 +76,8 @@ module "prowlarr" {
   auth_outpost      = local.auth_outpost
 
   helm_values = {
-    ingress = { enabled = false }
+    ingress        = { enabled = false }
+    podAnnotations = local.arr_backup_annotations
   }
 }
 
@@ -94,6 +100,7 @@ module "bazarr" {
     volumes         = local.media_volume
     volumeMounts    = local.media_mount
     config          = local.arr_config
+    podAnnotations  = local.arr_backup_annotations
     securityContext = local.arr_run_as
   }
 }
@@ -113,9 +120,10 @@ module "seerr" {
   auth_outpost      = null
 
   helm_values = {
-    nameOverride = "seerr"
-    config       = { persistence = { size = "2Gi" } }
-    route        = { main = { enabled = false } }
+    nameOverride   = "seerr"
+    config         = { persistence = { size = "2Gi" } }
+    podAnnotations = local.arr_backup_annotations
+    route          = { main = { enabled = false } }
   }
 }
 
