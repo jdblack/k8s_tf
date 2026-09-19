@@ -3,6 +3,9 @@ terraform {
     kubectl = {
       source = "gavinbunney/kubectl"
     }
+    external = {
+      source = "hashicorp/external"
+    }
     kubernetes = {
       source = "hashicorp/kubernetes"
     }

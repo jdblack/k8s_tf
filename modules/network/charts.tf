@@ -16,7 +16,9 @@ locals {
   }
 
   helm_values = {
-    calico = {}
+    calico = {
+      manageCRDs = true
+    }
 
     external_dns = {
       provider = {
