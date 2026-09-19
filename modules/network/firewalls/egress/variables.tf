@@ -15,7 +15,7 @@ variable "pod_selector_expressions" {
     operator = string
     values   = optional(list(string))
   }))
-  description = "Extra label rules for the governed pods, ANDed with pod_selector and with each other: `[{ key, operator, values }]`, operator In/NotIn/Exists/DoesNotExist (values omitted for the last two). Expressions AND, never OR."
+  description = "Extra ANDed label rules for the governed pods: `[{ key, operator, values }]`, operator In/NotIn/Exists/DoesNotExist."
   default     = []
 }
 
@@ -57,7 +57,7 @@ variable "to_peers" {
       protocol = optional(string, "TCP")
     })), [])
   }))
-  description = "Explicit peers: `{ namespace, pod_selector, pod_selector_expressions, ports = [{port, protocol}] }`, one peer per rule, in list order. A null pod_selector means every pod in that namespace and empty ports means every port -- name one or both wherever you can. Both selectors in one peer AND."
+  description = "Explicit peers, one rule each; omitting pod_selector or ports widens that rule."
   default     = []
 }
 

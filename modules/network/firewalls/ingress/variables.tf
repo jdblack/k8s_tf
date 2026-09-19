@@ -15,7 +15,7 @@ variable "pod_selector_expressions" {
     operator = string
     values   = optional(list(string))
   }))
-  description = "Extra label rules for the governed pods, ANDed with pod_selector and with each other: `[{ key, operator, values }]`, operator In/NotIn/Exists/DoesNotExist (values omitted for the last two). NotIn also matches a pod that has no such key at all, so `[{ key = \"app\", operator = \"NotIn\", values = [\"plex\"] }]` leaves out exactly the pods labeled app=plex (measured 2026-09-17). Expressions AND, never OR."
+  description = "Extra ANDed label rules: `[{ key, operator, values }]`, operator In/NotIn/Exists/DoesNotExist; NotIn also matches a missing key."
   default     = []
 }
 
@@ -57,19 +57,19 @@ variable "from_peers" {
       protocol = optional(string, "TCP")
     })), [])
   }))
-  description = "Explicit callers: `{ namespace, pod_selector, pod_selector_expressions, ports = [{port, protocol}] }`, one caller per rule, in list order. Ports are the destination pod's ports, not the Service's -- kube-proxy DNATs before ingress is evaluated. A null pod_selector means every pod in that namespace and empty ports means every port; both selectors in one caller AND."
+  description = "Explicit callers, one rule each; ports are the destination pod's ports (DNAT precedes policy), omitting pod_selector or ports widens that rule."
   default     = []
 }
 
 variable "allow_nodes" {
   type        = bool
-  description = "Allow each node's InternalIP and Calico IPIP tunnel address, any port. Default true: kubelet probes arrive from the node's InternalIP and cross-node apiserver calls from the sending node's tunnel address, so turning it off makes governed pods go NotReady. A failed node read drops the rule, never widens it."
+  description = "Allow node IPs and Calico IPIP tunnels, any port; off makes governed pods go NotReady."
   default     = true
 }
 
 variable "allow_cluster" {
   type        = bool
-  description = "Allow the pod CIDR, any port: any pod in the cluster. Prefer from_namespaces. No service-CIDR peer, because a source is never a ClusterIP (DNAT rewrites the destination, not the source)."
+  description = "Allow the pod CIDR, any port; prefer from_namespaces, since a source is never a ClusterIP."
   default     = false
 }
 

@@ -1,5 +1,5 @@
 locals {
-  # Pin the Service port unless the caller manages the service block itself.
+  # Don't clobber a caller-supplied service block.
   port_pin = {
     for key, pin in {
       service = contains(keys(var.helm_values), "service") ? null : { port = var.port }

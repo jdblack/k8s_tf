@@ -27,5 +27,5 @@ variable "ttl" {
 variable "allow_overwrite" {
   type        = bool
   default     = true
-  description = "Take over a pre-existing record with the same name+type instead of erroring. The provider refreshes the record set on every plan, so an out-of-band edit shows up as an in-place update that re-asserts these values; false makes AWS refuse rather than clobber."
+  description = "Take over a pre-existing record instead of erroring; out-of-band edits are re-asserted on the next plan."
 }

@@ -3,7 +3,7 @@ variable "namespace" {
   description = "Existing namespace for the Gateway and its NGF control plane; the caller creates it."
 }
 
-# NGF version; one of three sites. Callers pass it, so there is no default to fall back on.
+# No default: the caller owns the version its CRDs were applied with.
 variable "helm_version" {
   type        = string
   description = "nginx-gateway-fabric chart version. Its CRDs are applied by modules/network/api_gateway_config.tf."

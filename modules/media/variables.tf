@@ -8,7 +8,7 @@ variable "domains" { type = map(any) }
 
 variable "gateway_name" { default = "media-private" }
 
-# NGF version; one of three sites. ngf-public, ngf-private and ngf must all match. CRDs come from modules/network.
+# Must match modules/network's helm_ngf_version.
 variable "helm_ngf_version" {
   default     = "2.7.1"
   description = "nginx-gateway-fabric chart version for this stack's gateway (ngf in namespace media)."
