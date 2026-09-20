@@ -17,3 +17,4 @@ variable "backup_enabled" { default = true }
 variable "backup_bucket" { type = string }
 variable "backup_region" { type = string }
 variable "backup_endpoint" { type = string }
+variable "backup_public_endpoint" { type = string }

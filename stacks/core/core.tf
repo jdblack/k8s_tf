@@ -13,6 +13,9 @@ module "storage" {
   backup_bucket   = var.deployment.backup.bucket
   backup_region   = var.deployment.backup.region
   backup_endpoint = var.deployment.backup.endpoint
+
+  # The velero server reaches the ClusterIP; the CLI, which runs off-cluster, needs the hostname.
+  backup_public_endpoint = module.seaweedfs.s3_url
 }
 
 module "cert_man" {

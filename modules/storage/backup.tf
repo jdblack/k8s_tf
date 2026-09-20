@@ -5,6 +5,8 @@ module "backup" {
   bucket   = var.backup_bucket
   region   = var.backup_region
   endpoint = var.backup_endpoint
+
+  public_endpoint = var.backup_public_endpoint
 }
 
 # The namespace's own metadata (seaweedfs master/filer/admin): an accidental-wipe guard.

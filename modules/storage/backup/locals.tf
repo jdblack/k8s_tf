@@ -26,6 +26,7 @@ locals {
         config = {
           region           = var.region
           s3Url            = var.endpoint
+          publicUrl        = var.public_endpoint
           s3ForcePathStyle = "true"
         }
       }]
