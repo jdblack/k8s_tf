@@ -1,7 +1,8 @@
 variable "namespace" { type = string }
 variable "velero_namespace" { default = "kube-backup" }
 
-# The backup unit: the PVC this schedule protects. Becomes <target>-<tier>.
+# The backup unit: the PVC this schedule protects. It is the schedule name, so every backup it
+# makes is <target>-<timestamp>.
 variable "target" { type = string }
 
 # Must match the pod mounting the target PVC: Velero drags the claim in from the pod.
@@ -14,14 +15,7 @@ variable "selector" {
   }
 }
 
-# Tiers to enrol this target in; the cron/TTL policy lives in locals.tf.
-variable "tiers" {
-  type    = list(string)
-  default = []
-}
-
-# Per-tier TTL overrides, e.g. { daily = "720h" }.
-variable "ttl_overrides" {
-  type    = map(string)
-  default = {}
-}
+# Daily cadence is the unit of capture; thinning is the retention policy. TTL only bounds what a
+# dead thinner leaves behind.
+variable "cron" { default = "0 3 * * *" }
+variable "ttl" { default = "2160h" }

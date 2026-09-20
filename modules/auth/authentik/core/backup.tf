@@ -6,6 +6,4 @@ module "backup" {
     "app.kubernetes.io/name"     = "postgresql"
     "app.kubernetes.io/instance" = "authentik"
   }
-
-  tiers = ["daily"]
 }

@@ -26,8 +26,6 @@ module "seaweedfs_backup" {
     "app.kubernetes.io/component" = each.key
   }
 
-  tiers = ["daily"]
-
   # The Schedule CRs live in kube-backup, which module.backup creates.
   depends_on = [module.backup]
 }

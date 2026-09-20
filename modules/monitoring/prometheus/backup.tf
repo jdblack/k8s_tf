@@ -3,6 +3,4 @@ module "backup" {
   target    = "grafana-storage"
   namespace = var.namespace
   selector  = { "app.kubernetes.io/name" = "grafana" }
-
-  tiers = ["weekly"]
 }

@@ -6,6 +6,4 @@ module "backup" {
     "app.kubernetes.io/name"      = "harbor"
     "app.kubernetes.io/component" = "database"
   }
-
-  tiers = ["weekly", "monthly"]
 }
