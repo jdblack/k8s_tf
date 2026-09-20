@@ -14,6 +14,17 @@ locals {
   seaweedfs_targets = var.backup_enabled ? toset(["admin", "filer", "master"]) : toset([])
 }
 
+# Retention is this thinning pass, not Velero's TTL: TTL only bounds a dead thinner.
+module "thin" {
+  count  = var.backup_enabled ? 1 : 0
+  source = "./backup/thin"
+
+  # Flip once the dry-run plans have been read.
+  dry_run = true
+
+  depends_on = [module.backup]
+}
+
 # The namespace's own metadata (seaweedfs master/filer/admin): an accidental-wipe guard.
 module "seaweedfs_backup" {
   for_each = local.seaweedfs_targets
