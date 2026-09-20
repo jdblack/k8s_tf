@@ -6,14 +6,16 @@ resource "kubectl_manifest" "schedule" {
     apiVersion = "velero.io/v1"
     kind       = "Schedule"
     metadata = {
-      name      = "${var.namespace}-${each.key}"
+      name      = "${var.target}-${each.key}"
       namespace = var.velero_namespace
+      labels    = local.target_label
     }
     spec = {
       schedule = each.value.cron
       template = {
         ttl                = each.value.ttl
         includedNamespaces = [var.namespace]
+        labelSelector      = { matchLabels = var.selector }
       }
     }
   })

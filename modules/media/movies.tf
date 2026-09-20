@@ -2,6 +2,10 @@ resource "kubernetes_persistent_volume_claim_v1" "movies_archive" {
   metadata {
     name      = "movies-archive"
     namespace = var.namespace
+    labels = {
+      # Every media pod mounts this; without it one target's backup captures all of them.
+      "velero.io/exclude-from-backup" = "true"
+    }
   }
   spec {
     access_modes       = ["ReadWriteMany"]
