@@ -15,7 +15,7 @@ variable "selector" {
   }
 }
 
-# Daily cadence is the unit of capture; thinning is the retention policy. TTL only bounds what a
-# dead thinner leaves behind.
+# Daily cadence is the unit of capture; Velero's garbage collector enforces the TTL, which is the
+# retention policy: one backup per day, 7 days deep.
 variable "cron" { default = "0 3 * * *" }
-variable "ttl" { default = "2160h" }
+variable "ttl" { default = "168h" }
