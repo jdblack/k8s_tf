@@ -7,9 +7,9 @@ resource "kubernetes_namespace_v1" "auth" {
 module "authentik" {
   source      = "../../modules/auth/authentik/core"
   namespace   = "kube-auth"
-  domain      = var.deployment.common.domain
-  fqdn        = "auth.${var.deployment.common.domain}"
-  cert_issuer = var.deployment.cert_authorities.default
+  domain      = var.deployment.cluster.domains.private
+  fqdn        = "auth.${var.deployment.cluster.domains.private}"
+  cert_issuer = var.deployment.cert_manager.external_issuer
   pod_cidr    = var.deployment.network.pod_cidr
   depends_on  = [module.cert_man, module.storage, kubernetes_namespace_v1.auth]
 

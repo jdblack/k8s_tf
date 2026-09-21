@@ -1,11 +1,12 @@
 variable "namespace" { default = "kube-backup" }
 
+variable "gateway_name" { default = "private" }
+variable "gateway_namespace" { default = "kube-network" }
+
 variable "bucket" { type = string }
 variable "region" { type = string }
 variable "endpoint" { type = string }
 
-# Presigned URLs are followed by clients outside the cluster, which can't resolve the service name.
-variable "public_endpoint" { type = string }
 variable "user" { default = "velero" }
 variable "role" { default = "admin" }
 

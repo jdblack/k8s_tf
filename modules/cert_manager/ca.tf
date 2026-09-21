@@ -1,5 +1,5 @@
 locals {
-  issuer_name = var.data["cert_issuer"]
+  issuer_name = var.ca_issuer
   issuer_manifest = {
     apiVersion = "cert-manager.io/v1"
     kind       = "ClusterIssuer"

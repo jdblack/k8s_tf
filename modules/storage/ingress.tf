@@ -15,10 +15,5 @@ module "ingress_baseline" {
       pod_selector = { "app.kubernetes.io/name" = "prometheus" }
       ports        = [{ port = 9327 }]
     },
-    {
-      # The backup namespace: velero and its node-agent both upload to S3.
-      namespace = var.backup_namespace
-      ports     = [{ port = 8333 }]
-    },
   ]
 }

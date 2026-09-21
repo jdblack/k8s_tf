@@ -14,7 +14,7 @@ data "kubernetes_secret_v1" "authentik_auth" {
 
 data "kubernetes_secret_v1" "argocd_auth" {
   metadata {
-    namespace = var.deployment.argocd_devops.namespace
-    name      = var.deployment.argocd_devops.auth_secret
+    namespace = var.deployment.argo.namespace
+    name      = var.deployment.argo.auth_secret
   }
 }

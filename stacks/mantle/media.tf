@@ -1,8 +1,8 @@
 module "media" {
   source      = "../../modules/media"
-  domain      = var.deployment.common.domain
-  cert_issuer = var.deployment.cert_authorities.default
-  domains     = var.deployment.domains
+  domain      = var.deployment.cluster.domains.private
+  cert_issuer = var.deployment.cert_manager.external_issuer
+  domains     = var.deployment.cluster.domains
   plex_claim  = try(var.deployment.media.plex_claim, "")
 
   pod_cidr  = var.deployment.network.pod_cidr

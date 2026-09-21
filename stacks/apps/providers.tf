@@ -30,7 +30,7 @@ data "kubernetes_secret_v1" "argocd_auth" {
 
 
 provider "argocd" {
-  server_addr = var.argo_cd_server != "" ? "${var.argo_cd_server}:443" : "argo-cd.${var.deployment.common.domain}:443"
+  server_addr = var.argo_cd_server != "" ? "${var.argo_cd_server}:443" : "argo-cd.${var.deployment.cluster.domains.private}:443"
   username    = "admin"
   password    = data.kubernetes_secret_v1.argocd_auth.data["password"]
 }

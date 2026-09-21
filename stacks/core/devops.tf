@@ -10,16 +10,16 @@ module "harbor" {
   namespace   = var.deployment.harbor.namespace
   auth_secret = var.deployment.harbor.auth_secret
   source      = "../../modules/harbor/core"
-  cert_issuer = var.deployment.cert_authorities.default
-  domain      = var.deployment.common.domain
+  cert_issuer = var.deployment.cert_manager.external_issuer
+  domain      = var.deployment.cluster.domains.private
   depends_on  = [module.network, module.storage, module.cert_man]
 }
 
 module "argo" {
   count       = var.argo_enabled ? 1 : 0
   source      = "../../modules/argo/core"
-  domain      = var.deployment.common.domain
-  cert_issuer = var.deployment.cert_authorities.default
+  domain      = var.deployment.cluster.domains.private
+  cert_issuer = var.deployment.cert_manager.external_issuer
 }
 
 output "harbor_pass" {

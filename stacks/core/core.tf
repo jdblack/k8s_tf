@@ -1,7 +1,7 @@
 module "network" {
   source         = "../../modules/network"
-  internal_dns   = var.deployment.internal_dns
-  metal_networks = var.deployment.metal.networks
+  internal_dns   = var.deployment.network.internal_dns
+  metal_networks = var.deployment.network.metal_networks
 }
 
 module "storage" {
@@ -10,18 +10,21 @@ module "storage" {
   depends_on = [module.network]
 
   backup_enabled  = var.backup_enabled
-  backup_bucket   = var.deployment.backup.bucket
-  backup_region   = var.deployment.backup.region
-  backup_endpoint = var.deployment.backup.endpoint
-
-  # The velero server reaches the ClusterIP; the CLI, which runs off-cluster, needs the hostname.
-  backup_public_endpoint = module.seaweedfs.s3_url
+  backup_bucket   = var.deployment.storage.backup.bucket
+  backup_region   = var.deployment.storage.backup.region
+  backup_endpoint = var.deployment.storage.backup.endpoint
 }
 
 module "cert_man" {
   source     = "../../modules/cert_manager"
-  data       = var.deployment.cert
-  acme_email = var.deployment.cert.acme_email
+  acme_email = var.deployment.cert_manager.acme_email
+
+  dns01 = {
+    AWS_ACCESS_KEY_ID     = var.deployment.cert_manager.dns01.access_key
+    AWS_SECRET_ACCESS_KEY = var.deployment.cert_manager.dns01.secret_key
+    AWS_REGION            = var.deployment.cert_manager.dns01.region
+    R53_ZONEID            = var.deployment.cert_manager.dns01.zone_id
+  }
 
   depends_on = [module.network]
 }

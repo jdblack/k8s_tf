@@ -19,9 +19,9 @@ locals {
           {
             dns01 = {
               route53 = {
-                accessKeyID  = var.data["AWS_ACCESS_KEY_ID"]
-                hostedZoneID = var.data["R53_ZONEID"]
-                region       = var.data["AWS_REGION"]
+                accessKeyID  = var.dns01["AWS_ACCESS_KEY_ID"]
+                hostedZoneID = var.dns01["R53_ZONEID"]
+                region       = var.dns01["AWS_REGION"]
                 secretAccessKeySecretRef = {
                   name = "certman-route53-${var.external_issuer_name}"
                   key  = "AWS_SECRET_ACCESS_KEY"
@@ -44,9 +44,9 @@ resource "kubernetes_secret_v1" "certman_route53_secret" {
     namespace = var.namespace
   }
   data = {
-    AWS_ACCESS_KEY_ID     = var.data["AWS_ACCESS_KEY_ID"]
-    AWS_SECRET_ACCESS_KEY = var.data["AWS_SECRET_ACCESS_KEY"]
-    AWS_REGION            = var.data["AWS_REGION"]
+    AWS_ACCESS_KEY_ID     = var.dns01["AWS_ACCESS_KEY_ID"]
+    AWS_SECRET_ACCESS_KEY = var.dns01["AWS_SECRET_ACCESS_KEY"]
+    AWS_REGION            = var.dns01["AWS_REGION"]
   }
   depends_on = [kubernetes_namespace_v1.namespace]
 }

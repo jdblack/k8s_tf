@@ -6,7 +6,8 @@ module "backup" {
   region   = var.backup_region
   endpoint = var.backup_endpoint
 
-  public_endpoint = var.backup_public_endpoint
+  gateway_name      = var.gateway_name
+  gateway_namespace = var.gateway_namespace
 }
 
 locals {

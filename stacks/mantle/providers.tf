@@ -60,9 +60,9 @@ provider "kubectl" {
 }
 
 provider "aws" {
-  access_key = var.deployment.cert.AWS_ACCESS_KEY_ID
-  secret_key = var.deployment.cert.AWS_SECRET_ACCESS_KEY
-  region     = var.deployment.cert.AWS_REGION
+  access_key = var.deployment.cert_manager.dns01.access_key
+  secret_key = var.deployment.cert_manager.dns01.secret_key
+  region     = var.deployment.cert_manager.dns01.region
 }
 
 provider "authentik" {
@@ -77,7 +77,7 @@ provider "harbor" {
 }
 
 provider "argocd" {
-  server_addr = "${var.deployment.argocd_devops.server}.${var.deployment.common.domain}:443"
+  server_addr = "${var.deployment.argo.server}.${var.deployment.cluster.domains.private}:443"
   username    = "admin"
   password    = data.kubernetes_secret_v1.argocd_auth.data["password"]
 }

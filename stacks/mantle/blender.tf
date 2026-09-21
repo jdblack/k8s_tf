@@ -1,6 +1,6 @@
 module "blender" {
   source = "../../modules/blender"
-  domain = var.deployment.common.domain
+  domain = var.deployment.cluster.domains.private
 }
 
 output "blender_samba_pass" {

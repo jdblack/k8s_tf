@@ -3,13 +3,19 @@ variable "namespace" {
   default = "kube-certificates"
 }
 
-variable "data" {
+# The letsencrypt ClusterIssuer's route53 DNS-01 credentials.
+variable "dns01" {
   type = map(any)
 }
 
 variable "external_issuer_name" {
   type    = string
   default = "letsencrypt"
+}
+
+variable "ca_issuer" {
+  type    = string
+  default = "linuxguru-ca"
 }
 
 variable "acme_email" {

@@ -24,6 +24,6 @@ module "prometheus" {
     module.cert_man,
     module.storage,
   ]
-  domain      = var.deployment.common.domain
-  cert_issuer = var.deployment.cert_authorities.default
+  domain      = var.deployment.cluster.domains.private
+  cert_issuer = var.deployment.cert_manager.external_issuer
 }
