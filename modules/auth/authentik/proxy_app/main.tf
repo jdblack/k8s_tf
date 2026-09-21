@@ -20,6 +20,11 @@ resource "authentik_provider_proxy" "app" {
   internal_host      = "http://${local.service}.${var.namespace}.svc.cluster.local:${var.port}"
   authorization_flow = data.authentik_flow.authorization.id
   invalidation_flow  = data.authentik_flow.invalidation.id
+
+  # Without this the session dies 10m after a tab goes idle: the cookie expires, so
+  # the next request (a UI's websocket/reconnect call, which cannot follow the login
+  # redirect) lands in the auth flow and the app shows "connection lost" until reload.
+  access_token_validity = var.access_token_validity
 }
 
 resource "authentik_application" "app" {

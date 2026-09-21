@@ -39,3 +39,9 @@ variable "group_id" {
   type        = string
   description = "Group bound to the app; its members get access."
 }
+
+variable "access_token_validity" {
+  type        = string
+  default     = "days=7"
+  description = "App session lifetime as an authentik duration. The outpost sizes its session cookie and its on-disk session TTL from this, and never renews them, so the minutes=10 default signs idle tabs out and the app's own in-page reconnects get 302'd into the login flow."
+}
