@@ -66,6 +66,12 @@ resource "kubernetes_deployment_v1" "outpost" {
     template {
       metadata {
         labels = local.outpost_labels
+
+        # The outpost hands its boot-time session store to every refreshed app, so a
+        # provider Validity change only takes effect on a restart.
+        annotations = {
+          "checksum/session-validity" = sha256(var.session_validity)
+        }
       }
 
       spec {

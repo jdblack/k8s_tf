@@ -17,10 +17,11 @@ variable "gateway_namespace" { default = "media" }
 
 variable "auth_outpost" {
   type = object({
-    outpost_id = string
-    group_id   = string
-    service    = string
-    port       = number
+    outpost_id            = string
+    group_id              = string
+    service               = string
+    port                  = number
+    access_token_validity = string
   })
   default     = null
   description = "Gate the app behind this outpost; null routes straight to the app."
