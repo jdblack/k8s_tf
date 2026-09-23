@@ -10,6 +10,7 @@ locals {
     "suggestarr-config" = { "app.kubernetes.io/name" = "suggestarr" }
     "qbittorrent-data"  = { "app.kubernetes.io/name" = "qbittorrent" }
     "plex-pms-config"   = { "app.kubernetes.io/name" = "plex-media-server" }
+    "immich-postgres"   = { "app.kubernetes.io/name" = "immich-postgres" }
   }
 }
 

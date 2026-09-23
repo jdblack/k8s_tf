@@ -54,6 +54,19 @@ resource "authentik_provider_oauth2" "oauth2" {
   invalidation_flow  = data.authentik_flow.default-provider-invalidation-flow.id
   authorization_flow = data.authentik_flow.default-authorization-flow.id
   signing_key        = authentik_certificate_key_pair.signing.id
+
+  # An omitted grant list is empty in authentik 2026.x, which rejects every flow, authorization_code
+  # included; these are the grants the providers created before that default have.
+  grant_types = [
+    "authorization_code",
+    "hybrid",
+    "implicit",
+    "client_credentials",
+    "password",
+    "urn:ietf:params:oauth:grant-type:device_code",
+    "refresh_token",
+  ]
+
   property_mappings = [
     data.authentik_property_mapping_provider_scope.email.id,
     data.authentik_property_mapping_provider_scope.openid.id,
@@ -61,13 +74,22 @@ resource "authentik_provider_oauth2" "oauth2" {
     authentik_property_mapping_provider_scope.groups.id,
   ]
 
-  allowed_redirect_uris = [
-    {
-      matching_mode     = "strict"
-      url               = var.redirect_uri
-      redirect_uri_type = "authorization"
-    }
-  ]
+  allowed_redirect_uris = concat(
+    [
+      {
+        matching_mode     = "strict"
+        url               = var.redirect_uri
+        redirect_uri_type = "authorization"
+      }
+    ],
+    [
+      for uri in var.extra_redirect_uris : {
+        matching_mode     = "strict"
+        url               = uri
+        redirect_uri_type = "authorization"
+      }
+    ],
+  )
 
 }
 
@@ -85,4 +107,11 @@ resource "authentik_application" "app" {
   protocol_provider = authentik_provider_oauth2.oauth2.id
   meta_icon         = var.meta_icon
   open_in_new_tab   = var.open_in_new_tab
+}
+
+resource "authentik_policy_binding" "app" {
+  count  = var.group_id == null ? 0 : 1
+  target = authentik_application.app.uuid
+  group  = var.group_id
+  order  = 0
 }
