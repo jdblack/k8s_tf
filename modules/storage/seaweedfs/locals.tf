@@ -15,7 +15,7 @@ locals {
     }
 
     image = {
-      tag = "4.46-ga7847c99f"
+      tag = "4.47-gd26fb6245"
     }
     admin = {
       enabled  = true
