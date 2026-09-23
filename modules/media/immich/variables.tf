@@ -19,7 +19,7 @@ variable "library_subdir" {
 variable "helm_version" { default = "0.13.2" }
 
 # Server and machine-learning move together: they are the same Immich release.
-variable "image_tag" { default = "v3.2.0" }
+variable "image_tag" { default = "v3.2.2" }
 
 variable "storage_class" { default = "longhorn" }
 
