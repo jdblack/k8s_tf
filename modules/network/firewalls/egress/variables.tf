@@ -63,8 +63,14 @@ variable "to_peers" {
 
 variable "allow_k8s_api" {
   type        = bool
-  description = "Allow the API server: TCP/6443 to the control-plane node IPs plus TCP/443 to the kubernetes Service ClusterIP. kube-proxy DNATs before policy runs, so the node rule is the one that matches; the ClusterIP rule covers a dataplane matching pre-DNAT."
+  description = "Allow the API server: TCP/6443 to the control-plane node CIDRs plus TCP/443 to the kubernetes Service ClusterIP. kube-proxy DNATs before policy runs, so the node rule is the one that matches; the ClusterIP rule covers a dataplane matching pre-DNAT. The node rule is widened per api_endpoint_prefix_length."
   default     = false
+}
+
+variable "api_endpoint_prefix_length" {
+  type        = number
+  default     = 24
+  description = "Prefix length each discovered API server endpoint is widened to for the TCP/6443 rule. The endpoint is a control-plane node IP, and because kube-proxy DNATs to it before the policy is evaluated, that post-DNAT address is the one the rule must match -- pinning it as a /32 silently breaks every existing policy the moment DHCP moves the node, since nothing re-applies on its own. A /24 always contains the endpoint but stays valid across any lease change inside the host subnet. Set to 32 to pin exactly, or lower to cover a wider host network."
 }
 
 variable "allow_cluster" {

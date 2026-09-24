@@ -54,9 +54,15 @@ locals {
     to    = [{ ip_block = { cidr = "${local.api_cluster_ip}/32" } }]
   } : null
 
-  rule_api_endpoints = var.allow_k8s_api && length(local.api_endpoint_ips) > 0 ? {
+  # Widen each endpoint to the surrounding subnet so the rule survives a DHCP move of the
+  # control-plane node; /32 would stop matching the moment the node's address changes.
+  api_endpoint_cidrs = distinct([
+    for ip in local.api_endpoint_ips : cidrsubnet("${ip}/${var.api_endpoint_prefix_length}", 0, 0)
+  ])
+
+  rule_api_endpoints = var.allow_k8s_api && length(local.api_endpoint_cidrs) > 0 ? {
     ports = [{ port = 6443, protocol = "TCP" }]
-    to    = [for ip in local.api_endpoint_ips : { ip_block = { cidr = "${ip}/32" } }]
+    to    = [for cidr in local.api_endpoint_cidrs : { ip_block = { cidr = cidr } }]
   } : null
 
   rule_cluster = var.allow_cluster ? {
