@@ -32,3 +32,9 @@ variable "session_validity" {
   default     = "days=7"
   description = "access_token_validity of every provider here; only used to roll the outpost, which builds its session cookie TTL (validity + 1) once at boot and reuses that store across config refreshes."
 }
+
+variable "provider_ids" {
+  type        = list(string)
+  default     = []
+  description = "Providers attached when the outpost is created. authentik refuses a create with an empty list, so a new outpost has to be built after the provider it serves."
+}

@@ -32,12 +32,26 @@ variable "icon" {
 
 variable "outpost_id" {
   type        = string
-  description = "The authentik outpost that serves this app."
+  default     = null
+  description = "Outpost the provider is attached to; only read when attach is true."
 }
 
 variable "group_id" {
   type        = string
-  description = "Group bound to the app; its members get access."
+  default     = null
+  description = "Group bound to the app; only read when bind is true."
+}
+
+variable "attach" {
+  type        = bool
+  default     = true
+  description = "Attach the provider to the outpost here. Off when the outpost is created with this provider already, since authentik rejects an outpost created without providers."
+}
+
+variable "bind" {
+  type        = bool
+  default     = true
+  description = "Bind the group to the application here. Off when the caller binds it, which is how the group/outpost cycle is broken."
 }
 
 variable "access_token_validity" {

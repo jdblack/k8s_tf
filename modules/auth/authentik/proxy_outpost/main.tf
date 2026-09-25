@@ -14,9 +14,12 @@ resource "authentik_group" "access" {
 }
 
 resource "authentik_outpost" "outpost" {
-  name               = var.outpost_name
-  type               = "proxy"
-  protocol_providers = []
+  name = var.outpost_name
+  type = "proxy"
+
+  # Empty on purpose for callers that attach providers afterwards; authentik only
+  # accepts an empty list on update, never on create.
+  protocol_providers = var.provider_ids
 
   lifecycle {
     ignore_changes = [protocol_providers]

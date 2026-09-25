@@ -14,5 +14,5 @@ variable "gateway_namespace" { default = "kube-network" }
 
 variable "outpost_namespaces" {
   type    = list(string)
-  default = ["media", "kube-storage", "calico-system"]
+  default = ["media", "kube-storage", "calico-system", "monitoring"]
 }

@@ -37,11 +37,15 @@ resource "authentik_application" "app" {
 }
 
 resource "authentik_outpost_provider_attachment" "app" {
+  count = var.attach ? 1 : 0
+
   outpost           = var.outpost_id
   protocol_provider = authentik_provider_proxy.app.id
 }
 
 resource "authentik_policy_binding" "app" {
+  count = var.bind ? 1 : 0
+
   target = authentik_application.app.uuid
   group  = var.group_id
   order  = 0
