@@ -36,3 +36,9 @@ variable "helm_version" {
   type    = string
   default = "v1.21.2"
 }
+
+variable "monitoring_namespace" {
+  type        = string
+  default     = "monitoring"
+  description = "Namespace Prometheus scrapes from; the metrics-ingress peer."
+}
