@@ -11,14 +11,16 @@ locals {
 
   private_cidrs = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "169.254.0.0/16"]
 
-  node_ips = distinct(compact(flatten([
+  # Sorted: the API's node order is not stable, and an unsorted ip_block list shows
+  # up as plan churn on every namespace-wide policy.
+  node_ips = sort(distinct(compact(flatten([
     for node in try(data.kubernetes_nodes.this[0].nodes, []) : concat(
       [for address in try(node.status[0].addresses, []) : address.address
       if address.type == "InternalIP" && !strcontains(address.address, ":")],
       [for ip in [try(node.metadata[0].annotations["projectcalico.org/IPv4IPIPTunnelAddr"], "")] : ip
       if !strcontains(ip, ":")],
     )
-  ])))
+  ]))))
 
   rule_self = var.allow_namespace ? {
     ports = []

@@ -20,11 +20,12 @@ locals {
     try(data.kubernetes_service_v1.kubernetes[0].spec[0].port[0].port, null),
   )
 
-  api_endpoint_ips = distinct(compact(flatten([
+  # Sorted for the same reason as the node list: an unstable order is plan churn.
+  api_endpoint_ips = sort(distinct(compact(flatten([
     for subset in try(data.kubernetes_endpoints_v1.kubernetes[0].subset, []) : [
       for address in subset.address : address.ip
     ]
-  ])))
+  ]))))
 
   rule_self = var.allow_namespace ? {
     ports = []
