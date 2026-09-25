@@ -45,10 +45,28 @@ locals {
         readOnly   = true
       }]
     }
+
     prometheus = {
       prometheusSpec = {
         podMonitorSelectorNilUsesHelmValues     = false
         serviceMonitorSelectorNilUsesHelmValues = false
+
+        # Every alert then carries the cluster that raised it.
+        externalLabels = {
+          cluster = var.domain
+        }
+      }
+    }
+
+    alertmanager = {
+      alertmanagerSpec = {
+        externalUrl = "https://${var.alertmanager_name}.${var.domain}"
+
+        # The default OnNamespace scopes AlertmanagerConfig routes to alerts labelled
+        # namespace=monitoring, which is almost none of them.
+        alertmanagerConfigMatcherStrategy = {
+          type = "None"
+        }
       }
     }
 
