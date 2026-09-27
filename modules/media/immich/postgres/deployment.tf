@@ -1,9 +1,9 @@
 # Hand-rolled because no stock chart carries the VectorChord extension Immich requires.
 resource "kubernetes_deployment_v1" "postgres" {
   metadata {
-    name      = local.postgres_name
+    name      = var.name
     namespace = var.namespace
-    labels    = local.postgres_labels
+    labels    = local.labels
   }
 
   spec {
@@ -14,12 +14,12 @@ resource "kubernetes_deployment_v1" "postgres" {
     }
 
     selector {
-      match_labels = local.postgres_labels
+      match_labels = local.labels
     }
 
     template {
       metadata {
-        labels = local.postgres_labels
+        labels = local.labels
 
         annotations = {
           "backup.velero.io/backup-volumes" = "data"
@@ -28,22 +28,22 @@ resource "kubernetes_deployment_v1" "postgres" {
 
       spec {
         security_context {
-          run_as_user  = local.uid
-          run_as_group = local.gid
-          fs_group     = local.gid
+          run_as_user  = var.uid
+          run_as_group = var.gid
+          fs_group     = var.gid
         }
 
         container {
           name  = "postgres"
-          image = "${var.postgres_image}:${var.postgres_image_tag}"
+          image = "${var.image}:${var.image_tag}"
 
           env {
             name  = "POSTGRES_USER"
-            value = local.postgres_user
+            value = var.user
           }
           env {
             name  = "POSTGRES_DB"
-            value = local.postgres_user
+            value = var.user
           }
           env {
             name = "POSTGRES_PASSWORD"
@@ -66,12 +66,12 @@ resource "kubernetes_deployment_v1" "postgres" {
 
           port {
             name           = "postgres"
-            container_port = local.postgres_port
+            container_port = var.port
           }
 
           readiness_probe {
             exec {
-              command = ["pg_isready", "-q", "-U", local.postgres_user]
+              command = ["pg_isready", "-q", "-U", var.user]
             }
             initial_delay_seconds = 10
             period_seconds        = 10
@@ -81,7 +81,7 @@ resource "kubernetes_deployment_v1" "postgres" {
 
           liveness_probe {
             exec {
-              command = ["pg_isready", "-q", "-U", local.postgres_user]
+              command = ["pg_isready", "-q", "-U", var.user]
             }
             initial_delay_seconds = 30
             period_seconds        = 20
@@ -114,7 +114,7 @@ resource "kubernetes_deployment_v1" "postgres" {
 
           empty_dir {
             medium     = "Memory"
-            size_limit = "128Mi"
+            size_limit = var.shm_size
           }
         }
       }
@@ -124,7 +124,7 @@ resource "kubernetes_deployment_v1" "postgres" {
 
 resource "kubernetes_persistent_volume_claim_v1" "postgres" {
   metadata {
-    name      = local.postgres_name
+    name      = var.name
     namespace = var.namespace
   }
 
@@ -134,7 +134,7 @@ resource "kubernetes_persistent_volume_claim_v1" "postgres" {
 
     resources {
       requests = {
-        storage = var.postgres_size
+        storage = var.size
       }
     }
   }

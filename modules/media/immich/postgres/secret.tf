@@ -6,7 +6,7 @@ resource "random_password" "postgres" {
 
 resource "kubernetes_secret_v1" "postgres" {
   metadata {
-    name      = local.postgres_name
+    name      = var.name
     namespace = var.namespace
   }
 

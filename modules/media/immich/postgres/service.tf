@@ -1,17 +1,17 @@
 resource "kubernetes_service_v1" "postgres" {
   metadata {
-    name      = local.postgres_name
+    name      = var.name
     namespace = var.namespace
-    labels    = local.postgres_labels
+    labels    = local.labels
   }
 
   spec {
     type     = "ClusterIP"
-    selector = local.postgres_labels
+    selector = local.labels
 
     port {
       name        = "postgres"
-      port        = local.postgres_port
+      port        = var.port
       target_port = "postgres"
     }
   }

@@ -9,10 +9,7 @@ locals {
 
   pod_security_context = { runAsUser = local.uid, runAsGroup = local.gid, fsGroup = local.gid }
 
-  postgres_name   = "${var.name}-postgres"
-  postgres_user   = "immich"
-  postgres_port   = 5432
-  postgres_labels = { "app.kubernetes.io/name" = local.postgres_name }
+  postgres_name = "${var.name}-postgres"
 
   server_name = "${var.name}-server"
   server_port = 2283
@@ -47,11 +44,11 @@ locals {
               image = { tag = var.image_tag }
               env = {
                 IMMICH_MEDIA_LOCATION = "/data"
-                DB_HOSTNAME           = local.postgres_name
-                DB_USERNAME           = local.postgres_user
-                DB_DATABASE_NAME      = local.postgres_user
+                DB_HOSTNAME           = module.postgres.host
+                DB_USERNAME           = module.postgres.user
+                DB_DATABASE_NAME      = module.postgres.database
                 DB_PASSWORD = {
-                  valueFrom = { secretKeyRef = { name = local.postgres_name, key = "password" } }
+                  valueFrom = { secretKeyRef = { name = module.postgres.password_secret, key = "password" } }
                 }
               }
             }
