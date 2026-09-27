@@ -6,15 +6,10 @@ variable "cert_issuer" { type = string }
 variable "gateway_name" { default = "media-private" }
 variable "gateway_namespace" { default = "media" }
 
-variable "movies_pvc" { type = string }
+variable "library_pvc" { type = string }
 
 variable "auth_gateway_name" { default = "private" }
 variable "auth_gateway_namespace" { default = "kube-network" }
-
-variable "library_subdir" {
-  default     = "photos"
-  description = "Directory on movies_pvc the photo library lives in."
-}
 
 variable "helm_version" { default = "0.13.2" }
 

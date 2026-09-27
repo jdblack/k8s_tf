@@ -1,5 +1,6 @@
 variable "namespace" { default = "media" }
 variable "movies_pvc" { default = "movies-archive" }
+variable "photos_pvc" { default = "photos" }
 variable "plex_claim" { default = "" }
 
 variable "domain" { type = string }

@@ -33,7 +33,7 @@ locals {
     defaultPodOptions = { securityContext = local.pod_security_context }
 
     immich = {
-      persistence       = { library = { existingClaim = var.movies_pvc } }
+      persistence       = { library = { existingClaim = var.library_pvc } }
       metrics           = { enabled = var.metrics_enabled }
       configurationKind = "Secret"
       configuration     = { oauth = local.oauth }
@@ -59,11 +59,11 @@ locals {
         }
       }
       persistence = {
-        # Type is chart-schema-mandated; the claim itself is immich.persistence.library.
+        # Type is chart-schema-mandated; the claim is the library itself, so no subPath.
         data = {
           type          = "persistentVolumeClaim"
-          existingClaim = var.movies_pvc
-          globalMounts  = [{ path = "/data", subPath = var.library_subdir }]
+          existingClaim = var.library_pvc
+          globalMounts  = [{ path = "/data" }]
         }
       }
     }
