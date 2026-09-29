@@ -106,6 +106,7 @@ resource "authentik_application" "app" {
   slug              = var.name
   protocol_provider = authentik_provider_oauth2.oauth2.id
   meta_icon         = var.meta_icon
+  meta_launch_url   = var.meta_launch_url
   open_in_new_tab   = var.open_in_new_tab
 }
 
@@ -113,5 +114,18 @@ resource "authentik_policy_binding" "app" {
   count  = var.group_id == null ? 0 : 1
   target = authentik_application.app.uuid
   group  = var.group_id
+  order  = 0
+}
+
+# Both own groups, not just -user: an admin has to be able to log in, and binding -user
+# alone would force every admin into a second group purely to authenticate.
+resource "authentik_policy_binding" "own_groups" {
+  for_each = var.bind_app ? {
+    admin = authentik_group.admin.id
+    user  = authentik_group.user.id
+  } : {}
+
+  target = authentik_application.app.uuid
+  group  = each.value
   order  = 0
 }
