@@ -4,6 +4,17 @@ locals {
       defaultSettings = {
         concurrentAutomaticEngineUpgradePerNodeLimit = 3
         upgradeChecker                               = false
+
+        # Never let one node hold both replicas of a volume: losing that node would then
+        # take the volume's only copies with it. Longhorn does not do this by default.
+        replicaSoftAntiAffinity = "true"
+
+        # Longhorn's replica scheduler is space-based, so it stacks replicas on whichever
+        # node currently has the most free bytes (k8smaster here) and never revisits the
+        # decision. With data locality best-effort (below) the intent is one replica on the
+        # node running the workload and the rest spread across the others; this makes it
+        # actually converge on that instead of drifting.
+        replicaAutoBalance = "best-effort"
       }
       csi = {
         attacherReplicaCount    = 1
