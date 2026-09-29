@@ -5,8 +5,8 @@ locals {
         concurrentAutomaticEngineUpgradePerNodeLimit = 3
         upgradeChecker                               = false
 
-        # Never let one node hold both replicas of a volume: losing that node would then
-        # take the volume's only copies with it. Longhorn does not do this by default.
+        # Never let one node hold two of a volume's three replicas: that node's loss would
+        # then take the volume below the 2/3 it needs to stay healthy. Off by default.
         replicaSoftAntiAffinity = "true"
 
         # Longhorn's replica scheduler is space-based, so it stacks replicas on whichever
@@ -15,6 +15,10 @@ locals {
         # node running the workload and the rest spread across the others; this makes it
         # actually converge on that instead of drifting.
         replicaAutoBalance = "best-effort"
+
+        # Volumes created through the UI/API or longhorn-static bypass the StorageClass
+        # below, which is where the Kubernetes path gets its locality.
+        defaultDataLocality = "best-effort"
       }
       csi = {
         attacherReplicaCount    = 1
@@ -24,7 +28,7 @@ locals {
       }
       persistence = {
         defaultDataLocality      = "best-effort"
-        defaultClassReplicaCount = 2
+        defaultClassReplicaCount = 3
       }
       metrics = {
         serviceMonitor = {
