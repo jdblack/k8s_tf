@@ -1,0 +1,33 @@
+- name: Ensure necessary directories and hosts.toml is correctly configured
+  hosts: all
+  become: true
+  tasks:
+    - name: Create intermediary directories for hosts.toml
+      file:
+        path: /etc/containerd/certs.d/docker.io
+        state: directory
+        mode: '0755'
+
+    - name: Create or update hosts.toml server configuration
+      community.general.ini_file:
+        path: /etc/containerd/certs.d/docker.io/hosts.toml
+        section: 'DEFAULT'
+        option: 'server'
+        value: 'https://registry-1.docker.io'
+
+    - name: Create Docker host configuration
+      community.general.ini_file:
+        path: /etc/containerd/certs.d/docker.io/hosts.toml
+        section: 'host."https://harbor.vn.linuxguru.net/dockerhub_proxy"'
+        option: 'capabilities'
+        value: '["pull", "resolve"]'
+
+    - name: Update containerd config_path in the configuration file
+      community.general.ini_file:
+        path: /etc/containerd/config.toml
+        section: plugins."io.containerd.grpc.v1.cri".registry
+        option: config_path
+        value: /etc/containerd/certs.d/
+        backup: true
+
+
