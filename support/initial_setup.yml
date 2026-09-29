@@ -1,4 +1,8 @@
+# Node bootstrap for the cluster. Lives in terraform/support/ of the k8s_tf repo, with a
+# symlink at ~/code/k8s/initial_setup.yml so this invocation works from either path.
 # ansible-playbook initial_setup.yml -K -i k8smaster,k8sn1,k8sn2,k8sn3,k8sn4,k8sn5
+# Tagged so parts can be run alone, e.g. the GPU path:
+# ansible-playbook initial_setup.yml --tags kernel,modules,containerd -i k8sn1,
 ---
 # These hosts are Ubuntu 24.04 LTS (noble), not Debian: k8smaster is a
 # workstation-class machine (Raptor Lake-P, Iris Xe) and k8sn1-k8sn5 are identical
@@ -38,8 +42,11 @@
     # pods -- `lsmod` still shows i915 loaded, which is why this looks like a module
     # problem but is not one. No 6.8.x point release fixes it (verified: 6.8.0-142 still
     # lacks 46D4); the HWE kernel (7.0.x) has 46D3/46D4 and binds correctly.
-    # k8smaster's Iris Xe (8086:a7a0) is supported by 6.8 already, so set this to false if
-    # you would rather leave the control plane on the GA kernel.
+    # Hosts deliberately left on the GA kernel. k8smaster's Iris Xe (8086:a7a0) is supported
+    # by 6.8, and as the control plane it should only take a kernel jump when someone means
+    # it -- not at its next reboot on the back of a GPU fix it does not need.
+    hwe_kernel_exclude:
+      - k8smaster
     install_hwe_kernel: true
     hwe_kernel_packages:
       - linux-generic-hwe-24.04
@@ -164,7 +171,7 @@
         # Needed so this task stands on its own under --tags kernel, where the
         # untagged "Update and upgrade apt system packages" task above is skipped.
         update_cache: yes
-      when: install_hwe_kernel | bool
+      when: install_hwe_kernel | bool and inventory_hostname not in hwe_kernel_exclude
       tags: [kernel, gpu]
 
     # A staged kernel only takes effect on reboot, and a rebuild that stops here comes back
@@ -187,6 +194,7 @@
           {{ hwe_kernel_packages | join(', ') }}, then re-run this play to confirm.
       when:
         - install_hwe_kernel | bool
+        - inventory_hostname not in hwe_kernel_exclude
         - running_kernel.stdout | length > 0
         - not running_kernel.stdout.startswith('7.')
       tags: [kernel, gpu]
