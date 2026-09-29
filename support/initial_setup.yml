@@ -1,0 +1,394 @@
+# ansible-playbook initial_setup.yml -K -i k8smaster,k8sn1,k8sn2,k8sn3,k8sn4,k8sn5
+---
+# These hosts are Ubuntu 24.04 LTS (noble), not Debian: k8smaster is a
+# workstation-class machine (Raptor Lake-P, Iris Xe) and k8sn1-k8sn5 are identical
+# Alder Lake-N mini-PCs. The difference that actually bites is the kernel/iGPU pair,
+# which is what the HWE kernel task below is for.
+- name: Prepare Ubuntu 24.04 (noble) systems for Kubernetes with kubeadm
+  hosts: all
+  become: yes
+
+  vars:
+    # Minor version of the pkgs.k8s.io repo. Must match the cluster: the control plane runs
+    # v1.35 and kubelet/kubectl are on v1.35.8, so v1.35 is the only repo a rebuild should
+    # pull from. The v1.33 line this used to pin is stale and would install 1.33 binaries.
+    kubernetes_version: v1.35
+
+    # Held after install (see the hold task below) so that only a deliberate upgrade can move
+    # them. containerd is deliberately absent: it is a runtime, and pinning it would block
+    # security fixes.
+    kubernetes_packages:
+      - kubelet
+      - kubeadm
+      - kubectl
+
+    # The API server is reached by name, never by address. kubeadm derives the serving
+    # certificate's SANs from whatever address the node holds at the moment the cert is
+    # generated, so an IP-based endpoint stops verifying as soon as DHCP moves that node --
+    # which is exactly what broke the cluster when k8smaster moved .74 -> .76. The name
+    # below resolves through the internal zone and never moves; the IP is declared only so
+    # that a client configured with an address instead of the name can still verify.
+    control_plane_endpoint: k8smaster:6443
+    control_plane_ip: 192.168.0.76 # must match the k8smaster DHCP reservation
+
+    # Ubuntu 24.04's GA kernels (6.8.x) ship an i915 driver whose device table does not
+    # list the PCI ID of the Alder Lake-N iGPU in the k8sn1-k8sn5 mini-PCs (8086:46d4 --
+    # 6.8.x only knows 46D0/46D1/46D2). With no matching ID the driver never probes the
+    # device, /dev/dri is never created, and the GPU is invisible to the kubelet and to
+    # pods -- `lsmod` still shows i915 loaded, which is why this looks like a module
+    # problem but is not one. No 6.8.x point release fixes it (verified: 6.8.0-142 still
+    # lacks 46D4); the HWE kernel (7.0.x) has 46D3/46D4 and binds correctly.
+    # k8smaster's Iris Xe (8086:a7a0) is supported by 6.8 already, so set this to false if
+    # you would rather leave the control plane on the GA kernel.
+    install_hwe_kernel: true
+    hwe_kernel_packages:
+      - linux-generic-hwe-24.04
+
+    # Modules the cluster needs at boot: CNI/kube-proxy (overlay, br_netfilter), Longhorn
+    # (dm_thin_pool, nvme-tcp, dm_crypt, iscsi_tcp) and the NFS client/server behind the
+    # RWX volumes and backup jobs.
+    kernel_modules:
+      - overlay
+      - br_netfilter
+      - dm_thin_pool
+      - nvme-tcp
+      - dm_crypt
+      - iscsi_tcp
+      - nfs
+      - nfsd
+
+  tasks:
+
+    - name: Stop and disable AppArmor
+      systemd:
+        name: apparmor
+        state: stopped
+        enabled: no
+
+    - name: Stop and disable multipathd
+      systemd:
+        name: multipathd
+        state: stopped
+        enabled: no
+
+    - name: Remove swap line
+      lineinfile:
+        path: /etc/fstab
+        regexp: '^.*swap.*'
+        state: absent
+
+    - name: Disable swap
+      command: swapoff -a
+
+    - name: Allow all users to run sudo without a password
+      copy:
+        dest: /etc/sudoers.d/nopasswd
+        content: "%sudo ALL=(ALL) NOPASSWD:ALL\n"
+        mode: '0660'  # Ensures the file has the appropriate permissions
+
+
+    # One list (kernel_modules) drives both the immediate modprobe and the boot config. The
+    # previous version kept two hard-coded lists that had already drifted -- nfs/nfsd were
+    # modprobed but never persisted -- and it appended to /etc/modules, which Ubuntu 24.04
+    # itself marks obsolete in favour of /etc/modules-load.d/.
+    - name: Load required kernel modules
+      modprobe:
+        name: "{{ item }}"
+        state: present
+      loop: "{{ kernel_modules }}"
+      tags: modules
+
+    - name: Persist required kernel modules for boot
+      copy:
+        dest: /etc/modules-load.d/kubernetes.conf
+        mode: '0644'
+        content: |
+          # Managed by initial_setup.yml -- modules Kubernetes and the storage stack
+          # need loaded on every boot.
+          {% for module in kernel_modules %}
+          {{ module }}
+          {% endfor %}
+      tags: modules
+
+    # Drop the same modules from the obsolete file so there is only one place that decides
+    # what loads at boot.
+    - name: Remove the obsolete /etc/modules entries
+      lineinfile:
+        path: /etc/modules
+        line: "{{ item }}"
+        state: absent
+      loop: "{{ kernel_modules }}"
+      tags: modules
+
+    - name: Enable IP forwarding
+      sysctl:
+        name: net.ipv4.ip_forward
+        value: 1
+        state: present
+        reload: yes
+
+    - name: Enable huge pages
+      sysctl:
+        name: vm.nr_hugepages
+        value: 2048
+        state: present
+        reload: yes
+
+
+    - name: Enable bridge-nf for iptables
+      sysctl:
+        name: "{{ item }}"
+        value: 1
+        state: present
+        reload: yes
+      loop:
+        - net.bridge.bridge-nf-call-iptables
+        - net.bridge.bridge-nf-call-ip6tables
+
+
+    - name: Update and upgrade apt system packages
+      apt:
+        update_cache: yes
+        upgrade: dist
+
+    # Ubuntu 24.04 points fresh installs at the GA kernel (6.8.x), which cannot drive the
+    # mini-PCs' iGPU -- see the install_hwe_kernel comment for the evidence. The HWE
+    # meta-package puts the node on the supported 7.0.x track: it pulls linux-image,
+    # linux-modules and linux-headers 7.0.x, and because 7.0.x always sorts newer than
+    # 6.8.x, GRUB's default entry stays on it across later apt/unattended upgrades (so
+    # linux-generic itself does not have to be removed).
+    - name: Install the HWE kernel for iGPU support
+      apt:
+        name: "{{ hwe_kernel_packages }}"
+        state: present
+        # Needed so this task stands on its own under --tags kernel, where the
+        # untagged "Update and upgrade apt system packages" task above is skipped.
+        update_cache: yes
+      when: install_hwe_kernel | bool
+      tags: [kernel, gpu]
+
+    # A staged kernel only takes effect on reboot, and a rebuild that stops here comes back
+    # with no graphics support -- silently, since i915 loads either way. Say so loudly
+    # rather than leave the next person to rediscover it.
+    # check_mode: false so this still reports the real kernel during a --check run;
+    # the command is read-only, so running it is harmless.
+    - name: Check which kernel is running
+      command: uname -r
+      changed_when: false
+      check_mode: false
+      register: running_kernel
+      tags: [kernel, gpu]
+
+    - name: Warn when the running kernel is not the HWE kernel
+      debug:
+        msg: >-
+          Running kernel {{ running_kernel.stdout }} is not on the HWE 7.0.x track, so this
+          node's iGPU has no driver and /dev/dri will not exist. Reboot to pick up
+          {{ hwe_kernel_packages | join(', ') }}, then re-run this play to confirm.
+      when:
+        - install_hwe_kernel | bool
+        - running_kernel.stdout | length > 0
+        - not running_kernel.stdout.startswith('7.')
+      tags: [kernel, gpu]
+
+    - name: Check for the iGPU render node
+      stat:
+        path: /dev/dri/renderD128
+      register: dri_render_node
+      tags: [kernel, gpu]
+
+    - name: Warn when the iGPU driver did not bind
+      debug:
+        msg: >-
+          /dev/dri/renderD128 is missing, so the graphics driver did not bind. Check
+          `lspci -nnk -s 00:02.0` (expect "Kernel driver in use: i915") and
+          `dmesg | grep i915` before scheduling GPU work on this node.
+      when: not dri_render_node.stat.exists
+      tags: [kernel, gpu]
+
+    - name: Add Kubernetes apt key
+      apt_key:
+        url: "https://pkgs.k8s.io/core:/stable:/{{ kubernetes_version }}/deb/Release.key"
+
+    - name: Add Kubernetes apt repository
+      apt_repository:
+        repo: "deb https://pkgs.k8s.io/core:/stable:/{{ kubernetes_version }}/deb/ /"
+        filename: kubernetes
+
+    - name: Install system packages
+      apt:
+        name:
+          - vim
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - sudo
+          - nfs-common
+          - smartmontools
+        state: latest
+
+
+    - name: Install k8s packages
+      apt:
+        name: "{{ ['containerd'] + kubernetes_packages }}"
+
+    # Pinned straight after install so only a deliberate upgrade can move them: unhold
+    # kubeadm, install the newer kubeadm, `kubeadm upgrade apply`, re-hold -- then per node
+    # unhold/install/re-hold kubelet+kubectl and restart kubelet, one node at a time.
+    # Without the holds the packages drift apart, which is exactly how kubelet reached 1.35.8
+    # while kubeadm sat held at 1.35.6 and the control plane could never follow.
+    - name: Hold the Kubernetes packages against uncontrolled upgrades
+      ansible.builtin.dpkg_selections:
+        name: "{{ item }}"
+        selection: hold
+      loop: "{{ kubernetes_packages }}"
+
+    - name: Ensure /var/lib/longhorn exists
+      file:
+        path: /var/lib/longhorn
+        state: directory
+
+    - name: Ensure containerd configuration directory exists
+      file:
+        path: /etc/containerd
+        state: directory
+
+    - name: Generate default containerd configuration
+      command: containerd config default
+      register: containerd_config
+      changed_when: false
+
+    - name: Write containerd configuration to /etc/containerd/config.toml
+      copy:
+        content: "{{ containerd_config.stdout }}"
+        dest: /etc/containerd/config.toml
+        mode: '0644'
+        force: no
+
+    - name: Set SystemdCgroup to true in containerd configuration
+      replace:
+        path: /etc/containerd/config.toml
+        regexp: '(.*SystemdCgroup = .*)false'
+        replace: '\1true'
+
+    # containerd's CRI plugin creates an fsnotify watcher for the CNI config directory, and
+    # when the per-UID inotify instance limit is exhausted it fails to load *entirely*
+    # ("failed to create fsnotify watcher: too many open files"), which leaves the node
+    # NotReady with kubelet unable to start pods. Ubuntu's default of 128 is low for a busy
+    # host: k8smaster was already at 142 instances, so its containerd did not come back
+    # after a plain restart until this was raised. Harmless where unused, so set everywhere.
+    - name: Raise the inotify instance limit for containerd and kubelet
+      sysctl:
+        name: fs.inotify.max_user_instances
+        value: 8192
+        state: present
+        reload: yes
+      tags: containerd
+
+    # Device plugins that inject devices through CDI (the Intel GPU plugin behind
+    # gpu.intel.com/i915, and NVIDIA's CDI path) are silently useless while this is false:
+    # the scheduler hands out the resource, but the device files never appear in the
+    # container. containerd 2.x generates enable_cdi = false in its default config, so this
+    # flips the key that "containerd config default" always writes.
+    - name: Enable CDI in containerd so device plugins can inject devices
+      lineinfile:
+        path: /etc/containerd/config.toml
+        regexp: '^(\s*)enable_cdi\s*=.*'
+        line: '\1enable_cdi = true'
+        backrefs: yes
+      register: containerd_cdi
+      tags: containerd
+
+    - name: Restart containerd after changing the CDI setting
+      systemd:
+        name: containerd
+        state: restarted
+      when: containerd_cdi.changed
+      tags: containerd
+
+    - name: Ensure containerd is restarted
+      systemd:
+        name: containerd
+        state: restarted
+
+
+    - name: Ensure containerd is started and enabled
+      systemd:
+        name: containerd
+        state: started
+        enabled: yes
+
+    - name: Copy CA certificate from localhost to target
+      copy:
+        src: ~/.ssl/ca.crt  # Directly specify the local path
+        dest: /usr/local/share/ca-certificates/ca.crt  # Destination path on the target
+      register: copy_result
+
+    - name: Update CA certificates if copy was successful
+      command: update-ca-certificates
+      when: copy_result.changed
+
+    - name: Allow other users in s3fs
+      ansible.builtin.lineinfile:
+        path: /etc/fuse.conf
+        regexp: '^#?user_allow_other'
+        line: 'user_allow_other'
+
+    # Reproduces the control plane's identity on a rebuild instead of letting it default to
+    # whichever address the node happens to hold. Pass with `kubeadm init --config`, and use
+    # it for `kubeadm init phase certs` whenever a cert has to be regenerated.
+    #
+    # Two things here are load-bearing and were learned the hard way:
+    #
+    # 1. certSANs accepts only IP addresses and DNS names -- kubeadm rejects a CIDR
+    #    ("altname is not a valid IP address, DNS label...") -- so the DHCP lease can never be
+    #    covered by a subnet. That is why the endpoint is a name and the IP is listed
+    #    explicitly: components that dial the address instead of the name (notably the
+    #    kubelet's webhook authorizer, which posts SubjectAccessReviews to the node IP) fail
+    #    x509 verification without it, which breaks `kubectl exec`/port-forward.
+    # 2. localAPIEndpoint.advertiseAddress and the etcd serverCertSANs/peerCertSANs are what
+    #    put the node IP into the apiserver and etcd serving certs. Note `kubeadm certs renew`
+    #    re-signs with the EXISTING SANs and cannot add one, so after a node IP change the
+    #    certs must be regenerated with `kubeadm init phase certs ...` instead.
+    - name: Write the kubeadm ClusterConfiguration
+      copy:
+        dest: /etc/kubernetes/kubeadm-config.yaml
+        mode: '0600'
+        content: |
+          apiVersion: kubeadm.k8s.io/v1beta4
+          kind: InitConfiguration
+          localAPIEndpoint:
+            advertiseAddress: {{ control_plane_ip }}
+            bindPort: 6443
+          ---
+          apiVersion: kubeadm.k8s.io/v1beta4
+          kind: ClusterConfiguration
+          certificatesDir: /etc/kubernetes/pki
+          imageRepository: registry.k8s.io
+          controlPlaneEndpoint: {{ control_plane_endpoint }}
+          apiServer:
+            certSANs:
+              - k8smaster
+              - {{ control_plane_ip }}
+          networking:
+            dnsDomain: cluster.local
+            podSubnet: 10.244.0.0/16
+            serviceSubnet: 10.96.0.0/12
+          etcd:
+            local:
+              dataDir: /var/lib/etcd
+              serverCertSANs:
+                - k8smaster
+                - localhost
+                - {{ control_plane_ip }}
+                - 127.0.0.1
+                - "::1"
+              peerCertSANs:
+                - k8smaster
+                - localhost
+                - {{ control_plane_ip }}
+                - 127.0.0.1
+                - "::1"
+
+
+# kubeadm token create --print-join-command
