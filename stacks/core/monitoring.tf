@@ -17,13 +17,8 @@ module "smartctl" {
 }
 
 module "prometheus" {
-  source    = "../../modules/monitoring/prometheus"
-  namespace = "monitoring"
-  depends_on = [
-    module.network,
-    module.cert_man,
-    module.storage,
-  ]
+  source      = "../../modules/monitoring/prometheus"
+  namespace   = "monitoring"
   domain      = var.deployment.cluster.domains.private
   cert_issuer = var.deployment.cert_manager.external_issuer
 

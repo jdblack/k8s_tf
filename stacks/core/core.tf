@@ -5,9 +5,8 @@ module "network" {
 }
 
 module "storage" {
-  source     = "../../modules/storage"
-  namespace  = "kube-storage"
-  depends_on = [module.network]
+  source    = "../../modules/storage"
+  namespace = "kube-storage"
 
   backup_enabled  = var.backup_enabled
   backup_bucket   = var.deployment.storage.backup.bucket
@@ -25,6 +24,4 @@ module "cert_man" {
     AWS_REGION            = var.deployment.cert_manager.dns01.region
     R53_ZONEID            = var.deployment.cert_manager.dns01.zone_id
   }
-
-  depends_on = [module.network]
 }

@@ -12,7 +12,6 @@ module "harbor" {
   source      = "../../modules/harbor/core"
   cert_issuer = var.deployment.cert_manager.external_issuer
   domain      = var.deployment.cluster.domains.private
-  depends_on  = [module.network, module.storage, module.cert_man]
 }
 
 module "argo" {
