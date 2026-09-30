@@ -1,5 +1,6 @@
 module "egress" {
-  source = "../../network/firewalls/egress"
+  source    = "../../network/firewalls/policy"
+  direction = "egress"
 
   namespace    = var.namespace
   name         = "harbor-egress"
@@ -7,7 +8,8 @@ module "egress" {
 }
 
 module "egress_trivy" {
-  source = "../../network/firewalls/egress"
+  source    = "../../network/firewalls/policy"
+  direction = "egress"
 
   namespace      = var.namespace
   name           = "harbor-trivy-egress"
@@ -16,13 +18,14 @@ module "egress_trivy" {
 }
 
 module "egress_core" {
-  source = "../../network/firewalls/egress"
+  source    = "../../network/firewalls/policy"
+  direction = "egress"
 
   namespace    = var.namespace
   name         = "harbor-core-gateway-egress"
   pod_selector = { "app.kubernetes.io/component" = "core" }
 
-  to_peers = [{
+  peers = [{
     namespace    = var.gateway_namespace
     pod_selector = { "gateway.networking.k8s.io/gateway-name" = var.gateway_name }
     ports        = [{ port = 443 }]

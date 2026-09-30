@@ -12,13 +12,3 @@ module "gateway" {
 
   depends_on = [kubernetes_namespace_v1.namespace]
 }
-
-moved {
-  from = module.gateway_public
-  to   = module.gateway["public"]
-}
-
-moved {
-  from = module.gateway_private
-  to   = module.gateway["private"]
-}

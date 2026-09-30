@@ -1,7 +1,7 @@
-resource "kubernetes_deployment_v1" "this" {
+resource "kubernetes_deployment_v1" "vaultwarden" {
   metadata {
     name      = var.name
-    namespace = kubernetes_namespace_v1.this.metadata[0].name
+    namespace = kubernetes_namespace_v1.namespace.metadata[0].name
     labels    = local.labels
   }
 
@@ -63,7 +63,7 @@ resource "kubernetes_deployment_v1" "this" {
 resource "kubernetes_persistent_volume_claim_v1" "data" {
   metadata {
     name      = local.data_pvc_name
-    namespace = kubernetes_namespace_v1.this.metadata[0].name
+    namespace = kubernetes_namespace_v1.namespace.metadata[0].name
   }
 
   spec {

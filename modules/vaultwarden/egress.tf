@@ -1,6 +1,7 @@
 module "egress" {
-  source = "../network/firewalls/egress"
+  source    = "../network/firewalls/policy"
+  direction = "egress"
 
-  namespace = kubernetes_namespace_v1.this.metadata[0].name
+  namespace = kubernetes_namespace_v1.namespace.metadata[0].name
   name      = "vaultwarden-egress"
 }

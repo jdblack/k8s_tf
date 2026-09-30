@@ -1,10 +1,11 @@
 module "ingress_longhorn_system" {
-  source = "../network/firewalls/ingress"
+  source    = "../network/firewalls/policy"
+  direction = "ingress"
 
   namespace = var.longhorn_namespace
   name      = "longhorn-system-ingress"
 
-  from_peers = [
+  peers = [
     {
       namespace    = var.monitoring_namespace
       pod_selector = { "app.kubernetes.io/name" = "prometheus" }

@@ -1,7 +1,7 @@
 resource "kubernetes_secret_v1" "config" {
   metadata {
     name      = "${var.name}-config"
-    namespace = kubernetes_namespace_v1.this.metadata[0].name
+    namespace = kubernetes_namespace_v1.namespace.metadata[0].name
   }
 
   data = {

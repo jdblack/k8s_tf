@@ -1,5 +1,6 @@
 module "egress_csi_controller" {
-  source = "../../../network/firewalls/egress"
+  source    = "../../../network/firewalls/policy"
+  direction = "egress"
 
   namespace     = var.namespace
   name          = "seaweedfs-csi-controller-egress"
@@ -8,7 +9,8 @@ module "egress_csi_controller" {
 }
 
 module "egress_csi_node" {
-  source = "../../../network/firewalls/egress"
+  source    = "../../../network/firewalls/policy"
+  direction = "egress"
 
   namespace     = var.namespace
   name          = "seaweedfs-csi-node-egress"

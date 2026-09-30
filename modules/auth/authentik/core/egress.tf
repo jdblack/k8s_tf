@@ -1,12 +1,14 @@
 module "egress" {
-  source = "../../../network/firewalls/egress"
+  source    = "../../../network/firewalls/policy"
+  direction = "egress"
 
   namespace = var.namespace
   name      = "authentik-egress"
 }
 
 module "egress_worker" {
-  source = "../../../network/firewalls/egress"
+  source    = "../../../network/firewalls/policy"
+  direction = "egress"
 
   namespace     = var.namespace
   name          = "authentik-worker-egress"
@@ -15,13 +17,14 @@ module "egress_worker" {
 }
 
 module "egress_server_gateway" {
-  source = "../../../network/firewalls/egress"
+  source    = "../../../network/firewalls/policy"
+  direction = "egress"
 
   namespace    = var.namespace
   name         = "authentik-server-gateway-egress"
   pod_selector = { "app.kubernetes.io/component" = "server" }
 
-  to_peers = [{
+  peers = [{
     namespace    = var.gateway_namespace
     pod_selector = { "gateway.networking.k8s.io/gateway-name" = var.gateway_name }
     ports        = [{ port = 443 }]

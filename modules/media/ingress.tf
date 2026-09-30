@@ -3,7 +3,8 @@ locals {
 }
 
 module "ingress_baseline" {
-  source = "../network/firewalls/ingress"
+  source    = "../network/firewalls/policy"
+  direction = "ingress"
 
   namespace = var.namespace
   name      = "media-ingress"

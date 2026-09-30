@@ -33,7 +33,8 @@ resource "kubectl_manifest" "monitor" {
 # cert-manager-ingress only admits its own namespace and the nodes, so the scrape
 # needs its own rule.
 module "ingress_metrics" {
-  source = "../network/firewalls/ingress"
+  source    = "../network/firewalls/policy"
+  direction = "ingress"
 
   namespace = var.namespace
   name      = "cert-manager-metrics-ingress"
@@ -43,7 +44,7 @@ module "ingress_metrics" {
     "app.kubernetes.io/component" = "controller"
   }
 
-  from_peers = [{
+  peers = [{
     namespace    = var.monitoring_namespace
     pod_selector = { "app.kubernetes.io/name" = "prometheus" }
     ports        = [{ port = 9402 }]

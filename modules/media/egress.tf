@@ -1,5 +1,6 @@
 module "egress_baseline" {
-  source = "../network/firewalls/egress"
+  source    = "../network/firewalls/policy"
+  direction = "egress"
 
   namespace      = var.namespace
   name           = "media-baseline-egress"
@@ -7,7 +8,8 @@ module "egress_baseline" {
 }
 
 module "egress_ngf" {
-  source = "../network/firewalls/egress"
+  source    = "../network/firewalls/policy"
+  direction = "egress"
 
   namespace     = var.namespace
   name          = "ngf-egress"
@@ -16,7 +18,8 @@ module "egress_ngf" {
 }
 
 module "egress_ngf_cert_generator" {
-  source = "../network/firewalls/egress"
+  source    = "../network/firewalls/policy"
+  direction = "egress"
 
   namespace     = var.namespace
   name          = "ngf-cert-generator-egress"
@@ -25,13 +28,14 @@ module "egress_ngf_cert_generator" {
 }
 
 module "egress_outpost" {
-  source = "../network/firewalls/egress"
+  source    = "../network/firewalls/policy"
+  direction = "egress"
 
   namespace    = var.namespace
   name         = "authentik-outpost-egress"
   pod_selector = { "app.kubernetes.io/name" = "authentik-outpost" }
 
-  to_peers = [{
+  peers = [{
     namespace    = var.auth_namespace
     pod_selector = { "app.kubernetes.io/name" = "authentik", "app.kubernetes.io/component" = "server" }
     ports        = [{ port = 9000 }]

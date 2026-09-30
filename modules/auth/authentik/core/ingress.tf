@@ -1,10 +1,11 @@
 module "ingress" {
-  source = "../../../network/firewalls/ingress"
+  source    = "../../../network/firewalls/policy"
+  direction = "ingress"
 
   namespace = var.namespace
   name      = "authentik-ingress"
 
-  from_peers = concat(
+  peers = concat(
     [{
       namespace    = var.gateway_namespace
       pod_selector = { "gateway.networking.k8s.io/gateway-name" = var.gateway_name }
