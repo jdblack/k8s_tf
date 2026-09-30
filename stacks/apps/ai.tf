@@ -5,4 +5,8 @@ module "ai_deployment" {
   create_namespace = var.ai_create_namespace
   deployer_repo    = var.ai_deployer_repo
   deployer_path    = var.ai_deployer_path
+
+  # deployments/ai/ollama.yaml declares the model store's PersistentVolume, and cluster-scoped
+  # kinds are allow-listed. Keep this to the one kind the AoA actually needs.
+  cluster_resource_whitelist = [{ group = "", kind = "PersistentVolume" }]
 }

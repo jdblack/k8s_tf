@@ -35,5 +35,15 @@ resource "argocd_project" "project" {
         "argo-cd-admin-${local.project}"
       ]
     }
+
+    # Cluster-scoped kinds are allow-listed (an empty list denies them all), so an AoA that
+    # declares its own PersistentVolume has to name it here.
+    dynamic "cluster_resource_whitelist" {
+      for_each = var.cluster_resource_whitelist
+      content {
+        group = cluster_resource_whitelist.value.group
+        kind  = cluster_resource_whitelist.value.kind
+      }
+    }
   }
 }
