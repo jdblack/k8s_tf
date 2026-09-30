@@ -34,10 +34,6 @@ terraform {
       source  = "hashicorp/random"
       version = "3.8.1"
     }
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 6.0"
-    }
     tls = {
       source  = "hashicorp/tls"
       version = "4.2.1"
@@ -57,12 +53,6 @@ provider "helm" {
 
 provider "kubectl" {
   config_path = "~/.kube/config"
-}
-
-provider "aws" {
-  access_key = var.deployment.cert_manager.dns01.access_key
-  secret_key = var.deployment.cert_manager.dns01.secret_key
-  region     = var.deployment.cert_manager.dns01.region
 }
 
 provider "authentik" {
