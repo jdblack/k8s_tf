@@ -7,24 +7,24 @@ terraform {
 
   required_providers {
     kubectl = {
-      source  = "gavinbunney/kubectl"
-      version = "1.19.0"
+      source  = "alekc/kubectl"
+      version = "2.4.1"
     }
     kubernetes = {
       source  = "hashicorp/kubernetes"
-      version = "3.0.1"
+      version = "3.2.1"
     }
     helm = {
       source  = "hashicorp/helm"
-      version = "3.1.1"
+      version = "3.3.0"
     }
     harbor = {
       source  = "goharbor/harbor"
-      version = "3.10.17"
+      version = "3.12.5"
     }
     argocd = {
       source  = "argoproj-labs/argocd"
-      version = "7.12.4"
+      version = "7.17.0"
     }
     authentik = {
       source  = "goauthentik/authentik"
@@ -32,11 +32,11 @@ terraform {
     }
     random = {
       source  = "hashicorp/random"
-      version = "3.8.1"
+      version = "3.9.1"
     }
     tls = {
       source  = "hashicorp/tls"
-      version = "4.2.1"
+      version = "4.4.1"
     }
   }
 }

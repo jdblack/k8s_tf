@@ -10,7 +10,7 @@ terraform {
       source = "hashicorp/random"
     }
     kubectl = {
-      source = "gavinbunney/kubectl"
+      source = "alekc/kubectl"
     }
   }
 }
