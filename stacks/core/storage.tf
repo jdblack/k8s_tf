@@ -8,3 +8,8 @@ module "seaweedfs" {
   gateway_name      = module.network.gateway_name
   gateway_namespace = module.network.gateway_namespace
 }
+
+module "ai_models" {
+  source     = "../../modules/storage/ai_models"
+  depends_on = [module.seaweedfs]
+}
