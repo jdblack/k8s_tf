@@ -1,14 +1,18 @@
-# Namespace baseline, not prometheus-only: monitoring's other pods ship no policy of their own.
-module "ingress_baseline" {
+module "ingress" {
   source    = "../../network/firewalls/policy"
   direction = "ingress"
 
   namespace = var.namespace
-  name      = "monitoring-baseline-ingress"
+  name      = "seaweedfs-admin-ingress"
+
+  pod_selector = {
+    "app.kubernetes.io/name"     = "authentik-outpost"
+    "app.kubernetes.io/instance" = var.outpost_name
+  }
 
   peers = [{
     namespace    = var.gateway_namespace
     pod_selector = { "gateway.networking.k8s.io/gateway-name" = var.gateway_name }
-    ports        = [{ port = 3000 }]
+    ports        = [{ port = 9000 }]
   }]
 }

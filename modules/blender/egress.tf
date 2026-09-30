@@ -1,3 +1,4 @@
+# No ingress policy on purpose: LAN-facing share, nothing in-cluster mounts it.
 module "egress" {
   source    = "../network/firewalls/policy"
   direction = "egress"

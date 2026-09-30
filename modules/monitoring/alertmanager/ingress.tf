@@ -1,4 +1,4 @@
-# monitoring-ingress only opens 3000 to the gateway, so the outpost needs its own rule.
+# monitoring-baseline-ingress only opens 3000 to the gateway, so the outpost needs its own rule.
 module "ingress_outpost" {
   source    = "../../network/firewalls/policy"
   direction = "ingress"

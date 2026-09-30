@@ -2,6 +2,7 @@ variable "namespace" { default = "kube-backup" }
 
 variable "gateway_name" { default = "private" }
 variable "gateway_namespace" { default = "kube-network" }
+variable "monitoring_namespace" { default = "monitoring" }
 
 variable "bucket" { type = string }
 variable "region" { type = string }

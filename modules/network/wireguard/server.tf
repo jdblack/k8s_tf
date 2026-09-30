@@ -1,3 +1,4 @@
+# No netpols by intent: clients must reach the LAN, which firewalls/policy can't express.
 resource "kubectl_manifest" "wireguard_server" {
   depends_on = [helm_release.wireguard_operator]
   yaml_body = yamlencode({

@@ -8,6 +8,8 @@ module "backup" {
 
   gateway_name      = var.gateway_name
   gateway_namespace = var.gateway_namespace
+
+  monitoring_namespace = var.monitoring_namespace
 }
 
 locals {

@@ -9,7 +9,7 @@ module "ingress_baseline" {
     {
       namespace    = var.gateway_namespace
       pod_selector = { "gateway.networking.k8s.io/gateway-name" = var.gateway_name }
-      ports        = [{ port = 8333 }, { port = 9333 }, { port = 9000 }]
+      ports        = [{ port = 8333 }, { port = 9333 }]
     },
     {
       namespace    = var.monitoring_namespace
