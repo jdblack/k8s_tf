@@ -4,4 +4,7 @@ module "seaweedfs" {
   cert_issuer = var.deployment.cert_manager.external_issuer
   domains     = var.deployment.cluster.domains
   data_center = var.deployment.storage.data_center
+
+  gateway_name      = module.network.gateway_name
+  gateway_namespace = module.network.gateway_namespace
 }

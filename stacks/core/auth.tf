@@ -11,5 +11,9 @@ module "authentik" {
   fqdn        = "auth.${var.deployment.cluster.domains.private}"
   cert_issuer = var.deployment.cert_manager.external_issuer
   pod_cidr    = var.deployment.network.pod_cidr
-  depends_on  = [kubernetes_namespace_v1.auth]
+
+  gateway_name      = module.network.gateway_name
+  gateway_namespace = module.network.gateway_namespace
+
+  depends_on = [kubernetes_namespace_v1.auth]
 }

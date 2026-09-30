@@ -22,6 +22,9 @@ module "prometheus" {
   domain      = var.deployment.cluster.domains.private
   cert_issuer = var.deployment.cert_manager.external_issuer
 
+  gateway_name      = module.network.gateway_name
+  gateway_namespace = module.network.gateway_namespace
+
   # Absent keys leave Alertmanager on its silent default receiver.
   pushover_user_key     = try(var.deployment.monitoring.pushover.user_key, "")
   pushover_token        = try(var.deployment.monitoring.pushover.token, "")

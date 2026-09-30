@@ -12,6 +12,9 @@ module "harbor" {
   source      = "../../modules/harbor/core"
   cert_issuer = var.deployment.cert_manager.external_issuer
   domain      = var.deployment.cluster.domains.private
+
+  gateway_name      = module.network.gateway_name
+  gateway_namespace = module.network.gateway_namespace
 }
 
 module "argo" {
@@ -19,6 +22,9 @@ module "argo" {
   source      = "../../modules/argo/core"
   domain      = var.deployment.cluster.domains.private
   cert_issuer = var.deployment.cert_manager.external_issuer
+
+  gateway_name      = module.network.gateway_name
+  gateway_namespace = module.network.gateway_namespace
 }
 
 output "harbor_pass" {

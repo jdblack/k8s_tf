@@ -8,6 +8,9 @@ module "storage" {
   source    = "../../modules/storage"
   namespace = "kube-storage"
 
+  gateway_name      = module.network.gateway_name
+  gateway_namespace = module.network.gateway_namespace
+
   backup_enabled  = var.backup_enabled
   backup_bucket   = var.deployment.storage.backup.bucket
   backup_region   = var.deployment.storage.backup.region
