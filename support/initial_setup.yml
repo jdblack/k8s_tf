@@ -53,7 +53,10 @@
 
     # Modules the cluster needs at boot: CNI/kube-proxy (overlay, br_netfilter), Longhorn
     # (dm_thin_pool, nvme-tcp, dm_crypt, iscsi_tcp) and the NFS client/server behind the
-    # RWX volumes and backup jobs.
+    # RWX volumes and backup jobs. The last two are the hardware watchdog: the mini-PCs
+    # expose the PCH TCO through iTCO_wdt, while k8smaster's BIOS instead publishes an ACPI
+    # WDAT table that owns the TCO, so it needs wdat_wdt. Each module loads harmlessly where
+    # its hardware is absent, and whichever one binds creates /dev/watchdog for systemd.
     kernel_modules:
       - overlay
       - br_netfilter
@@ -63,6 +66,8 @@
       - iscsi_tcp
       - nfs
       - nfsd
+      - iTCO_wdt
+      - wdat_wdt
 
   tasks:
 
@@ -126,6 +131,67 @@
         state: absent
       loop: "{{ kernel_modules }}"
       tags: modules
+
+
+    # The NMI/soft-lockup detectors only *report* a wedged CPU; they never reset the board.
+    # This arms the real hardware watchdog instead -- iTCO_wdt on the mini-PCs, wdat_wdt on
+    # k8smaster (ACPI WDAT) -- which systemd pets from PID 1. If the kernel stops scheduling,
+    # the PCH/ACPI timer resets the box on its own, turning a silent freeze into an automatic
+    # reboot: unlike a hand power-cycle, that reboot lands in the journal and in pstore, which
+    # is the only way to see what a frozen k8sn2 was doing. RuntimeWatchdogSec is the device
+    # timeout; systemd pets it at half that interval.
+    - name: Enable the systemd hardware watchdog
+      copy:
+        dest: /etc/systemd/system.conf.d/watchdog.conf
+        mode: '0644'
+        content: |
+          [Manager]
+          RuntimeWatchdogSec=30s
+          ShutdownWatchdogSec=5min
+      register: watchdog_conf
+      tags: watchdog
+
+    # daemon-reexec reloads the manager's config (RuntimeWatchdogSec) and opens /dev/watchdog
+    # without a reboot. Gated so it only fires when the drop-in actually changed.
+    - name: Apply the watchdog to the running manager
+      command: systemctl daemon-reexec
+      when: watchdog_conf.changed
+      changed_when: true
+      tags: watchdog
+
+    # A detected hard lockup otherwise just prints to a console nobody reads. Escalate it to a
+    # panic so the existing kernel.panic=10 reboot fires and pstore keeps the trace.
+    # softlockup_panic is deliberately left off: it is false-positive prone on a loaded node.
+    - name: Panic on a detected hard lockup so the reboot captures it
+      sysctl:
+        name: kernel.hardlockup_panic
+        value: 1
+        state: present
+        reload: yes
+      tags: watchdog
+
+    # Say out loud whether the device actually showed up, so a --check run or a fleet rollout
+    # shows which nodes would (not) get a working watchdog.
+    - name: Report the systemd watchdog timeout
+      command: systemctl show -p RuntimeWatchdogUSec --value
+      changed_when: false
+      check_mode: false
+      register: watchdog_state
+      tags: watchdog
+
+    - name: Check for the watchdog device
+      stat:
+        path: /dev/watchdog
+      register: watchdog_dev
+      tags: watchdog
+
+    - name: Report the watchdog state
+      debug:
+        msg: >-
+          /dev/watchdog {{ 'present' if watchdog_dev.stat.exists else 'MISSING' }};
+          systemd RuntimeWatchdogUSec={{ watchdog_state.stdout }}
+      tags: watchdog
+
 
     - name: Enable IP forwarding
       sysctl:
