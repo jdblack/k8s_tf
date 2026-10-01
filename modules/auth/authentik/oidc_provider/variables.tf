@@ -19,6 +19,17 @@ variable "bind_app" {
   description = "Bind the application to this module's own <name>-admin and <name>-user groups; off leaves the app unbounded unless group_id is set."
 }
 
+variable "client_type" {
+  type        = string
+  default     = "confidential"
+  description = "OAuth2 client type. A browser app cannot keep a secret, so a frontend doing the code exchange itself needs `public` -- as `confidential` it fails authentication at the token endpoint."
+
+  validation {
+    condition     = contains(["confidential", "public"], var.client_type)
+    error_message = "client_type must be confidential or public."
+  }
+}
+
 variable "meta_icon" {
   type    = string
   default = null

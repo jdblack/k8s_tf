@@ -11,6 +11,10 @@ module "oidc" {
     "https://${local.fqdn}/oidc-silent-redirect.html",
   ]
 
+  # ownCloud Web does the code exchange in the browser, so there is nowhere to keep a
+  # client secret; as a confidential client every login fails with invalid_client.
+  client_type = "public"
+
   bind_app = true
 }
 

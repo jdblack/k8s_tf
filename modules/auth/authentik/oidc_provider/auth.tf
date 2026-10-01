@@ -54,6 +54,7 @@ resource "authentik_provider_oauth2" "oauth2" {
   invalidation_flow  = data.authentik_flow.default-provider-invalidation-flow.id
   authorization_flow = data.authentik_flow.default-authorization-flow.id
   signing_key        = authentik_certificate_key_pair.signing.id
+  client_type        = var.client_type
 
   # An omitted grant list is empty in authentik 2026.x, which rejects every flow, authorization_code
   # included; these are the grants the providers created before that default have.
