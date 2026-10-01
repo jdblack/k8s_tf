@@ -151,6 +151,27 @@
       register: watchdog_conf
       tags: watchdog
 
+    # systemd-modules-load runs in sysinit -- after PID1 has already tried to open
+    # /dev/watchdog -- and systemd does not retry, so on a fresh boot the device has to
+    # exist before the manager starts. Neither box ships these modules in its initramfs, so
+    # pull them in; without this the watchdog only arms on a daemon-reexec, not on boot.
+    - name: Include the watchdog modules in the initramfs
+      lineinfile:
+        path: /etc/initramfs-tools/modules
+        line: "{{ item }}"
+        create: yes
+      loop:
+        - iTCO_wdt
+        - wdat_wdt
+      register: initramfs_modules
+      tags: watchdog
+
+    - name: Rebuild the initramfs so the watchdog binds before systemd starts
+      command: update-initramfs -u
+      when: initramfs_modules.changed
+      changed_when: true
+      tags: watchdog
+
     # daemon-reexec reloads the manager's config (RuntimeWatchdogSec) and opens /dev/watchdog
     # without a reboot. Gated so it only fires when the drop-in actually changed.
     - name: Apply the watchdog to the running manager
