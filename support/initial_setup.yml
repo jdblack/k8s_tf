@@ -221,6 +221,155 @@
       tags: watchdog
 
 
+    # ---------------------------------------------------------------------------------------
+    # pstore: capture a kernel panic into firmware NVRAM so it survives the reboot. On panic
+    # the kernel dumps dmesg into an EFI variable (dump-type0-*); on the next boot
+    # systemd-pstore archives it to /var/lib/systemd/pstore and clears the raw variable.
+    # efi_pstore is auto-loaded and systemd-pstore ships enabled on Ubuntu, but neither is
+    # guaranteed on a rebuilt node, so both are pinned here. The reporter then turns whatever
+    # is on disk into a node-exporter textfile metric (see the prometheus module's
+    # collector.textfile.directory) plus a journal line, so a panic that killed the box is
+    # still visible on the way back up. Nothing here needs a reboot.
+    # ---------------------------------------------------------------------------------------
+    - name: Ensure the pstore backend loads at boot
+      copy:
+        dest: /etc/modules-load.d/pstore.conf
+        mode: '0644'
+        content: |
+          # Managed by initial_setup.yml -- efi_pstore saves a panic's dmesg to an EFI
+          # variable so it outlives the crash. Archived on boot by systemd-pstore.service.
+          efi_pstore
+      tags: pstore
+
+    - name: Load the pstore backend now
+      modprobe:
+        name: efi_pstore
+        state: present
+      tags: pstore
+
+    - name: Configure pstore archival
+      file:
+        path: /etc/systemd/pstore.conf.d
+        state: directory
+        mode: '0755'
+      tags: pstore
+
+    - name: Move pstore records off the firmware variable and into /var
+      copy:
+        dest: /etc/systemd/pstore.conf.d/report.conf
+        mode: '0644'
+        content: |
+          # Managed by initial_setup.yml -- move records to /var/lib/systemd/pstore and
+          # delete the raw EFI variable so the firmware's variable store never fills up.
+          [PStore]
+          Storage=external
+          Unlink=yes
+      tags: pstore
+
+    - name: Archive pstore records on boot
+      systemd:
+        name: systemd-pstore.service
+        enabled: yes
+      tags: pstore
+
+    - name: Create the node-exporter textfile directory
+      file:
+        path: /var/lib/node_exporter/textfile
+        state: directory
+        mode: '0755'
+      tags: pstore
+
+    - name: Install the pstore reporter
+      copy:
+        dest: /usr/local/sbin/pstore-report
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          # Managed by initial_setup.yml. Turn captured pstore records into a node-exporter
+          # textfile metric plus a journal line, so a panic that killed the box is visible.
+          set -u
+          DIR=/var/lib/systemd/pstore
+          RAW=/sys/fs/pstore
+          OUTDIR=/var/lib/node_exporter/textfile
+          OUT="$OUTDIR/pstore.prom"
+          mkdir -p "$OUTDIR"
+          files=$(find "$DIR" "$RAW" -maxdepth 1 -type f 2>/dev/null | sort)
+          count=$(printf '%s\n' "$files" | grep -c .)
+          newest=$(find "$DIR" "$RAW" -maxdepth 1 -type f -printf '%T@\n' 2>/dev/null | sort -n | tail -1)
+          [ -n "$newest" ] || newest=0
+          tmp=$(mktemp "$OUTDIR/.pstore.XXXXXX")
+          {
+            echo '# HELP node_pstore_records pstore crash records present on this node'
+            echo '# TYPE node_pstore_records gauge'
+            echo "node_pstore_records $count"
+            echo '# HELP node_pstore_newest_mtime_seconds mtime of the newest pstore record'
+            echo '# TYPE node_pstore_newest_mtime_seconds gauge'
+            echo "node_pstore_newest_mtime_seconds $newest"
+          } > "$tmp"
+          chmod 0644 "$tmp"
+          mv "$tmp" "$OUT"
+          if [ "$count" -gt 0 ]; then
+            logger -t pstore-report "captured $count pstore record(s)"
+            grep -hiE 'panic|oops|BUG:|Call Trace|RIP:' $files 2>/dev/null | tail -20 | while read -r l; do
+              logger -t pstore-report "  $l"
+            done
+          fi
+      tags: pstore
+
+    - name: Report pstore records at boot
+      copy:
+        dest: /etc/systemd/system/pstore-report.service
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Report captured pstore crash records
+          After=systemd-pstore.service
+          Wants=systemd-pstore.service
+
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/local/sbin/pstore-report
+
+          [Install]
+          WantedBy=multi-user.target
+      register: pstore_report_unit
+      tags: pstore
+
+    - name: Refresh the pstore metric daily
+      copy:
+        dest: /etc/systemd/system/pstore-report.timer
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Daily refresh of the pstore metric
+
+          [Timer]
+          OnBootSec=10min
+          OnUnitActiveSec=1d
+          Persistent=true
+
+          [Install]
+          WantedBy=timers.target
+      register: pstore_report_timer
+      tags: pstore
+
+    - name: Reload systemd for the pstore units
+      systemd:
+        daemon_reload: yes
+      when: pstore_report_unit.changed or pstore_report_timer.changed
+      tags: pstore
+
+    - name: Enable the pstore reporter
+      systemd:
+        name: "{{ item }}"
+        enabled: yes
+        state: started
+      loop:
+        - pstore-report.service
+        - pstore-report.timer
+      tags: pstore
+
+
     - name: Enable IP forwarding
       sysctl:
         name: net.ipv4.ip_forward
