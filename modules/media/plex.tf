@@ -27,6 +27,26 @@ module "plex" {
     pms   = { configStorage = "30Gi" }
     image = { tag = "latest", pullPolicy = "Always" }
 
+    # Anchor label for co-location: the other library consumers use podAffinity to
+    # follow this pod's node so they all share one node-local SeaweedFS read cache.
+    commonLabels = { "movies-archive" = "anchor" }
+
+    # Keep the media stack off the controller node: k8smaster has no control-plane
+    # label or taint, so exclude it by hostname.
+    affinity = {
+      nodeAffinity = {
+        requiredDuringSchedulingIgnoredDuringExecution = {
+          nodeSelectorTerms = [{
+            matchExpressions = [{
+              key      = "kubernetes.io/hostname"
+              operator = "NotIn"
+              values   = ["k8smaster"]
+            }]
+          }]
+        }
+      }
+    }
+
     # Velero fs-backup is opt-in per pod volume; `pms-config` is the chart's own volume name.
     statefulSet = { podAnnotations = { "backup.velero.io/backup-volumes" = "pms-config" } }
 

@@ -12,6 +12,34 @@ locals {
 
   # Velero fs-backup is opt-in per pod volume, and `config` is each arr chart's own volume name.
   arr_backup_annotations = { "backup.velero.io/backup-volumes" = "config" }
+
+  # Prefer the node where Plex (labelled movies-archive=anchor) runs, so every library
+  # consumer shares that node's single node-local SeaweedFS read cache.
+  anchor_affinity = {
+    podAffinity = {
+      preferredDuringSchedulingIgnoredDuringExecution = [{
+        weight = 100
+        podAffinityTerm = {
+          labelSelector = { matchLabels = { "movies-archive" = "anchor" } }
+          topologyKey   = "kubernetes.io/hostname"
+        }
+      }]
+    }
+    # Keep the stack off the controller node (no control-plane label/taint here, so
+    # exclude k8smaster by hostname) -- paired with the preferred podAffinity above so
+    # every consumer lands on Plex's node and shares its node-local read cache.
+    nodeAffinity = {
+      requiredDuringSchedulingIgnoredDuringExecution = {
+        nodeSelectorTerms = [{
+          matchExpressions = [{
+            key      = "kubernetes.io/hostname"
+            operator = "NotIn"
+            values   = ["k8smaster"]
+          }]
+        }]
+      }
+    }
+  }
 }
 
 module "radarr" {
@@ -34,6 +62,7 @@ module "radarr" {
     config          = local.arr_config
     podAnnotations  = local.arr_backup_annotations
     securityContext = local.arr_run_as
+    affinity        = local.anchor_affinity
   }
 }
 
@@ -58,6 +87,7 @@ module "sonarr" {
     config          = local.arr_config
     podAnnotations  = local.arr_backup_annotations
     securityContext = local.arr_run_as
+    affinity        = local.anchor_affinity
   }
 }
 
@@ -102,6 +132,7 @@ module "bazarr" {
     config          = local.arr_config
     podAnnotations  = local.arr_backup_annotations
     securityContext = local.arr_run_as
+    affinity        = local.anchor_affinity
   }
 }
 

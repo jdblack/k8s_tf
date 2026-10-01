@@ -66,6 +66,33 @@ resource "kubernetes_deployment_v1" "qbittorrent" {
           }
         }
 
+        # Follow the Plex anchor node (shares its node-local SeaweedFS cache) and stay
+        # off the controller node.
+        affinity {
+          pod_affinity {
+            preferred_during_scheduling_ignored_during_execution {
+              weight = 100
+              pod_affinity_term {
+                label_selector {
+                  match_labels = { "movies-archive" = "anchor" }
+                }
+                topology_key = "kubernetes.io/hostname"
+              }
+            }
+          }
+          node_affinity {
+            required_during_scheduling_ignored_during_execution {
+              node_selector_term {
+                match_expressions {
+                  key      = "kubernetes.io/hostname"
+                  operator = "NotIn"
+                  values   = ["k8smaster"]
+                }
+              }
+            }
+          }
+        }
+
         volume {
           name = local.app_data_name
           persistent_volume_claim {

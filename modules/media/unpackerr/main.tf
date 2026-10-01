@@ -52,6 +52,33 @@ resource "kubernetes_deployment_v1" "unpackerr" {
           fs_group_change_policy = "OnRootMismatch"
         }
 
+        # Follow the Plex anchor node (shares its node-local SeaweedFS cache) and stay
+        # off the controller node.
+        affinity {
+          pod_affinity {
+            preferred_during_scheduling_ignored_during_execution {
+              weight = 100
+              pod_affinity_term {
+                label_selector {
+                  match_labels = { "movies-archive" = "anchor" }
+                }
+                topology_key = "kubernetes.io/hostname"
+              }
+            }
+          }
+          node_affinity {
+            required_during_scheduling_ignored_during_execution {
+              node_selector_term {
+                match_expressions {
+                  key      = "kubernetes.io/hostname"
+                  operator = "NotIn"
+                  values   = ["k8smaster"]
+                }
+              }
+            }
+          }
+        }
+
         container {
           name              = var.name
           image             = "${var.image}:${var.image_tag}"
