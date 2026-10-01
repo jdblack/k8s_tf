@@ -41,6 +41,13 @@ resource "kubernetes_persistent_volume_v1" "movies_archive" {
       csi {
         driver        = "seaweedfs-csi-driver"
         volume_handle = "movies-archive"
+        volume_attributes = {
+          # Node-local, on-disk read cache for the FUSE mount (a mount-time knob;
+          # the driver default of 0 leaves it off). 5 GiB caps the local chunk
+          # cache on every node that stages movies-archive -- a repeat-read win
+          # for Plex and the *arr apps alike, since they share this one volume.
+          cacheCapacityMB = "5120"
+        }
       }
     }
   }
