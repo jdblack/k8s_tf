@@ -41,6 +41,21 @@ locals {
       enabled = false
     }
 
+    # The frontend exchanges its authorization code from the browser, so the token
+    # endpoint has to be reachable under connect-src. oCIS adds only the issuer there, and
+    # authentik serves tokens outside the issuer path -- so without this the exchange is
+    # blocked by CSP and the login page waits forever on "you are being redirected".
+    http = {
+      csp = {
+        directives = {
+          connectSrc = [
+            "'self'",
+            "${var.oidc_issuer_base}/application/o/token/",
+          ]
+        }
+      }
+    }
+
     # Renders the chart's own ServiceMonitor over the metrics-debug ports.
     monitoring = {
       enabled = var.metrics_enabled
