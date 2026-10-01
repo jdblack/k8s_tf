@@ -96,6 +96,12 @@ variable "password_length" {
   default = 40
 }
 
+variable "bind_password_key" {
+  type        = string
+  default     = "reva-ldap-bind-password"
+  description = "Key the bind password is published under. Defaults to the name oCIS's reva reads; a different consumer passes its own rather than inheriting that name."
+}
+
 variable "certificate_pem" {
   type        = string
   default     = null

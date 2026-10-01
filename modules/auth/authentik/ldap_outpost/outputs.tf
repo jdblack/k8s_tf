@@ -45,7 +45,7 @@ output "bind_password_secret" {
 }
 
 output "bind_password_secret_key" {
-  value = "reva-ldap-bind-password"
+  value = var.bind_password_key
 }
 
 output "provider_id" {

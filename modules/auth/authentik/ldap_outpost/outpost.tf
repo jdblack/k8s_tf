@@ -24,7 +24,7 @@ resource "kubernetes_secret_v1" "api" {
   }
 }
 
-# Key is the one the oCIS chart reads out of secretRefs.ldapSecretRef.
+# Named by the consumer: the key is whatever its client reads, not a property of the outpost.
 resource "kubernetes_secret_v1" "bind" {
   metadata {
     name      = "${var.service_name}-bind"
@@ -33,7 +33,7 @@ resource "kubernetes_secret_v1" "bind" {
   }
 
   data = {
-    "reva-ldap-bind-password" = random_password.bind_password.result
+    (var.bind_password_key) = random_password.bind_password.result
   }
 }
 
