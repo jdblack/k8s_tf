@@ -55,3 +55,10 @@ output "provider_id" {
 output "application_slug" {
   value = authentik_application.app.slug
 }
+
+# Published as a value as well as a Secret: the consumer runs in another namespace and
+# cannot read this one's Secrets.
+output "bind_password" {
+  value     = random_password.bind_password.result
+  sensitive = true
+}
