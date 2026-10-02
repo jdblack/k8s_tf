@@ -3,13 +3,20 @@
 module "oidc" {
   source = "../../auth/authentik/oidc_provider"
 
-  name         = var.name
+  name = var.name
+
+  # Compiled into the desktop client; web reads its id back out of this module.
+  client_id = var.desktop_client_id
+
   redirect_uri = "https://${local.fqdn}/"
 
   extra_redirect_uris = [
     "https://${local.fqdn}/oidc-callback.html",
     "https://${local.fqdn}/oidc-silent-redirect.html",
   ]
+
+  # Desktop login listens on a fresh loopback port, so only a pattern can name it.
+  regex_redirect_uris = ["http://127\\.0\\.0\\.1:\\d+"]
 
   # ownCloud Web does the code exchange in the browser, so there is nowhere to keep a
   # client secret; as a confidential client every login fails with invalid_client.

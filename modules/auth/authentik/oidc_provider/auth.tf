@@ -56,7 +56,7 @@ resource "authentik_property_mapping_provider_scope" "groups" {
 
 resource "authentik_provider_oauth2" "oauth2" {
   name               = var.name
-  client_id          = var.name
+  client_id          = coalesce(var.client_id, var.name)
   invalidation_flow  = data.authentik_flow.default-provider-invalidation-flow.id
   authorization_flow = data.authentik_flow.default-authorization-flow.id
   signing_key        = authentik_certificate_key_pair.signing.id
@@ -96,6 +96,13 @@ resource "authentik_provider_oauth2" "oauth2" {
     [
       for uri in var.extra_redirect_uris : {
         matching_mode     = "strict"
+        url               = uri
+        redirect_uri_type = "authorization"
+      }
+    ],
+    [
+      for uri in var.regex_redirect_uris : {
+        matching_mode     = "regex"
         url               = uri
         redirect_uri_type = "authorization"
       }

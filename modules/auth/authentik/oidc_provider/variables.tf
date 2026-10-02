@@ -1,10 +1,22 @@
 variable "name" { type = string }
 variable "redirect_uri" { type = string }
 
+variable "client_id" {
+  type        = string
+  default     = null
+  description = "Overrides the id authentik issues; null keeps the application slug. A client whose id is compiled in cannot be changed, so the provider matches it."
+}
+
 variable "extra_redirect_uris" {
   type        = list(string)
   default     = []
   description = "Additional authorization redirect URIs; a mobile client's custom scheme cannot be the single one."
+}
+
+variable "regex_redirect_uris" {
+  type        = list(string)
+  default     = []
+  description = "Authorization redirect URIs matched as patterns (fullmatch on the whole URI); a client choosing a random loopback port cannot be listed exactly."
 }
 
 variable "group_id" {

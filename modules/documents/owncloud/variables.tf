@@ -26,8 +26,17 @@ variable "chart_registry" {
 
 variable "image_tag" { default = "8.2.0" }
 
+variable "desktop_client_id" {
+  default     = "xdXOt13JKxym1B1QcEncf2XDkLAexMBFwiT9j6EfhhHFJhs2KM9jbjTmf8JBXE69"
+  description = "Client id the ownCloud desktop client has compiled in; the shipped build refuses system-config overrides, so the provider has to carry it."
+}
+
 variable "storage_class" { default = "longhorn" }
-variable "metadata_size" { default = "5Gi" }
+# Not really a metadata size: s3ng stages every upload on this claim before shipping the
+# blob to S3, so the claim has to hold the uploads that are in flight at once, not just the
+# largest one. A 5Gi default ignored that and filled up, and a full claim then fails every
+# later upload with a 507 that reads as a quota error.
+variable "metadata_size" { default = "15Gi" }
 variable "storagesystem_size" { default = "1Gi" }
 variable "nats_size" { default = "1Gi" }
 

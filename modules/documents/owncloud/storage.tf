@@ -1,6 +1,7 @@
-# The decomposedfs metadata is xattr-heavy, which is why it lands on longhorn's ext4
-# rather than a FUSE-backed class. Sized against the largest upload, since s3ng stages a
-# whole upload here before it ships the blob out.
+# The decomposedfs metadata is xattr-heavy, which is why it lands on longhorn's ext4 rather
+# than a FUSE-backed class. Almost nothing stored here is actually metadata though: s3ng
+# stages each whole upload before shipping the blob out, so the claim is sized by the
+# uploads in flight at once, not by the tree it describes. See metadata_size.
 resource "kubernetes_persistent_volume_claim_v1" "metadata" {
   metadata {
     name      = "owncloud-metadata"

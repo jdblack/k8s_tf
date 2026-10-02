@@ -139,6 +139,14 @@ locals {
 
     services = {
       storageusers = {
+        # The chart's maintenance jobs (cleanUpExpiredUploads, purgeExpiredTrashBinItems,
+        # restartPostprocessing) are deliberately left disabled. Each mounts this claim, which
+        # is ReadWriteOnce, so a job pod scheduled to another node dies on the Multi-Attach
+        # error -- and because the CronJobs are hardcoded Forbid, one wedged pod then blocks
+        # every later run. Upstream models these as offline CLI commands anyway, run by hand
+        # against the base path:
+        #   ocis storage-users uploads sessions --clean --expired --processing=false
+
         # Blobs go to SeaweedFS over S3; only the decomposedfs metadata stays on the claim.
         storageBackend = {
           driver = "s3ng"
@@ -194,7 +202,7 @@ locals {
         config = {
           oidc = {
             # Required by the schema, and it has to be the client authentik knows.
-            webClientID = module.oidc.client_id
+            webClientID    = module.oidc.client_id
             webClientScope = "openid profile email groups offline_access"
           }
         }
