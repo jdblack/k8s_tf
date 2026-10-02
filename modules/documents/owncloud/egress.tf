@@ -29,3 +29,14 @@ module "egress_ldap" {
     ports        = [{ port = var.ldap_port }]
   }]
 }
+
+# Plugin installs fetch from the internet, which the namespace baseline (DNS and self
+# only) does not admit.
+module "egress_internet" {
+  source    = "../../network/firewalls/policy"
+  direction = "egress"
+
+  namespace      = var.namespace
+  name           = "owncloud-internet-egress"
+  allow_internet = true
+}
