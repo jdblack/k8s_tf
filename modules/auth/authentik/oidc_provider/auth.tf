@@ -37,6 +37,12 @@ data "authentik_property_mapping_provider_scope" "openid" {
   scope_name = "openid"
 }
 
+# Built in, and the only thing that makes authentik mint a refresh token; without it a
+# client can renew only through the browser's silent-redirect iframe, which cookies block.
+data "authentik_property_mapping_provider_scope" "offline_access" {
+  scope_name = "offline_access"
+}
+
 resource "authentik_property_mapping_provider_scope" "groups" {
   name        = "OpenID 'groups' (${var.name})"
   scope_name  = "groups"
@@ -56,6 +62,9 @@ resource "authentik_provider_oauth2" "oauth2" {
   signing_key        = authentik_certificate_key_pair.signing.id
   client_type        = var.client_type
 
+  access_token_validity  = var.access_token_validity
+  refresh_token_validity = var.refresh_token_validity
+
   # An omitted grant list is empty in authentik 2026.x, which rejects every flow, authorization_code
   # included; these are the grants the providers created before that default have.
   grant_types = [
@@ -71,6 +80,7 @@ resource "authentik_provider_oauth2" "oauth2" {
   property_mappings = [
     data.authentik_property_mapping_provider_scope.email.id,
     data.authentik_property_mapping_provider_scope.openid.id,
+    data.authentik_property_mapping_provider_scope.offline_access.id,
     data.authentik_property_mapping_provider_scope.profile.id,
     authentik_property_mapping_provider_scope.groups.id,
   ]

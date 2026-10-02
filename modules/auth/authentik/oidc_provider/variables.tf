@@ -45,3 +45,15 @@ variable "open_in_new_tab" {
   type    = bool
   default = false
 }
+
+variable "access_token_validity" {
+  type        = string
+  default     = "days=7"
+  description = "OAuth2 access-token lifetime as an authentik duration. The minutes=10 default signs an idle client out mid-session, since its next in-page call cannot follow the login redirect it gets."
+}
+
+variable "refresh_token_validity" {
+  type        = string
+  default     = "days=30"
+  description = "Refresh-token lifetime as an authentik duration; authentik only issues a refresh token to a client that requests the offline_access scope."
+}

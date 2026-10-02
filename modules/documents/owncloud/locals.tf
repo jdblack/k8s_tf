@@ -195,11 +195,7 @@ locals {
           oidc = {
             # Required by the schema, and it has to be the client authentik knows.
             webClientID = module.oidc.client_id
-
-            # The role assignment above reads the groups claim, which only arrives if the
-            # frontend asks for it -- the chart's default scope omits it, and an admin
-            # without the claim is just a user.
-            webClientScope = "openid profile email groups"
+            webClientScope = "openid profile email groups offline_access"
           }
         }
       }
