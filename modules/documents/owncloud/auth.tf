@@ -13,6 +13,12 @@ module "oidc" {
   extra_redirect_uris = [
     "https://${local.fqdn}/oidc-callback.html",
     "https://${local.fqdn}/oidc-silent-redirect.html",
+
+    # The mobile apps' custom-scheme callbacks. Their client ids are aliased onto this provider
+    # by the auth-layer proxy, so the redirects have to be allowed here too.
+    "oc://android.owncloud.com",
+    "oc://ios.owncloud.com",
+    "oc.ios://ios.owncloud.com",
   ]
 
   # Desktop login listens on a fresh loopback port, so only a pattern can name it.
