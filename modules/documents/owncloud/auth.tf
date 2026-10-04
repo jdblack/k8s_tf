@@ -29,6 +29,9 @@ module "oidc" {
   client_type = "public"
 
   bind_app = true
+
+  meta_icon       = "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/owncloud.svg"
+  meta_launch_url = "https://${local.fqdn}"
 }
 
 # The outpost's bind Secret lives in the auth namespace and a pod can only read Secrets
