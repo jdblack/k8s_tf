@@ -12,6 +12,12 @@ module "backup" {
   offsite_access_key = var.backup_offsite_access_key
   offsite_secret_key = var.backup_offsite_secret_key
 
+  buckets_dest_bucket = var.backup_buckets_dest_bucket
+  buckets_region      = var.backup_buckets_region
+  buckets_endpoint    = var.backup_buckets_endpoint
+  buckets_access_key  = var.backup_buckets_access_key
+  buckets_secret_key  = var.backup_buckets_secret_key
+
   gateway_name      = var.gateway_name
   gateway_namespace = var.gateway_namespace
 

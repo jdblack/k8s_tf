@@ -15,6 +15,14 @@ variable "offsite_endpoint" { type = string }
 variable "offsite_access_key" { type = string }
 variable "offsite_secret_key" { type = string }
 
+# Offsite: the S3 -> B2 mirror of the SeaweedFS buckets (see offsite.tf).
+variable "buckets_dest_bucket" { type = string }
+variable "buckets_region" { type = string }
+variable "buckets_endpoint" { type = string }
+variable "buckets_access_key" { type = string }
+variable "buckets_secret_key" { type = string }
+variable "rclone_image" { default = "rclone/rclone:1.75.1" }
+
 variable "user" { default = "velero" }
 variable "role" { default = "admin" }
 
