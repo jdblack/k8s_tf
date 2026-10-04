@@ -19,3 +19,8 @@ variable "selector" {
 # retention policy: one backup per day, 7 days deep.
 variable "cron" { default = "0 3 * * *" }
 variable "ttl" { default = "168h" }
+
+# Offsite copy: every target also gets a weekly schedule on the offsite BSL. Empty name disables it.
+variable "weekly_storage_location" { default = "backblaze" }
+variable "weekly_cron" { default = "0 4 * * 0" }
+variable "weekly_ttl" { default = "720h" }

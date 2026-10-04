@@ -6,6 +6,12 @@ module "backup" {
   region   = var.backup_region
   endpoint = var.backup_endpoint
 
+  offsite_bucket     = var.backup_offsite_bucket
+  offsite_region     = var.backup_offsite_region
+  offsite_endpoint   = var.backup_offsite_endpoint
+  offsite_access_key = var.backup_offsite_access_key
+  offsite_secret_key = var.backup_offsite_secret_key
+
   gateway_name      = var.gateway_name
   gateway_namespace = var.gateway_namespace
 

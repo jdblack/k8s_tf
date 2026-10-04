@@ -6,7 +6,8 @@ module "egress" {
   name          = "velero-egress"
   allow_k8s_api = true
 
-  # The server and node-agent both upload to the S3 endpoint, which is the gateway hostname.
+  # Dailies upload to the local S3 via the gateway hostname; weeklies leave for Backblaze.
+  allow_internet = true
   peers = [{
     namespace    = var.gateway_namespace
     pod_selector = { "gateway.networking.k8s.io/gateway-name" = var.gateway_name }

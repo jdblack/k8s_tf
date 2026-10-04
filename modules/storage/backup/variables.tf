@@ -8,6 +8,13 @@ variable "bucket" { type = string }
 variable "region" { type = string }
 variable "endpoint" { type = string }
 
+# Offsite: a second BSL, used only by the weekly schedules.
+variable "offsite_bucket" { type = string }
+variable "offsite_region" { type = string }
+variable "offsite_endpoint" { type = string }
+variable "offsite_access_key" { type = string }
+variable "offsite_secret_key" { type = string }
+
 variable "user" { default = "velero" }
 variable "role" { default = "admin" }
 
