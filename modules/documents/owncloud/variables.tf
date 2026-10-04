@@ -70,4 +70,9 @@ variable "oidc_issuer_base" {
   description = "authentik root URL, e.g. https://auth.example.net. The issuer is derived from it and this module's name, which is the slug the OIDC application is created with."
 }
 
+variable "onlyoffice_url" {
+  type        = string
+  description = "ONLYOFFICE document server origin. The WOPI app registration and the CSP both derive from it."
+}
+
 variable "metrics_enabled" { default = true }

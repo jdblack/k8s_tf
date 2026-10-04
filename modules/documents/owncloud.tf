@@ -19,6 +19,11 @@ module "owncloud" {
 
   oidc_issuer_base = var.oidc_issuer_base
 
+  # The document server oCIS opens documents in. Referenced by the module output so the
+  # server rolls out before the oCIS chart, whose collaboration service reads its
+  # discovery endpoint at startup.
+  onlyoffice_url = "https://${module.onlyoffice.fqdn}"
+
   # The namespace has to exist before the app's claims, Secrets and policies land in it.
   depends_on = [kubernetes_namespace_v1.namespace]
 }

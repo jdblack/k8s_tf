@@ -42,16 +42,29 @@ locals {
     }
 
     # The frontend exchanges its authorization code from the browser, so the token
-    # endpoint has to be reachable under connect-src. oCIS adds only the issuer there, and
-    # authentik serves tokens outside the issuer path -- so without this the exchange is
-    # blocked by CSP and the login page waits forever on "you are being redirected".
+    # endpoint has to be reachable under connect-src.
     http = {
       csp = {
         directives = {
           connectSrc = [
             "'self'",
+
+            # authentik serves tokens outside the issuer path, so oCIS's own issuer entry
+            # does not cover the exchange and the login page waits forever on "you are
+            # being redirected".
             "${var.oidc_issuer_base}/application/o/token/",
+
+            # The editor iframe opens its co-editing websocket back here.
+            var.onlyoffice_url,
+            replace(var.onlyoffice_url, "https://", "wss://"),
           ]
+
+          # The editors are an iframe served by the document server.
+          childSrc = ["'self'", var.onlyoffice_url]
+          frameSrc = ["'self'", "blob:", var.onlyoffice_url]
+
+          # App icons are fetched from the document server for the file list.
+          imgSrc = ["'self'", "data:", "blob:", var.onlyoffice_url]
         }
       }
     }
@@ -62,6 +75,98 @@ locals {
     }
 
     features = {
+      # Office editing. oCIS runs the WOPI host here -- this flag deploys the collaboration
+      # service (the WOPI endpoint) and the app registry -- while the document server on
+      # the other end is the WOPI client.
+      appsIntegration = {
+        enabled = true
+
+        wopiIntegration = {
+          officeSuites = [{
+            name        = "OnlyOffice"
+            product     = "OnlyOffice"
+            enabled     = true
+            uri         = var.onlyoffice_url
+            description = "Edit office documents with ONLYOFFICE"
+            iconURI     = "${var.onlyoffice_url}/web-apps/apps/documenteditor/main/resources/img/favicon.ico"
+
+            # Both ends sit behind the shared gateway with a real certificate.
+            insecure = false
+
+            # The document server signs its WOPI requests with its own proof key.
+            disableProof = false
+
+            secureViewEnabled = false
+            disableChat       = true
+
+            # The WOPI endpoint stays internal: only the document server calls it, and it
+            # reaches it over the namespace-local Service.
+            ingress = {
+              enabled = false
+            }
+          }]
+        }
+
+        # Makes ONLYOFFICE the editor the file list opens these in, and offers them
+        # for creation.
+        mimetypes = [
+          {
+            mime_type      = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            extension      = "docx"
+            name           = "Text document"
+            description    = "Text document"
+            icon           = "image-edit"
+            default_app    = "OnlyOffice"
+            allow_creation = true
+          },
+          {
+            mime_type      = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            extension      = "xlsx"
+            name           = "Spreadsheet"
+            description    = "Spreadsheet"
+            icon           = "image-edit"
+            default_app    = "OnlyOffice"
+            allow_creation = true
+          },
+          {
+            mime_type      = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+            extension      = "pptx"
+            name           = "Presentation"
+            description    = "Presentation"
+            icon           = "image-edit"
+            default_app    = "OnlyOffice"
+            allow_creation = true
+          },
+          {
+            mime_type      = "application/vnd.oasis.opendocument.text"
+            extension      = "odt"
+            name           = "OpenDocument text"
+            description    = "OpenDocument text document"
+            icon           = "image-edit"
+            default_app    = "OnlyOffice"
+            allow_creation = true
+          },
+          {
+            mime_type      = "application/vnd.oasis.opendocument.spreadsheet"
+            extension      = "ods"
+            name           = "OpenDocument spreadsheet"
+            description    = "OpenDocument spreadsheet document"
+            icon           = "image-edit"
+            default_app    = "OnlyOffice"
+            allow_creation = true
+          },
+          {
+            mime_type      = "application/vnd.oasis.opendocument.presentation"
+            extension      = "odp"
+            name           = "OpenDocument presentation"
+            description    = "OpenDocument presentation document"
+            icon           = "image-edit"
+            default_app    = "OnlyOffice"
+            allow_creation = true
+          },
+        ]
+      }
+
       ocm = {
         enabled = false
       }
