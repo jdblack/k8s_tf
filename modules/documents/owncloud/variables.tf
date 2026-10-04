@@ -76,3 +76,15 @@ variable "onlyoffice_url" {
 }
 
 variable "metrics_enabled" { default = true }
+
+variable "trash_purge_name" {
+  type        = string
+  description = "CronJob, ServiceAccount and pod-label name; the caller reuses it to keep the pod out of the baseline egress."
+}
+variable "trash_purge_schedule" { default = "15 3 * * *" }
+
+# Seconds a run may last; one that cannot reach the pod has to die, not hold the Forbid lock.
+variable "trash_purge_deadline" { default = 1800 }
+
+variable "kubectl_image" { default = "registry.k8s.io/kubectl" }
+variable "kubectl_image_tag" { default = "v1.35.8" }

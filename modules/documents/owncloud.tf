@@ -24,6 +24,9 @@ module "owncloud" {
   # discovery endpoint at startup.
   onlyoffice_url = "https://${module.onlyoffice.fqdn}"
 
+  # Named here so the baseline egress policy above can exclude the purge pod.
+  trash_purge_name = local.trash_purge
+
   # The namespace has to exist before the app's claims, Secrets and policies land in it.
   depends_on = [kubernetes_namespace_v1.namespace]
 }

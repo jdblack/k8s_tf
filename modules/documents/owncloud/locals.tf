@@ -9,6 +9,10 @@ locals {
     "app.kubernetes.io/name" = var.name
   }
 
+  # Named in the parent, which keeps this pod out of the namespace baseline egress.
+  trash_purge        = var.trash_purge_name
+  trash_purge_labels = { "app.kubernetes.io/name" = var.trash_purge_name }
+
   # Each schedule drags its claim in from the pod that has it mounted, so the selector has
   # to name the chart's own per-service label ("app", not the workload label).
   backup_targets = {
@@ -244,13 +248,9 @@ locals {
 
     services = {
       storageusers = {
-        # The chart's maintenance jobs (cleanUpExpiredUploads, purgeExpiredTrashBinItems,
-        # restartPostprocessing) are deliberately left disabled. Each mounts this claim, which
-        # is ReadWriteOnce, so a job pod scheduled to another node dies on the Multi-Attach
-        # error -- and because the CronJobs are hardcoded Forbid, one wedged pod then blocks
-        # every later run. Upstream models these as offline CLI commands anyway, run by hand
-        # against the base path:
-        #   ocis storage-users uploads sessions --clean --expired --processing=false
+        # The chart's maintenance jobs stay disabled: each mounts this ReadWriteOnce claim, so a
+        # pod on another node dies on Multi-Attach and, under the hardcoded Forbid, wedges every
+        # later run. Trash purge runs instead as an exec CronJob; see maintenance.tf.
 
         # Blobs go to SeaweedFS over S3; only the decomposedfs metadata stays on the claim.
         storageBackend = {
