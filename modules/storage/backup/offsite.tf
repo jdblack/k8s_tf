@@ -96,6 +96,9 @@ resource "kubernetes_cron_job_v1" "offsite" {
                 "--s3-no-check-bucket",
                 "--transfers", "8",
                 "--checkers", "16",
+                # Big blobs crawl at the s3 defaults (4 parts of 5M); widen both for large files.
+                "--s3-upload-concurrency", "16",
+                "--s3-chunk-size", "16M",
                 "--log-level", "INFO",
               ]
 
@@ -195,7 +198,7 @@ resource "kubernetes_cron_job_v1" "offsite" {
                   memory = "128Mi"
                 }
                 limits = {
-                  memory = "1Gi"
+                  memory = "3Gi"
                 }
               }
 
