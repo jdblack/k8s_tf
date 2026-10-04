@@ -26,8 +26,11 @@ data "authentik_flow" "default-provider-invalidation-flow" {
   slug = "default-provider-authorization-implicit-consent"
 }
 
+# Looked up by managed slug, not scope_name: a provider that overrides the email
+# scope (see email_verified below) adds a second mapping with scope_name "email",
+# which would make a scope_name lookup ambiguous.
 data "authentik_property_mapping_provider_scope" "email" {
-  scope_name = "email"
+  managed = "goauthentik.io/providers/oauth2/scope-email"
 }
 
 data "authentik_property_mapping_provider_scope" "profile" {
@@ -50,6 +53,24 @@ resource "authentik_property_mapping_provider_scope" "groups" {
   expression  = <<-EOT
     return {
         "groups": [group.name for group in request.user.ak_groups.all()],
+    }
+  EOT
+}
+
+# The built-in email mapping hardcodes email_verified: false, and clients that gate
+# sign-in on the claim (pingvin-share) refuse a false outright. This replaces it for
+# providers that ask for it; the identity source here is authentik, so the address is
+# authoritative.
+resource "authentik_property_mapping_provider_scope" "email_verified" {
+  count = var.email_verified ? 1 : 0
+
+  name        = "OpenID 'email' verified (${var.name})"
+  scope_name  = "email"
+  description = "Email claim for ${var.name}, asserted verified"
+  expression  = <<-EOT
+    return {
+        "email": request.user.email,
+        "email_verified": True,
     }
   EOT
 }
@@ -78,7 +99,7 @@ resource "authentik_provider_oauth2" "oauth2" {
   ]
 
   property_mappings = [
-    data.authentik_property_mapping_provider_scope.email.id,
+    var.email_verified ? authentik_property_mapping_provider_scope.email_verified[0].id : data.authentik_property_mapping_provider_scope.email.id,
     data.authentik_property_mapping_provider_scope.openid.id,
     data.authentik_property_mapping_provider_scope.offline_access.id,
     data.authentik_property_mapping_provider_scope.profile.id,

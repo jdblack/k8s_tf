@@ -31,6 +31,12 @@ variable "bind_app" {
   description = "Bind the application to this module's own <name>-admin and <name>-user groups; off leaves the app unbounded unless group_id is set."
 }
 
+variable "email_verified" {
+  type        = bool
+  default     = false
+  description = "Replace the built-in email scope mapping (email_verified: false) with one that asserts it true; clients such as pingvin-share reject the false claim."
+}
+
 variable "client_type" {
   type        = string
   default     = "confidential"
