@@ -180,9 +180,11 @@ module "suggestarr" {
   gateway_name      = var.gateway_name
   gateway_namespace = var.namespace
   auth_outpost      = local.auth_outpost
-  icon              = ""
-  pod_cidr          = var.pod_cidr
-  host_cidr         = var.host_cidr
+
+  # dashboard-icons has no suggestarr mark, so this one comes from the selfh.st set.
+  icon      = "https://cdn.jsdelivr.net/gh/selfhst/icons/svg/suggestarr.svg"
+  pod_cidr  = var.pod_cidr
+  host_cidr = var.host_cidr
 }
 
 module "unpackerr" {

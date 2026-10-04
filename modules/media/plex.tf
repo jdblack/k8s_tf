@@ -24,6 +24,7 @@ module "plex" {
       PLEX_UID   = local.arr_run_as.runAsUser
       PLEX_GID   = local.arr_run_as.runAsGroup
     }
+    # No i915 request: the image ships no VA-API driver, so hardware transcoding only stalls the stream.
     pms   = { configStorage = "30Gi" }
     image = { tag = "latest", pullPolicy = "Always" }
 

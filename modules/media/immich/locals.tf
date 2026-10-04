@@ -33,7 +33,14 @@ locals {
       persistence       = { library = { existingClaim = var.library_pvc } }
       metrics           = { enabled = var.metrics_enabled }
       configurationKind = "Secret"
-      configuration     = { oauth = local.oauth }
+      configuration = {
+        oauth = local.oauth
+        storageTemplate = {
+          enabled                 = true
+          hashVerificationEnabled = true
+          template                = "{{y}}/{{y}}-{{MM}}/{{filename}}"
+        }
+      }
     }
 
     server = {
