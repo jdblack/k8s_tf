@@ -92,6 +92,8 @@ resource "kubernetes_cron_job_v1" "offsite" {
                 "src:${each.key}",
                 "dst:${var.buckets_dest_bucket}/${each.key}",
                 "--create-empty-src-dirs",
+                # The bucket is made out-of-band and the key has no writeBuckets, so never try.
+                "--s3-no-check-bucket",
                 "--transfers", "8",
                 "--checkers", "16",
                 "--log-level", "INFO",
