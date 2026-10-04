@@ -3,12 +3,10 @@
 
 locals {
   # Weekly, one bucket per day so the three uploads never contend; deadline caps a hung run.
-  # owncloud copies, never deletes: its blobs are content-addressed, so a metadata backup from any
-  # point only restores if the blob store still holds everything. The media libraries mirror.
   offsite_buckets = {
-    "owncloud-storage" = { schedule = "0 2 * * 0", deadline = 86400, mode = "copy" }
-    "photos"           = { schedule = "0 2 * * 3", deadline = 172800, mode = "sync" }
-    "movies-archive"   = { schedule = "0 2 * * 6", deadline = 518400, mode = "sync" }
+    "owncloud-storage" = { schedule = "0 2 * * 0", deadline = 86400 }
+    "photos"           = { schedule = "0 2 * * 3", deadline = 172800 }
+    "movies-archive"   = { schedule = "0 2 * * 6", deadline = 518400 }
   }
 
   offsite_labels = { "app.kubernetes.io/name" = "offsite-backup" }
@@ -40,7 +38,7 @@ resource "kubernetes_secret_v1" "offsite_dest" {
   }
 }
 
-# The media buckets mirror (sync); owncloud copies, so its content-addressed blob store only grows.
+# Plain mirror: sync makes the destination match the bucket, deletions included.
 resource "kubernetes_cron_job_v1" "offsite" {
   for_each = local.offsite_buckets
 
@@ -89,7 +87,7 @@ resource "kubernetes_cron_job_v1" "offsite" {
               image = var.rclone_image
 
               args = [
-                each.value.mode,
+                "sync",
                 "src:${each.key}",
                 "dst:${var.buckets_dest_bucket}/${each.key}",
                 "--create-empty-src-dirs",
