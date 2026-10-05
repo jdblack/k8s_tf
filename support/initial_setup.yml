@@ -14,9 +14,9 @@
 
   vars:
     # Minor version of the pkgs.k8s.io repo. Must match the cluster: the control plane runs
-    # v1.35 and kubelet/kubectl are on v1.35.8, so v1.35 is the only repo a rebuild should
-    # pull from. The v1.33 line this used to pin is stale and would install 1.33 binaries.
-    kubernetes_version: v1.35
+    # v1.36 and kubelet/kubectl are on v1.36.5, so v1.36 is the only repo a rebuild should
+    # pull from. A stale pin (the v1.33 line this once used) would install old binaries.
+    kubernetes_version: v1.36
 
     # Held after install (see the hold task below) so that only a deliberate upgrade can move
     # them. containerd is deliberately absent: it is a runtime, and pinning it would block

@@ -87,4 +87,4 @@ variable "trash_purge_schedule" { default = "15 3 * * *" }
 variable "trash_purge_deadline" { default = 1800 }
 
 variable "kubectl_image" { default = "registry.k8s.io/kubectl" }
-variable "kubectl_image_tag" { default = "v1.35.8" }
+variable "kubectl_image_tag" { default = "v1.36.5" }

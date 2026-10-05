@@ -1,0 +1,166 @@
+# One-minor kubeadm upgrade, control plane first. Kept out of initial_setup.yml because that
+# play is a bootstrap: its `apt upgrade: dist` and containerd restarts are wrong on a live
+# node, and its untagged tasks cannot be aimed at one host. Node order is the operator's job
+# -- run the control plane, check the cluster, then drain the workers one at a time:
+#
+#   ansible-playbook upgrade_cluster.yml -K -i k8smaster,k8sn1,k8sn2,k8sn3,k8sn4,k8sn5 --limit k8smaster
+#   ansible-playbook upgrade_cluster.yml -K -i k8smaster,k8sn1,k8sn2,k8sn3,k8sn4,k8sn5 --limit 'k8sn*'
+---
+- name: Upgrade the cluster one minor version with kubeadm
+  hosts: all
+  become: yes
+
+  vars:
+    # The one thing to edit: the patch and Debian revision pkgs.k8s.io carries. The repo minor
+    # and the `kubeadm upgrade apply` target are derived from it so a bump cannot half-land.
+    kubernetes_patch: "1.36.5-1.1"
+    kubernetes_target: "v{{ kubernetes_patch.split('-')[0] }}"
+    kubernetes_version: "v{{ kubernetes_patch.split('.')[0:2] | join('.') }}"
+    control_plane_node: k8smaster
+    admin_kubeconfig: /etc/kubernetes/admin.conf
+
+    # A kubelet restart does not kill the containers already running on the node, so draining
+    # is only worth it when the workloads genuinely have to move. On this cluster the control
+    # plane is also the main workload node, where the drain is the disruptive option, not the
+    # safe one -- set false to upgrade kubelet in place (the node is not rebooting).
+    drain_node: true
+
+  # One node at a time: a kubelet upgrade must not fan out, and the Ready barrier below only
+  # means something if the next node starts from a settled cluster.
+  serial: 1
+
+  tasks:
+    - name: Add the Kubernetes apt key
+      apt_key:
+        url: "https://pkgs.k8s.io/core:/stable:/{{ kubernetes_version }}/deb/Release.key"
+
+    - name: Point the apt repo at the target minor
+      apt_repository:
+        repo: "deb https://pkgs.k8s.io/core:/stable:/{{ kubernetes_version }}/deb/ /"
+        filename: kubernetes
+
+    # Read the binary, not the dpkg database: the check has to match what the node will boot.
+    - name: Read the installed kubelet version
+      command: kubelet --version
+      changed_when: false
+      register: kubelet_version
+
+    - name: Skip a node already on the target
+      meta: end_host
+      when: kubernetes_patch.split('-')[0] in kubelet_version.stdout
+
+    - name: Unhold kubeadm
+      dpkg_selections:
+        name: kubeadm
+        selection: install
+
+    - name: Install the target kubeadm
+      apt:
+        name: "kubeadm={{ kubernetes_patch }}"
+        state: present
+        update_cache: yes
+
+    - name: Hold kubeadm again
+      dpkg_selections:
+        name: kubeadm
+        selection: hold
+
+    - name: Confirm the installed kubeadm
+      command: kubeadm version -o short
+      changed_when: false
+      register: kubeadm_version
+
+    - name: Fail unless kubeadm is the target
+      assert:
+        that: kubeadm_version.stdout == kubernetes_target
+        fail_msg: "kubeadm is {{ kubeadm_version.stdout }}, expected {{ kubernetes_target }}"
+
+    # `plan` needs admin.conf and refuses a cluster that is not upgradeable, so it gates the
+    # run before anything changes -- control plane only, workers have no admin.conf.
+    - name: Check the upgrade plan
+      command: kubeadm upgrade plan
+      changed_when: false
+      register: upgrade_plan
+      when: inventory_hostname == control_plane_node
+
+    - name: Show the plan
+      debug:
+        msg: "{{ upgrade_plan.stdout_lines }}"
+      when: inventory_hostname == control_plane_node
+
+    - name: Upgrade the control plane
+      command: "kubeadm upgrade apply {{ kubernetes_target }} -y"
+      when: inventory_hostname == control_plane_node
+      register: upgrade_apply
+      changed_when: "'SUCCESS' in upgrade_apply.stdout"
+
+    - name: Upgrade this node's kubelet config
+      command: kubeadm upgrade node
+      when: inventory_hostname != control_plane_node
+
+    - name: Cordon the node
+      command: >-
+        kubectl cordon {{ inventory_hostname }} --kubeconfig {{ admin_kubeconfig }}
+      delegate_to: "{{ control_plane_node }}"
+      changed_when: true
+      when: drain_node | bool
+
+    # --timeout so a blocked drain fails loudly (Longhorn only gates eviction; investigate
+    # rather than reaching for --disable-eviction, which would skip its data protection).
+    - name: Drain the node
+      command: >-
+        kubectl drain {{ inventory_hostname }} --ignore-daemonsets --delete-emptydir-data
+        --timeout=900s --kubeconfig {{ admin_kubeconfig }}
+      delegate_to: "{{ control_plane_node }}"
+      changed_when: true
+      when: drain_node | bool
+
+    - name: Unhold kubelet and kubectl
+      dpkg_selections:
+        name: "{{ item }}"
+        selection: install
+      loop:
+        - kubelet
+        - kubectl
+
+    - name: Install the target kubelet and kubectl
+      apt:
+        name:
+          - "kubelet={{ kubernetes_patch }}"
+          - "kubectl={{ kubernetes_patch }}"
+        state: present
+        update_cache: yes
+
+    - name: Hold kubelet and kubectl again
+      dpkg_selections:
+        name: "{{ item }}"
+        selection: hold
+      loop:
+        - kubelet
+        - kubectl
+
+    - name: Restart kubelet on the new binary
+      systemd:
+        name: kubelet
+        daemon_reload: yes
+        state: restarted
+
+    # The restart above briefly takes the API away, so the first probe can hit a refused
+    # connection -- retry rather than fail the run on a blip we already expect.
+    - name: Wait for the node to report Ready
+      command: >-
+        kubectl wait --for=condition=Ready node/{{ inventory_hostname }} --timeout=180s
+        --kubeconfig {{ admin_kubeconfig }}
+      delegate_to: "{{ control_plane_node }}"
+      changed_when: false
+      register: node_ready
+      until: node_ready.rc == 0
+      retries: 20
+      delay: 15
+
+    - name: Uncordon the node
+      command: >-
+        kubectl uncordon {{ inventory_hostname }} --kubeconfig {{ admin_kubeconfig }}
+      delegate_to: "{{ control_plane_node }}"
+      changed_when: true
+      when: drain_node | bool
