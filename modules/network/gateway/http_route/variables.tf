@@ -49,3 +49,9 @@ variable "annotations" {
   default     = {}
   description = "Extra annotations, merged over the external-dns hostname annotation."
 }
+
+variable "filters" {
+  type        = list(any)
+  default     = []
+  description = "Extra HTTPRoute rule filters, e.g. a ResponseHeaderModifier to add response headers."
+}

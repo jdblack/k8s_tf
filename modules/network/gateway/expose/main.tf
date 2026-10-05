@@ -31,4 +31,5 @@ module "http_route" {
   backend_name = var.backend_name
   backend_port = var.backend_port
   annotations  = var.annotations
+  filters      = var.filters
 }

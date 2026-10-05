@@ -22,4 +22,16 @@ module "expose_s3" {
   gateway_namespace = var.gateway_namespace
   backend_name      = "seaweedfs-s3"
   backend_port      = 8333
+
+  # Public web apps (browser PNA) may not call a private-network host without this
+  # on the preflight; SeaweedFS S3 already answers the CORS preflight itself.
+  filters = [{
+    type = "ResponseHeaderModifier"
+    responseHeaderModifier = {
+      add = [{
+        name  = "Access-Control-Allow-Private-Network"
+        value = "true"
+      }]
+    }
+  }]
 }

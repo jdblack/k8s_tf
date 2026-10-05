@@ -22,12 +22,12 @@ resource "kubernetes_manifest" "http_route" {
         sectionName = coalesce(var.parent_name, var.name)
       }]
       hostnames = [local.fqdn]
-      rules = [{
+      rules = [merge({
         backendRefs = [{
           name = var.backend_name
           port = var.backend_port
         }]
-      }]
+      }, length(var.filters) > 0 ? { filters = var.filters } : {})]
     }
   }
 }

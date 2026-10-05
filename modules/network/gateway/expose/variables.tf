@@ -63,3 +63,9 @@ variable "annotations" {
   type    = map(string)
   default = {}
 }
+
+variable "filters" {
+  type        = list(any)
+  default     = []
+  description = "Extra HTTPRoute rule filters (e.g. ResponseHeaderModifier) for the route."
+}
