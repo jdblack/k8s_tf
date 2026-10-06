@@ -35,3 +35,16 @@ module "expose_s3" {
     }
   }]
 }
+
+module "expose_lance" {
+  source            = "../../network/gateway/expose"
+  name              = "seaweedfs-lance"
+  namespace         = var.namespace
+  domain            = var.domains[var.visibility]
+  hostname          = local.lance_host
+  cert_issuer       = var.cert_issuer
+  gateway_name      = var.gateway_name
+  gateway_namespace = var.gateway_namespace
+  backend_name      = "seaweedfs-s3"
+  backend_port      = 9101
+}
