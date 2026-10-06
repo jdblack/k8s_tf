@@ -47,7 +47,6 @@ module "authentik_app" {
   namespace             = var.namespace
   domain                = var.domain
   outpost_id            = var.auth_outpost.outpost_id
-  group_id              = var.auth_outpost.group_id
   port                  = var.port
   icon                  = var.icon
   access_token_validity = var.auth_outpost.access_token_validity

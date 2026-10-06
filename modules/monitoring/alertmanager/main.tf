@@ -1,6 +1,5 @@
 # authentik refuses to create an outpost without providers, so the provider and its
-# application are created first and the outpost is built around the provider. The
-# group binding therefore lives here: its group only exists once the outpost does.
+# application are created first and the outpost is built around the provider.
 module "authentik_app" {
   source = "../../auth/authentik/proxy_app"
 
@@ -11,26 +10,18 @@ module "authentik_app" {
   port      = var.port
 
   attach = false
-  bind   = false
 }
 
 module "auth" {
   source = "../../auth/authentik/proxy_outpost"
 
   outpost_name   = var.outpost_name
-  group_name     = var.group_name
   namespace      = var.namespace
   service_name   = var.outpost_service
   domain         = var.domain
   core_namespace = var.auth_namespace
 
   provider_ids = [module.authentik_app.app.provider_id]
-}
-
-resource "authentik_policy_binding" "access" {
-  target = module.authentik_app.app.application_uuid
-  group  = module.auth.group_id
-  order  = 0
 }
 
 module "expose" {

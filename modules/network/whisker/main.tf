@@ -8,14 +8,12 @@ module "authentik_app" {
   port       = var.whisker_port
   icon       = var.icon
   outpost_id = module.auth.outpost_id
-  group_id   = module.auth.group_id
 }
 
 module "auth" {
   source = "../../auth/authentik/proxy_outpost"
 
   outpost_name   = var.outpost_name
-  group_name     = var.group_name
   namespace      = var.namespace
   service_name   = var.outpost_service
   domain         = var.domain

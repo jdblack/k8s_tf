@@ -5,6 +5,9 @@ module "auth" {
 
   meta_icon       = "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/grafana.svg"
   open_in_new_tab = true
+
+  # Only grafana-admin and grafana-user may sign in, matching the role_attribute_path.
+  bind_app = true
 }
 
 resource "kubernetes_secret_v1_data" "oidc" {

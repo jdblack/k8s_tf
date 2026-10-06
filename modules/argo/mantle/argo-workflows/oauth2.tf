@@ -5,6 +5,9 @@ module "auth" {
 
   meta_icon       = "https://avatars.githubusercontent.com/u/30269780?s=60&v=4"
   open_in_new_tab = true
+
+  # Only argo-wf-admin and argo-wf-user may sign in, matching the ui_admin_access rule.
+  bind_app = true
 }
 
 resource "kubernetes_secret_v1" "oauth_secret" {

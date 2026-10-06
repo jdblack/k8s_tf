@@ -18,7 +18,6 @@ variable "gateway_namespace" { default = "media" }
 variable "auth_outpost" {
   type = object({
     outpost_id            = string
-    group_id              = string
     service               = string
     port                  = number
     access_token_validity = string

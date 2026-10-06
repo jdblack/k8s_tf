@@ -62,12 +62,6 @@ variable "outpost_service" {
   default = "seaweedfs-admin-auth"
 }
 
-variable "group_name" {
-  type        = string
-  default     = "storage"
-  description = "authentik group bound to the app; add members in the UI."
-}
-
 variable "icon" {
   type        = string
   default     = "https://cdn.jsdelivr.net/gh/selfhst/icons/svg/seaweedfs.svg"

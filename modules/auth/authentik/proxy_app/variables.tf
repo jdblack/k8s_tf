@@ -3,6 +3,12 @@ variable "name" {
   description = "App slug: the authentik provider/application name, and the default Service name."
 }
 
+variable "group_prefix" {
+  type        = string
+  default     = null
+  description = "Prefix for the -admin/-user groups; defaults to the app name."
+}
+
 variable "service" {
   type        = string
   default     = null
@@ -36,12 +42,6 @@ variable "outpost_id" {
   description = "Outpost the provider is attached to; only read when attach is true."
 }
 
-variable "group_id" {
-  type        = string
-  default     = null
-  description = "Group bound to the app; only read when bind is true."
-}
-
 variable "attach" {
   type        = bool
   default     = true
@@ -51,7 +51,7 @@ variable "attach" {
 variable "bind" {
   type        = bool
   default     = true
-  description = "Bind the group to the application here. Off when the caller binds it, which is how the group/outpost cycle is broken."
+  description = "Create and bind <name>-admin/-user to the application. Off leaves the app ungated."
 }
 
 variable "access_token_validity" {

@@ -5,6 +5,9 @@ module "oauth2" {
 
   meta_icon       = "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/harbor.svg"
   open_in_new_tab = true
+
+  # Only harbor-admin and harbor-user may sign in, matching oidc_group_filter.
+  bind_app = true
 }
 
 resource "harbor_config_auth" "oidc" {

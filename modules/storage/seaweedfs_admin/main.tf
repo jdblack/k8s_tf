@@ -5,22 +5,21 @@ locals {
 module "authentik_app" {
   source = "../../auth/authentik/proxy_app"
 
-  name       = "seaweedfs-admin"
-  namespace  = var.namespace
-  domain     = var.domain
-  hostname   = local.host
-  service    = var.admin_service
-  port       = var.admin_port
-  icon       = var.icon
-  outpost_id = module.auth.outpost_id
-  group_id   = module.auth.group_id
+  name         = "seaweedfs-admin"
+  group_prefix = "seaweedfs"
+  namespace    = var.namespace
+  domain       = var.domain
+  hostname     = local.host
+  service      = var.admin_service
+  port         = var.admin_port
+  icon         = var.icon
+  outpost_id   = module.auth.outpost_id
 }
 
 module "auth" {
   source = "../../auth/authentik/proxy_outpost"
 
   outpost_name   = var.outpost_name
-  group_name     = var.group_name
   namespace      = var.namespace
   service_name   = var.outpost_service
   domain         = var.domain

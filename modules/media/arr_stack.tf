@@ -158,6 +158,17 @@ module "seerr" {
   }
 }
 
+# Launcher-only tile: seerr keeps its own login, so no SSO proxy fronts it. It still gets
+# its own seerr-admin/seerr-user pair like every other app.
+module "seerr_tile" {
+  source = "../auth/authentik/application"
+
+  name       = "seerr"
+  slug       = "seerr"
+  launch_url = "https://seerr.${var.domain}"
+  icon       = "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/seerr.svg"
+}
+
 module "qbittorrent" {
   source = "./qbittorrent"
 

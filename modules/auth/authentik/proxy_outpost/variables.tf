@@ -6,8 +6,6 @@ variable "outpost_name" { default = "media-proxy" }
 
 variable "service_name" { default = "authentik-outpost" }
 
-variable "group_name" { default = "media" }
-
 variable "domain" { type = string }
 
 variable "auth_fqdn" {

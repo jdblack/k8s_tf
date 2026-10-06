@@ -29,12 +29,6 @@ variable "postgres_size" { default = "20Gi" }
 variable "metrics_enabled" { default = true }
 variable "monitoring_namespace" { default = "monitoring" }
 
-variable "oidc_group_id" {
-  type        = string
-  default     = null
-  description = "authentik group allowed to use the application; null leaves it unbounded."
-}
-
 variable "icon" {
   type        = string
   default     = null

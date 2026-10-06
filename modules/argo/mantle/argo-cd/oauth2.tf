@@ -5,6 +5,9 @@ module "auth" {
 
   meta_icon       = "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/argo-cd.svg"
   open_in_new_tab = true
+
+  # Only argo-cd-admin and argo-cd-user may sign in, matching the RBAC policy.csv.
+  bind_app = true
 }
 
 resource "kubernetes_config_map_v1_data" "argo_config" {

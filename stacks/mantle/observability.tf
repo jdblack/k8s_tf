@@ -7,6 +7,4 @@ module "whisker" {
 
   gateway_name      = "private"
   gateway_namespace = "kube-network"
-
-  group_name = "platform"
 }

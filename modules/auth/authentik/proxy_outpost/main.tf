@@ -9,10 +9,6 @@ locals {
   browser_url = "https://${coalesce(var.auth_fqdn, "auth.${var.domain}")}"
 }
 
-resource "authentik_group" "access" {
-  name = var.group_name
-}
-
 resource "authentik_outpost" "outpost" {
   name = var.outpost_name
   type = "proxy"

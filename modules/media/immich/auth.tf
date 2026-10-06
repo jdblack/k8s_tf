@@ -10,7 +10,7 @@ module "auth" {
     "app.immich:///oauth-callback",
   ]
 
-  group_id = var.oidc_group_id
+  bind_app = true
 
   meta_icon       = local.icon
   open_in_new_tab = true

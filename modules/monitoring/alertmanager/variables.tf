@@ -62,9 +62,3 @@ variable "outpost_service" {
   type    = string
   default = "alertmanager-auth"
 }
-
-variable "group_name" {
-  type        = string
-  default     = "monitoring"
-  description = "authentik group bound to the app; add members in the UI."
-}

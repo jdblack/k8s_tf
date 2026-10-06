@@ -3,6 +3,7 @@ locals {
   external_host = "https://${coalesce(var.hostname, "${var.name}.${var.domain}")}"
   service       = coalesce(var.service, var.name)
   icon          = var.icon == null ? "${local.icon_cdn}/${var.name}.svg" : (var.icon == "" ? null : var.icon)
+  group_prefix  = coalesce(var.group_prefix, var.name)
 }
 
 data "authentik_flow" "authorization" {
@@ -43,10 +44,22 @@ resource "authentik_outpost_provider_attachment" "app" {
   protocol_provider = authentik_provider_proxy.app.id
 }
 
-resource "authentik_policy_binding" "app" {
-  count = var.bind ? 1 : 0
+resource "authentik_group" "admin" {
+  name = "${local.group_prefix}-admin"
+}
+
+resource "authentik_group" "user" {
+  name = "${local.group_prefix}-user"
+}
+
+# Both, as with the OIDC apps, so an admin need not also join -user to sign in.
+resource "authentik_policy_binding" "own_groups" {
+  for_each = var.bind ? {
+    admin = authentik_group.admin.id
+    user  = authentik_group.user.id
+  } : {}
 
   target = authentik_application.app.uuid
-  group  = var.group_id
+  group  = each.value
   order  = 0
 }

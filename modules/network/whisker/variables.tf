@@ -49,12 +49,6 @@ variable "outpost_service" {
   default = "whisker-auth"
 }
 
-variable "group_name" {
-  type        = string
-  default     = "platform"
-  description = "authentik group bound to the app; add members in the UI."
-}
-
 variable "icon" {
   type        = string
   default     = "https://cdn.jsdelivr.net/gh/selfhst/icons/svg/calico.svg"
