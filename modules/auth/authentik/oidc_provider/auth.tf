@@ -50,9 +50,13 @@ resource "authentik_property_mapping_provider_scope" "groups" {
   name        = "OpenID 'groups' (${var.name})"
   scope_name  = "groups"
   description = "Groups claim for ${var.name}"
-  expression  = <<-EOT
+
+  # all_groups, not ak_groups: a user granted through the `admin`/`user` tier is only a
+  # direct member of that group -- nesting lives in the parents -- and oCIS/pastebin map the
+  # role off <app>-admin/<app>-user, which ak_groups would omit.
+  expression = <<-EOT
     return {
-        "groups": [group.name for group in request.user.ak_groups.all()],
+        "groups": [group.name for group in request.user.all_groups()],
     }
   EOT
 }
