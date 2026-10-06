@@ -1,9 +1,8 @@
 # Playing with Lance from DuckDB
 
-Quickstart for the Lance Namespace REST that SeaweedFS serves at
-`lance.seaweedfs.vn.linuxguru.net`, and for reading/writing Lance datasets in
-the `lancedemo` table bucket. The server side lives in
-`modules/storage/seaweedfs` (`s3.lancePort = 9101`, `module.expose_lance`).
+Reading and writing Lance datasets in the `lancedemo` table bucket directly over
+SeaweedFS S3 — no catalog needed when you know the dataset path. Server side:
+`modules/storage/seaweedfs` (`s3.lancePort = 9101` on the s3 gateway).
 
 ## 1. A DuckDB with Lance
 
@@ -39,7 +38,7 @@ A table bucket only accepts objects under `<namespace>/<table>/data|metadata`,
 so the dataset lives at `s3://lancedemo/<namespace>/<table>/`:
 
 ```sql
--- write two rows
+-- write two rows (this creates the dataset)
 COPY (SELECT 1::BIGINT AS id, 'alpha'::VARCHAR AS s
       UNION ALL SELECT 2::BIGINT, 'beta')
   TO 's3://lancedemo/jblack/lancedemo/' (FORMAT lance, mode 'overwrite');
@@ -63,25 +62,8 @@ Gotchas:
   `<namespace>/<table>/…`.
 - `SELECT * FROM 's3://…/lancedemo'` (no `.lance` suffix) → "Table does not
   exist"; use `__lance_scan('s3://…')` for those paths.
-- Writing objects does **not** register the table in the Lance catalog
-  (see below) — that is a separate declare step.
 
-## 4. The catalog (optional)
-
-The namespace REST wants an OAuth2 token whose client credentials *are* the S3
-keys:
-
-```sh
-BASE=https://lance.seaweedfs.vn.linuxguru.net
-AK=$(aws configure get aws_access_key_id     --profile k8s)
-SK=$(aws configure get aws_secret_access_key --profile k8s)
-
-TOKEN=$(curl -s -X POST "$BASE/oauth/token" \
-  -d grant_type=client_credentials -d client_id="$AK" -d client_secret="$SK" \
-  | python3 -c 'import sys,json;print(json.load(sys.stdin)["access_token"])')
-
-curl -s -H "Authorization: Bearer $TOKEN" "$BASE/v1/namespace/%24/list"
-```
-
-Routes: `/v1/namespace/{id}/list`, `/v1/table/{id}/describe`, `/v1/table` …,
-where a table identifier is `bucket.namespace.table`.
+DuckDB creates and maintains the dataset entirely over S3 — there is no catalog
+step and no `lance.<domain>` host. (The Lance Namespace REST still runs on the s3
+gateway's 9101 port for clients that need name-based discovery, but it is not
+exposed.)

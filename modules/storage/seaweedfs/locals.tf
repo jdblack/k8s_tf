@@ -2,7 +2,6 @@ locals {
   fqdn        = "${var.name}.${var.domains[var.visibility]}"
   master_host = "master.${local.fqdn}"
   s3_host     = "s3.${var.domains[var.visibility]}"
-  lance_host  = "lance.${local.fqdn}"
 
   helm_values = {
     global = {
