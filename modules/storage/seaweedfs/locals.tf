@@ -2,6 +2,7 @@ locals {
   fqdn        = "${var.name}.${var.domains[var.visibility]}"
   master_host = "master.${local.fqdn}"
   s3_host     = "s3.${var.domains[var.visibility]}"
+  lance_host  = "lance.${local.fqdn}"
 
   helm_values = {
     global = {
@@ -15,7 +16,7 @@ locals {
     }
 
     image = {
-      tag = "4.48-ge52be3ee1"
+      tag = "4.48-g937a8655f"
     }
     admin = {
       enabled  = true
@@ -29,7 +30,9 @@ locals {
       podAnnotations = {
         "backup.velero.io/backup-volumes" = "admin-data"
       }
-      extraArgs = ["-ip=0.0.0.0", "-allowInsecureBind"]
+      # The 4.48 chart binds 0.0.0.0 and passes -allowInsecureBind itself; this
+      # value is also what its 4.46+ guard checks (extraArgs is not).
+      allowInsecureBind = true
       ingress = {
         enabled = false
       }
@@ -86,6 +89,8 @@ locals {
       enableAuth  = true
       domain_name = local.s3_host
       host        = local.s3_host
+      # Lance Namespace REST on the s3 gateway; also starts the worker-lance sidecar.
+      lancePort = 9101
       ingress = {
         enabled = false
       }

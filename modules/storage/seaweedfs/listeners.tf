@@ -35,3 +35,18 @@ module "expose_s3" {
     }
   }]
 }
+
+# The Lance Namespace REST on the s3 gateway's lance port, so stock lance clients
+# (lance-spark, lance-namespace, duckdb) can reach lance.<domain>.
+module "expose_lance" {
+  source            = "../../network/gateway/expose"
+  name              = "seaweedfs-s3-lance"
+  namespace         = var.namespace
+  domain            = var.domains[var.visibility]
+  hostname          = local.lance_host
+  cert_issuer       = var.cert_issuer
+  gateway_name      = var.gateway_name
+  gateway_namespace = var.gateway_namespace
+  backend_name      = "seaweedfs-s3"
+  backend_port      = 9101
+}
