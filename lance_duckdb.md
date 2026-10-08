@@ -64,6 +64,6 @@ Gotchas:
   exist"; use `__lance_scan('s3://…')` for those paths.
 
 DuckDB creates and maintains the dataset entirely over S3 — there is no catalog
-step and no `lance.<domain>` host. (The Lance Namespace REST still runs on the s3
-gateway's 9101 port for clients that need name-based discovery, but it is not
-exposed.)
+step and no `lance.<domain>` host for dataset I/O. (The Lance Namespace REST on the s3
+gateway's 9101 port *is* exposed for name-based discovery, at
+`https://lance.vn.linuxguru.net` — routes and auth in `~/.cline/memories/infra-lance.md`.)
