@@ -33,9 +33,6 @@ data "authentik_property_mapping_provider_scope" "email" {
   managed = "goauthentik.io/providers/oauth2/scope-email"
 }
 
-data "authentik_property_mapping_provider_scope" "profile" {
-  scope_name = "profile"
-}
 data "authentik_property_mapping_provider_scope" "openid" {
   scope_name = "openid"
 }
@@ -79,6 +76,27 @@ resource "authentik_property_mapping_provider_scope" "email_verified" {
   EOT
 }
 
+# The built-in profile mapping hardcodes groups to direct memberships, and the official
+# clients ask only for `profile` -- never `groups` -- so this claim, not the `groups`
+# mapping above, is what oCIS maps roles off. Built-in's claims, nesting restored.
+resource "authentik_property_mapping_provider_scope" "profile" {
+  name        = "OpenID 'profile' (${var.name})"
+  scope_name  = "profile"
+  description = "Profile claim for ${var.name}, with nested groups"
+
+  expression = <<-EOT
+    return delete_none_values({
+        "name": request.user.name,
+        "given_name": ak_obj_attr(request.user, "given_name", "name"),
+        "family_name": ak_obj_attr(request.user, "family_name"),
+        "preferred_username": request.user.username,
+        "nickname": request.user.username,
+        "groups": [group.name for group in request.user.all_groups()],
+        "picture": request.user.avatar,
+    })
+  EOT
+}
+
 resource "authentik_provider_oauth2" "oauth2" {
   name               = var.name
   client_id          = coalesce(var.client_id, var.name)
@@ -106,7 +124,7 @@ resource "authentik_provider_oauth2" "oauth2" {
     var.email_verified ? authentik_property_mapping_provider_scope.email_verified[0].id : data.authentik_property_mapping_provider_scope.email.id,
     data.authentik_property_mapping_provider_scope.openid.id,
     data.authentik_property_mapping_provider_scope.offline_access.id,
-    data.authentik_property_mapping_provider_scope.profile.id,
+    authentik_property_mapping_provider_scope.profile.id,
     authentik_property_mapping_provider_scope.groups.id,
   ]
 
