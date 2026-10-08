@@ -73,7 +73,14 @@ locals {
     }
 
     machine-learning = {
-      controllers = { main = { containers = { main = { image = { tag = var.image_tag } } } } }
+      # Recreate, not RollingUpdate: the RWO model cache cannot attach to a surge pod.
+      controllers = {
+        main = {
+          strategy   = "Recreate"
+          containers = { main = { image = { tag = var.image_tag } } }
+        }
+      }
+
       persistence = {
         cache = {
           type         = "persistentVolumeClaim"

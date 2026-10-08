@@ -11,10 +11,10 @@ variable "library_pvc" { type = string }
 variable "auth_gateway_name" { default = "private" }
 variable "auth_gateway_namespace" { default = "kube-network" }
 
-variable "helm_version" { default = "0.13.2" }
+variable "helm_version" { default = "0.13.4" }
 
 # Server and machine-learning move together: they are the same Immich release.
-variable "image_tag" { default = "v3.2.4" }
+variable "image_tag" { default = "v3.3.0" }
 
 variable "storage_class" { default = "longhorn" }
 
