@@ -19,7 +19,7 @@ resource "kubectl_manifest" "schedule" {
   })
 }
 
-# Weekly offsite: same claim, different BSL, kept longer.
+# Optional weekly copy, off-box, on a separate BSL (disabled when the BSL name is empty).
 resource "kubectl_manifest" "weekly" {
   count = var.weekly_storage_location == "" ? 0 : 1
 

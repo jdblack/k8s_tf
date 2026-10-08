@@ -15,18 +15,6 @@ module "storage" {
   backup_bucket   = var.deployment.storage.backup.bucket
   backup_region   = var.deployment.storage.backup.region
   backup_endpoint = var.deployment.storage.backup.endpoint
-
-  backup_offsite_bucket     = var.deployment.storage.backup.offsite.bucket
-  backup_offsite_region     = var.deployment.storage.backup.offsite.region
-  backup_offsite_endpoint   = var.deployment.storage.backup.offsite.endpoint
-  backup_offsite_access_key = var.deployment.storage.backup.offsite.access_key
-  backup_offsite_secret_key = var.deployment.storage.backup.offsite.secret_key
-
-  backup_buckets_dest_bucket = var.deployment.storage.backup.buckets.dest_bucket
-  backup_buckets_region      = var.deployment.storage.backup.buckets.region
-  backup_buckets_endpoint    = var.deployment.storage.backup.buckets.endpoint
-  backup_buckets_access_key  = var.deployment.storage.backup.buckets.access_key
-  backup_buckets_secret_key  = var.deployment.storage.backup.buckets.secret_key
 }
 
 module "cert_man" {

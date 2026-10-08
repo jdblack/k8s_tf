@@ -1,9 +1,8 @@
 locals {
   rules = [
     {
-      # Dailies only; the weekly schedules are covered by the rule below.
       alert = "VeleroBackupStale"
-      expr  = "time() - velero_backup_last_successful_timestamp{schedule!=\"\", schedule!~\".+-weekly\"} > 26 * 3600"
+      expr  = "time() - velero_backup_last_successful_timestamp{schedule!=\"\"} > 26 * 3600"
       "for" = "30m"
 
       labels = { severity = "critical" }
@@ -11,19 +10,6 @@ locals {
       annotations = {
         summary     = "Velero schedule {{ $labels.schedule }} has not completed a backup in 26h"
         description = "Last success was {{ $value | humanizeDuration }} ago, so this volume's export chain has stopped."
-      }
-    },
-    {
-      # Weeklies run Sunday, so a gap past 8 days means a missed or failed run.
-      alert = "VeleroBackupWeeklyStale"
-      expr  = "time() - velero_backup_last_successful_timestamp{schedule=~\".+-weekly\"} > 8 * 24 * 3600"
-      "for" = "30m"
-
-      labels = { severity = "critical" }
-
-      annotations = {
-        summary     = "Velero weekly schedule {{ $labels.schedule }} has not completed a backup in 8d"
-        description = "The offsite chain to Backblaze has stopped."
       }
     },
     {

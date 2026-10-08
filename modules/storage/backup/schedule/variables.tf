@@ -20,7 +20,8 @@ variable "selector" {
 variable "cron" { default = "0 3 * * *" }
 variable "ttl" { default = "168h" }
 
-# Offsite copy: every target also gets a weekly schedule on the offsite BSL. Empty name disables it.
-variable "weekly_storage_location" { default = "backblaze" }
+# Offsite copies are made by the ns1 rclone job (pulls the backupstore offsite), so the per-target
+# weekly schedule is disabled: an empty BSL name means the weekly resource is not created.
+variable "weekly_storage_location" { default = "" }
 variable "weekly_cron" { default = "0 4 * * 0" }
 variable "weekly_ttl" { default = "720h" }

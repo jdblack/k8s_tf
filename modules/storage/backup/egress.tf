@@ -6,8 +6,8 @@ module "egress" {
   name          = "velero-egress"
   allow_k8s_api = true
 
-  # Dailies upload to the local S3 via the gateway hostname; weeklies leave for Backblaze.
-  allow_internet = true
+  # Every backup goes to the local S3 via the gateway hostname; nothing leaves for the internet.
+  allow_internet = false
   peers = [{
     namespace    = var.gateway_namespace
     pod_selector = { "gateway.networking.k8s.io/gateway-name" = var.gateway_name }

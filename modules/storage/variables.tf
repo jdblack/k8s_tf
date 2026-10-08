@@ -15,15 +15,3 @@ variable "backup_enabled" { default = true }
 variable "backup_bucket" { type = string }
 variable "backup_region" { type = string }
 variable "backup_endpoint" { type = string }
-
-variable "backup_offsite_bucket" { type = string }
-variable "backup_offsite_region" { type = string }
-variable "backup_offsite_endpoint" { type = string }
-variable "backup_offsite_access_key" { type = string }
-variable "backup_offsite_secret_key" { type = string }
-
-variable "backup_buckets_dest_bucket" { type = string }
-variable "backup_buckets_region" { type = string }
-variable "backup_buckets_endpoint" { type = string }
-variable "backup_buckets_access_key" { type = string }
-variable "backup_buckets_secret_key" { type = string }
