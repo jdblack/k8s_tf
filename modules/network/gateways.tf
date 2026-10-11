@@ -10,6 +10,10 @@ module "gateway" {
   # nginx's 60s read default severs idle websockets (UI "connection lost" after a tab switch).
   proxy_timeout = { read = "1h" }
 
+  # nginx's 75s keepalive default closes an idle client connection, so a client that pauses longer
+  # (e.g. an MCP client left alone for a while) reuses a dead socket and errors on its next call.
+  client_keepalive_timeout = "1h"
+
   # The Gateway is itself a Gateway API object: it cannot land before the CRDs do.
   depends_on = [kubernetes_namespace_v1.namespace, terraform_data.gateway_api_crds]
 }

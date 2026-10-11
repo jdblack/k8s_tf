@@ -49,3 +49,9 @@ variable "proxy_timeout" {
   default     = null
   description = "ProxySettingsPolicy upstream timeouts (1-4 digits + ms|s|m|h; bare = seconds). null = nginx defaults (60s), which drop idle websockets behind these gateways."
 }
+
+variable "client_keepalive_timeout" {
+  type        = string
+  default     = null
+  description = "ClientSettingsPolicy keepAlive.timeout.server (nginx `keepalive_timeout`; 1-4 digits + ms|s|m|h, bare = seconds). null = nginx default 75s, which closes an idle keep-alive client connection so the client's next request after a pause hits a dead socket."
+}
