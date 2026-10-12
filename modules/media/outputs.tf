@@ -13,7 +13,13 @@ output "admin_group_ids" {
 
 output "user_group_ids" {
   value = {
-    seerr  = module.seerr_tile.user_group_id
-    immich = module.immich.user_group_id
+    radarr      = module.radarr.user_group_id
+    sonarr      = module.sonarr.user_group_id
+    bazarr      = module.bazarr.user_group_id
+    prowlarr    = module.prowlarr.user_group_id
+    qbittorrent = module.qbittorrent.user_group_id
+    suggestarr  = module.suggestarr.user_group_id
+    seerr       = module.seerr_tile.user_group_id
+    immich      = module.immich.user_group_id
   }
 }

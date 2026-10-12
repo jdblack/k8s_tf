@@ -6,7 +6,7 @@ resource "authentik_group" "admin" {
   name = "admin"
 
   parents = concat(
-    values(module.media.admin_group_ids),
+    local.media_admin_groups,
     [
       module.seaweedfs_admin.admin_group_id,
       module.whisker.admin_group_id,
@@ -17,6 +17,7 @@ resource "authentik_group" "admin" {
       module.harbor_setup.admin_group_id,
       module.documents.owncloud_admin_group_id,
       module.pastebin.admin_group_id,
+      module.forgejo.admin_group_id,
       module.vaultwarden.admin_group_id,
     ],
   )
