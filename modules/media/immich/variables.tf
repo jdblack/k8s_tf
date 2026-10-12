@@ -27,7 +27,6 @@ variable "postgres_image_tag" { default = "17-vectorchord0.4.3-pgvector0.8.0" }
 variable "postgres_size" { default = "20Gi" }
 
 variable "metrics_enabled" { default = true }
-variable "monitoring_namespace" { default = "monitoring" }
 
 variable "icon" {
   type        = string

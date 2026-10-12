@@ -6,10 +6,9 @@ module "owncloud" {
   hostname    = var.hostname
   cert_issuer = var.cert_issuer
 
-  gateway_name         = var.gateway_name
-  gateway_namespace    = var.gateway_namespace
-  auth_namespace       = var.auth_namespace
-  monitoring_namespace = var.monitoring_namespace
+  gateway_name      = var.gateway_name
+  gateway_namespace = var.gateway_namespace
+  auth_namespace    = var.auth_namespace
 
   ldap_uri           = var.ldap_uri
   ldap_bind_dn       = var.ldap_bind_dn

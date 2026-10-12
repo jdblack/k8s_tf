@@ -8,7 +8,6 @@ variable "gateway_name" { default = "private" }
 variable "gateway_namespace" { default = "kube-network" }
 
 variable "auth_namespace" { default = "kube-auth" }
-variable "monitoring_namespace" { default = "monitoring" }
 
 variable "hostname" { default = "drive" }
 
