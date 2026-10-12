@@ -81,6 +81,36 @@ variable "allow_internet" {
   default     = false
 }
 
+variable "allow_nodes" {
+  type        = bool
+  default     = false
+  description = "Ingress only. Admit the node host addresses via per-node ip_blocks: kubelet probes, apiserver->webhook, and the node-SNAT'd side of an ETP=Cluster LoadBalancer. Set false once host_identity supersedes it."
+}
+
+variable "host_identity" {
+  type        = bool
+  default     = true
+  description = "Ingress only. Emit a companion Calico NetworkPolicy admitting the node host endpoints by identity (label selector), so no per-node ip_blocks are needed. Purely additive: the namespace already has a default-deny ingress baseline, so it never touches un-governed pods. Ignored for egress."
+}
+
+variable "allow_scrape" {
+  type        = bool
+  default     = true
+  description = "Ingress only. Admit the Prometheus scraper pods on all ports, so every governed namespace is scrapeable without a hand-written per-namespace metrics policy."
+}
+
+variable "scrape_namespace" {
+  type        = string
+  default     = "monitoring"
+  description = "Namespace the Prometheus scrapers run in."
+}
+
+variable "scrape_pod_selector" {
+  type        = map(string)
+  default     = { "app.kubernetes.io/name" = "prometheus" }
+  description = "Labels on the Prometheus scraper pods."
+}
+
 variable "allow_k8s_api" {
   type        = bool
   default     = false

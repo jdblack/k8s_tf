@@ -13,6 +13,20 @@ locals {
 
   pod_selector = length(var.pod_selector) > 0 ? var.pod_selector : null
 
+  # Calico selector matching exactly the pods this policy governs, for the companion host-floor
+  # policy. Same set as the k8s podSelector, so it can never newly default-deny other pods.
+  calico_selector_terms = concat(
+    [for k, v in var.pod_selector : "${k} == '${v}'"],
+    [for e in var.pod_selector_expressions :
+      e.operator == "Exists" ? "has(${e.key})" :
+      e.operator == "DoesNotExist" ? "!has(${e.key})" :
+      e.operator == "NotIn" ? "${e.key} not in {${join(", ", formatlist("'%s'", coalesce(e.values, [])))}}" :
+      "${e.key} in {${join(", ", formatlist("'%s'", coalesce(e.values, [])))}}"
+    ],
+  )
+
+  calico_selector = length(local.calico_selector_terms) > 0 ? join(" && ", local.calico_selector_terms) : "all()"
+
   rule_self = var.allow_namespace ? { ports = [], peers = [{ namespace = var.namespace }] } : null
 
   rule_dns = {
@@ -24,6 +38,12 @@ locals {
     ports = []
     peers = [for ip in local.node_ips : { ip_block = { cidr = "${ip}/32" } }]
   }
+
+  # Every governed namespace is scrapeable by Prometheus, all ports, no hand-written metrics policy.
+  rule_scrape = var.direction == "ingress" && var.allow_scrape ? {
+    ports = []
+    peers = [{ namespace = var.scrape_namespace, pod_selector = var.scrape_pod_selector }]
+  } : null
 
   rule_internet = {
     ports = []
@@ -76,10 +96,11 @@ locals {
 
   rules = concat(
     local.rule_self != null ? [local.rule_self] : [],
-    var.direction == "ingress" && length(local.node_ips) > 0 ? [local.rule_nodes] : [],
+    var.direction == "ingress" && var.allow_nodes && length(local.node_ips) > 0 ? [local.rule_nodes] : [],
     var.direction == "egress" ? [local.rule_dns] : [],
     var.direction == "egress" && local.rule_api_cluster_ip != null ? [local.rule_api_cluster_ip] : [],
     var.direction == "egress" && local.rule_api_endpoints != null ? [local.rule_api_endpoints] : [],
+    local.rule_scrape != null ? [local.rule_scrape] : [],
     var.allow_internet ? [local.rule_internet] : [],
     local.rules_ingress_cidrs,
     local.rules_peers,
