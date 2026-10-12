@@ -47,8 +47,8 @@ variable "chart_version" { default = "0.2.0" }
 # The chart defaults to the upstream GHCR image; this cluster runs the Harbor mirror.
 variable "image_repository" { default = "harbor.vn.linuxguru.net/library/ellmephant" }
 # `edge` is what harbor-publish.sh mirrors; pin a sha-<short> tag to freeze a build.
-# Pinned 2026-10-13 to the memory_useful trigger fix (feedback nudge fires).
-variable "image_tag" { default = "sha-62a62ed" }
+# Pinned 2026-10-13 to the memory tool retune (feedback cue moved to memory_get).
+variable "image_tag" { default = "sha-7781534" }
 
 variable "storage_class" { default = "" }
 variable "storage_size" { default = "2Gi" }
