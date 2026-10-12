@@ -4,7 +4,7 @@ locals {
 
   samba_host = "samba-${var.name}.${var.domain}"
 
-  samba_fqdn = "${local.samba_host}."
+  samba_fqdn = local.samba_host
 
   mdns_name = "${var.name}-mdns"
 
