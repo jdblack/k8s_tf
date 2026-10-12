@@ -14,7 +14,7 @@ variable "auth_gateway_name" { default = "private" }
 
 # Web host is <hostname>.<domain>; the SSH VIP carries its own name because it is a second IP.
 variable "hostname" { default = "git" }
-variable "ssh_hostname" { default = "ssh.forgejo" }
+variable "ssh_hostname" { default = "ssh.git" }
 
 variable "oidc_issuer_base" {
   type        = string
