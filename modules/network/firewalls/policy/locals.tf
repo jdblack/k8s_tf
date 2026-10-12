@@ -30,6 +30,13 @@ locals {
     peers = [{ ip_block = { cidr = "0.0.0.0/0", except = local.private_cidrs } }]
   }
 
+  # `peers` has no ip_block field, so a raw-CIDR source -- the LAN reaching a MetalLB VIP that
+  # bypasses the gateway -- needs its own input rather than a peer.
+  rules_ingress_cidrs = var.direction == "ingress" ? [for c in var.ingress_cidrs : {
+    ports = c.ports
+    peers = [{ ip_block = { cidr = c.cidr } }]
+  }] : []
+
   rules_peers = [for peer in var.peers : {
     ports = peer.ports
     peers = [merge(
@@ -74,6 +81,7 @@ locals {
     var.direction == "egress" && local.rule_api_cluster_ip != null ? [local.rule_api_cluster_ip] : [],
     var.direction == "egress" && local.rule_api_endpoints != null ? [local.rule_api_endpoints] : [],
     var.allow_internet ? [local.rule_internet] : [],
+    local.rules_ingress_cidrs,
     local.rules_peers,
   )
 }

@@ -52,6 +52,23 @@ variable "peers" {
   default     = []
 }
 
+variable "ingress_cidrs" {
+  type = list(object({
+    cidr = string
+    ports = optional(list(object({
+      port     = number
+      protocol = optional(string, "TCP")
+    })), [])
+  }))
+  default     = []
+  description = "Ingress only. Extra source-CIDR peers (ip_block), one rule each, for traffic that bypasses the gateway -- e.g. the LAN reaching a MetalLB VIP. Empty ports = every port."
+
+  validation {
+    condition     = !(var.direction == "egress" && length(var.ingress_cidrs) > 0)
+    error_message = "ingress_cidrs only applies to direction = \"ingress\"."
+  }
+}
+
 variable "allow_namespace" {
   type        = bool
   description = "Admit this namespace's own pods, any port. Default true: nearly every app needs it."
