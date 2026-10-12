@@ -62,7 +62,7 @@ module "plex" {
       type                  = "LoadBalancer"
       externalTrafficPolicy = "Local"
       annotations = {
-        "external-dns.alpha.kubernetes.io/hostname" = local.plex_host
+        "external-dns.kubernetes.io/hostname" = local.plex_host
       }
     }
   }

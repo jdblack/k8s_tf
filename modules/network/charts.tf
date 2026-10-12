@@ -21,6 +21,7 @@ locals {
     }
 
     external_dns = {
+      # >=0.22.0 reads external-dns.kubernetes.io/* annos; the old .alpha. prefix needs --enable-legacy-annotation-prefix.
       provider = {
         name = "rfc2136"
       }

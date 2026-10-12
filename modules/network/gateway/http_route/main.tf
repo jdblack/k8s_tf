@@ -10,7 +10,7 @@ resource "kubernetes_manifest" "http_route" {
       name      = var.name
       namespace = var.namespace
       annotations = merge({
-        "external-dns.alpha.kubernetes.io/hostname" = local.fqdn
+        "external-dns.kubernetes.io/hostname" = local.fqdn
       }, var.annotations)
     }
     spec = {

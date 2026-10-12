@@ -45,7 +45,7 @@ locals {
         }]
         hosts = [local.fqdn]
         annotations = {
-          "external-dns.alpha.kubernetes.io/hostname" = local.fqdn
+          "external-dns.kubernetes.io/hostname" = local.fqdn
         }
       }
     }

@@ -54,7 +54,7 @@ locals {
         port = var.ssh_port
 
         annotations = {
-          "external-dns.alpha.kubernetes.io/hostname" = local.ssh_fqdn
+          "external-dns.kubernetes.io/hostname" = local.ssh_fqdn
         }
       }
     }
