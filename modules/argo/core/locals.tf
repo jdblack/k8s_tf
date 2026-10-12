@@ -1,5 +1,4 @@
 locals {
-  # argo-workflows and argo-events share this namespace and bring their own policies.
   argocd_selector = { "app.kubernetes.io/part-of" = "argocd" }
 
   gateway_peer = [{

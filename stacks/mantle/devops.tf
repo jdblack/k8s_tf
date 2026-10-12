@@ -10,7 +10,6 @@ module "argo_setup" {
   namespace     = var.deployment.argo.namespace
   oauth2_server = "auth.${var.deployment.cluster.domains.private}"
   domain        = var.deployment.cluster.domains.private
-  cert_issuer   = var.deployment.cert_manager.external_issuer
   deploy_key    = var.deployment.argo.deploy_key
   repo          = var.deployment.argo.repo
 }

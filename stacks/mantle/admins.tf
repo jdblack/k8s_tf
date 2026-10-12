@@ -12,7 +12,6 @@ resource "authentik_group" "admin" {
       module.whisker.admin_group_id,
       module.alertmanager.admin_group_id,
       module.argo_setup.argocd_admin_group_id,
-      module.argo_setup.argo_workflows_admin_group_id,
       module.grafana_oidc.admin_group_id,
       module.harbor_setup.admin_group_id,
       module.documents.owncloud_admin_group_id,

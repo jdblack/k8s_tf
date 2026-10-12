@@ -6,16 +6,3 @@ module "argocd" {
   deploy_key    = var.deploy_key
   repo          = var.repo
 }
-
-module "argo_workflows" {
-  source        = "./argo-workflows"
-  namespace     = var.namespace
-  domain        = var.domain
-  cert_issuer   = var.cert_issuer
-  oauth2_server = var.oauth2_server
-}
-
-module "argo_events" {
-  source    = "./argo-events"
-  namespace = var.namespace
-}
