@@ -11,10 +11,5 @@ module "ingress_baseline" {
       pod_selector = { "gateway.networking.k8s.io/gateway-name" = var.gateway_name }
       ports        = [{ port = 8333 }, { port = 9333 }, { port = 9101 }]
     },
-    {
-      namespace    = var.monitoring_namespace
-      pod_selector = { "app.kubernetes.io/name" = "prometheus" }
-      ports        = [{ port = 9327 }]
-    },
   ]
 }

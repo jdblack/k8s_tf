@@ -4,12 +4,4 @@ module "ingress_longhorn_system" {
 
   namespace = var.longhorn_namespace
   name      = "longhorn-system-ingress"
-
-  peers = [
-    {
-      namespace    = var.monitoring_namespace
-      pod_selector = { "app.kubernetes.io/name" = "prometheus" }
-      ports        = [{ port = 9500 }]
-    },
-  ]
 }
