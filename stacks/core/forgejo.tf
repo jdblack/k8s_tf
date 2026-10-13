@@ -40,7 +40,7 @@ module "forgejo" {
 
   # In `mantle` these were ordered for free by cross-stack sequencing; here they are same-stack, and the
   # submodules reach them through *defaulted string literals* rather than references, so the edges have
-  # to be written down: bucket/s3_user exec into SeaweedFS, backup needs core's Velero CRDs (owned by
-  # module.storage -- there is no module.backup at stack scope), and expose needs the private gateway.
-  depends_on = [module.seaweedfs, module.storage, module.network]
+  # to be written down: bucket/s3_user exec into SeaweedFS (now inside module.storage), backup needs
+  # core's Velero CRDs, and expose needs the private gateway.
+  depends_on = [module.storage, module.network]
 }

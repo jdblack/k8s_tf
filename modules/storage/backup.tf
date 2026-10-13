@@ -8,6 +8,10 @@ module "backup" {
 
   gateway_name      = var.gateway_name
   gateway_namespace = var.gateway_namespace
+
+  # The provisioner execs into the SeaweedFS S3 pod to mint the backup bucket/user, so SeaweedFS
+  # has to be up first. This edge is only expressible now that it is a sibling submodule.
+  depends_on = [module.seaweedfs]
 }
 
 locals {

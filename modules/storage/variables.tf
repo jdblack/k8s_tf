@@ -1,6 +1,11 @@
 variable "namespace" { type = string }
 variable "longhorn_namespace" { default = "longhorn-system" }
 
+# Passed through to the SeaweedFS tier.
+variable "cert_issuer" { type = string }
+variable "domains" { type = map(any) }
+variable "data_center" { type = string }
+
 variable "gateway_name" { default = "private" }
 variable "gateway_namespace" { default = "kube-network" }
 
