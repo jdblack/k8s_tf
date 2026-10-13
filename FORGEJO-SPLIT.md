@@ -6,9 +6,10 @@ Status: REVIEWED — Q1–Q10 answered, D1–D9 decided; full pass trail in `FOR
 
 - **State:** the plan is fully reviewed and **FROZEN** — **20 review passes** (12 self, 2 blind cold reads,
   18 directed subagents across six waves; the loop closed when a wave found the *fold process* itself had
-  become the leading defect source). **Pass 21 (2026-10-13) is the first live change** — the T3.8 Actions
-  fix, applied and verified; nothing *else* is built. Every decision (D1–D9) and question (Q1–Q10) is
-  settled. Move verified sound (18/18 addresses).
+  become the leading defect source), **then Passes 21-23**: the first live change (**T3.8**, applied and
+  verified), the **DR set taken + proven restorable**, and a **fresh-context cold read** that returned
+  **8/8 real findings**. Every decision (D1–D9) and question (Q1–Q10) is settled. Move verified sound
+  (18/18 addresses, **re-verified after the apply**).
 - **✅ T3.8 RESOLVED and verified live (Pass 21) — was the blocker (G18-1/J19-1).** The stale
   `[repository] DISABLED_REPO_UNITS = repo.actions` is **cleared and applied** (2026-10-13, **1 changed /
   0 destroyed**, helm rev 5→6, clean restart); the line now reads empty and **new repos default to
@@ -122,6 +123,10 @@ worker rolls, the OIDC window, downtime during a restore) is a **non-issue**, an
   `discovery_url`, and `blueprint_secret`** (the Secret name `module.authentik` consumes below).
   *(Pass 20, O20-1: this said "exactly three" while the stack wiring below, §6 and T4.3 all consumed the
   fourth — implementing §4 literally and then wiring T4.3 would have failed `tofu validate` in Phase 4.)*
+  **Inputs (Pass 23 — never specified before; the same O20-1 class):** `name` (default `"forgejo"`,
+  load-bearing per D3/A16-4), **`issuer_base`** (the direct replacement for the deleted
+  `oidc_issuer_base` — without it there is literally nothing to build `discovery_url` from), and `domain`
+  (for the two redirect URIs). Pinned in T4.2.
   The rest of the `oidc` input (`scopes`, `group_claim`, the group names) are stack literals (N3). The
   provider-based `oidc_provider` stays for every other app.
 - `modules/auth/authentik/core/` — new input `extra_blueprints` (names appended to `blueprints.secrets`).
@@ -165,6 +170,9 @@ worker rolls, the OIDC window, downtime during a restore) is a **non-issue**, an
   so the blueprint module's `name` **must be exactly `forgejo`** — otherwise authentik makes
   `forgejo-oidc-admin` while Forgejo is told to read `forgejo-admin`: login works, **nobody is admin, zero
   errors.** Pinned in T1.3.
+  **Clarification (Pass 23): this is the module's `name` INPUT VARIABLE** (default `"forgejo"`), which derives
+  the group names *and* the provider's `identifiers.name`. It is **NOT** the blueprint's `metadata.name` —
+  that is irrelevant to adoption entirely. Handoff notes garbled the two.
 - **D4 — Preserve authentik object identity.** Convert by **dropping** the `oidc` entries from the pushed
   mantle state (**forget**), NOT destroying them, so the blueprint **adopts** the existing
   app/provider/groups by identifier → UUIDs (and memberships) survive. Destroy+recreate would break the
@@ -308,8 +316,10 @@ PVC** — silent data loss, the one outcome D8 forbids.
 4. Only when **both** plans say *No changes* may anything be applied — and nothing should need it.
 5. Verify PVC identity survived:
    `kubectl -n devops-forgejo get pvc forgejo-data -o jsonpath='{.spec.volumeName}'` (must be unchanged).
-6. **If a destroy already applied:** `velero restore create --from-backup forgejo-pre-split`. That is now the
-   *only* recovery path — see the D9 note: the off-cluster vault is **empty** (R16-3).
+6. **If a destroy already applied:** `velero restore create --from-backup forgejo-pre-split`. That is the
+   *in-cluster* recovery path — see the D9 note. **✅ Corrected Pass 22/23: the off-cluster vault is NO
+   LONGER empty** (R16-3 was superseded). `/Users/jblack/backups/forgejo/` now holds a verified `dump/`
+   (8.34 GB, opened and proven restorable), `s3/` and `tfstate/`.
 
 - **authentik mis-applied:** `helm -n kube-auth rollback authentik 18` (last known-good rev) **before**
   re-applying core. A bad blueprint is inert alone (atomic apply).
@@ -328,13 +338,29 @@ That export is a **ready-made blueprint template** for every object, incl. the F
 | Q1 | Blueprint delivery | **Extend `blueprints.secrets`** with the plan's Secret (**D2**): the chart mounts it on the **worker only**; authentik discovers `*.yaml` on worker start or the periodic scan (default **60 min**). **No login impact.** |
 | Q2 | `client_secret` rotation | **Preservable** — the export prints the current secret in clear (`client_secret: ElCZ…`), so the blueprint can carry the exact value. Otherwise a new `random_password` rotates it. |
 | Q3 | Robot secret target | **Repo-level** (`forgejo_repository_action_secret`). The provider has no user-secret resource, and the publishing repos live under user `jblack/*`. |
-| Q4 | `policybinding` refs | **Both Forgejo bindings sit at `order: 0` on the same target**, so `{target, order}` cannot tell them apart (`.first()` returns one row for both). Identify by **`{target, group}`**: `identifiers: {target: !Find [authentik_core.application,[slug,forgejo]], group: !Find [authentik_core.group,[name,forgejo-admin]]}`, plus exactly one of `policy`/`group`/`user` in `attrs`. |
+| Q4 | `policybinding` refs | **Both Forgejo bindings sit at `order: 0` on the same target**, so `{target, order}` cannot tell them apart (`.first()` returns one row for both). Identify by **`{target, group}`**. **⚠️ Pass 23: this sample previously used `!Find` for both FKs — which is the exact pattern T1.2/D17-1 forbids.** `!Find` yields `None` on a miss → the binding matches nothing → **silent duplicate**. Use **`!KeyOf`** (fails closed), per T1.2. It also matters *mechanically* for `target`: `!KeyOf` returns the `pbm_uuid` of a `PolicyBindingModel` target, which is what makes that FK adopt at all. Plus exactly one of `policy`/`group`/`user` in `attrs`. |
 | Q5 | `certificatekeypair` | `attrs: {name, certificate_data, key_data}` (PEMs from `tls_*`); identify by `name`. Note the export **omits** cert/key (write-only) → we must supply them. |
 | Q6 | Preset `client_secret` honoured? | **Yes** — it's a model field on the provider and it round-trips in the export. |
 | Q7 | Built-in scope mappings | `!Find [authentik_providers_oauth2.scopemapping, [managed, "goauthentik.io/providers/oauth2/scope-openid"]]` (also `scope-email`, `scope-offline_access`). Custom `groups`/`profile` mappings: **identify by `name`** (unique per app) — `scope_name` repeats across apps (immich has its own `profile`). |
 | Q8 | `oauth2provider` identifier | Blueprint `identifiers` are just **model fields** → use `identifiers: {name: forgejo}` to **adopt pk 57**. (`client_id: forgejo` works too.) |
 | Q9 | `tls_*` signing pair | **Let it regenerate.** The blueprint must carry the PEMs anyway; preserving would require keeping a same-path `module.oidc` shim. Cost: one re-login. |
 | Q10 | Greenfield rebuilds required? | **YES — DR tenet (answered).** Greenfield build-out must stay possible, and `mantle` is *currently* greenfield-broken by the same-stack runner-token read (§2.5). ⇒ **the split is justified and fixes a real bug**; Option A is off the table. |
+
+### The `invalidation_flow` trap (Pass 23) — a name that lies
+
+`oidc_provider/auth.tf:25` declares a data source *named* `default-provider-invalidation-flow` but points
+it at slug **`default-provider-authorization-implicit-consent`** — the same slug as
+`default-authorization-flow` right above it. **Verified live (authentik 2026.8.2):**
+
+| flow slug | pk |
+|---|---|
+| `default-provider-authorization-implicit-consent` | **`fbfe9f96-7fcf-450e-b067-a9328f109730`** |
+| `default-provider-invalidation-flow` | **`28c991a8-3f39-46e4-b33a-1e965cd57bca`** |
+
+So the provider's real `invalidation_flow` is **`fbfe9f96`** (the implicit-consent flow), while a
+*genuinely named* `default-provider-invalidation-flow` exists and is what any blueprint author would pick
+by "obvious" name-matching — **silently changing the provider.** Copy the **value**, not the name: the
+invalidation flow must stay `fbfe9f96`. This is exactly the class of trap D17-1 warns about, one level up.
 
 ### Fidelity details discovered (extend R8 — get these EXACT)
 - The model field is **`redirect_uris`**, *not* `allowed_redirect_uris`.

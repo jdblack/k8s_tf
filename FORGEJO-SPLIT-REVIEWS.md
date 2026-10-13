@@ -817,3 +817,33 @@ left unproven is the deployment step around them. **DEF-14 narrows from "no test
 k8s restore".**
 
 
+
+---
+
+## Pass 23 — the fresh-context cold read (2026-10-13)
+
+The Phase-1 handoff went to a **fresh context with no history** — 5 docs, 4 memory entries, and the prompt.
+It came back with **8 flags.** All 8 were checked here against the docs *and* the live system. **All 8 hold.**
+This is the first pass run by an agent with **zero** exposure to the review loop — the closest thing yet to a
+true cold read of the *finished* artefact.
+
+| # | Flag | Verdict |
+|---|---|---|
+| 1 | §9 Q4's sample `identifiers` used **`!Find`** on both FKs — the exact pattern T1.2/D17-1 forbids *in the same document* | **Confirmed** — the docs contradicted themselves |
+| 2 | `auth.tf:25` names a flow `default-provider-invalidation-flow` but points it at the **implicit-consent** slug; a real flow by that name exists to be picked by mistake | **Confirmed live** — `fbfe9f96…` (implicit-consent) vs `28c991a8…` (the real invalidation flow) |
+| 3 | A16-4 conflates **the module's `name` variable** with the blueprint's `metadata.name` | **Partly** — the doc says "the blueprint *module's* `name`"; the **handoff prompt and the memory** were what garbled it |
+| 4 | T1.5 as written forces a **helm rev + worker roll** just to test; a `--dry-run` exists | **Confirmed** — `ak apply_blueprint --dry-run` is on the worker (2026.8.2) |
+| 5 | §8 step 6 still claims the vault is empty | **Confirmed** — and **my own earlier grep missed it twice**, because the text reads `vault is **empty**` |
+| 6 | T1.7 says "diff against §10", but §10 is an identity/UUID baseline | **Confirmed** — the field baseline is §9's fidelity list + the export |
+| 7 | The new module's **inputs** are specified nowhere; `discovery_url` has nothing to derive from | **Confirmed** — the same O20-1 class as the "exactly three" defect |
+| 8 | The export carries `users: [5]` on `forgejo-admin`; naive copy-and-trim **re-writes membership** | **Confirmed** — and would silently break the umbrella nesting |
+
+**Net: 8 findings, all folded.** Two are *repeat offenders*: flag 1 is O20-1's class (a fix landed in one
+place while the contradiction stood in another) and flag 5 is a half-applied correction — **the third time
+that has bitten this plan.**
+
+**What this says about the method.** Every prior pass read the docs *knowing what they meant*. A context with
+no history read them as a **stranger** and immediately found a self-contradiction (1), a name/behaviour
+mismatch in the source (2), and a whole missing interface (7). Flag 5 was a grep I ran **twice** and still
+missed, because I searched the phrase and the doc had markdown emphasis inside it.
+**The cold read is not a formality — it is the only pass that tests the artefact as a reader receives it.**

@@ -48,6 +48,10 @@ gitignored.
       `kubectl -n kube-auth exec deploy/authentik-worker -- ak export_blueprint > .tmp/authentik-export.yaml`
       then copy-and-trim the Forgejo provider/application/mappings/bindings (already saved at
       `.tmp/authentik-export.yaml`)
+      **⛔ PASS 23 — NEVER emit relation lists for the groups.** The export carries `users: [5]`, `parents: []`
+      and `roles: []` on `forgejo-admin` (verified). "Copy-and-trim" done naively therefore **re-writes group
+      membership** — and the umbrella `admin`/`user` nesting in `mantle` depends on it. Emit `name` (plus
+      `attributes`/`is_superuser` if needed) and **nothing else**.
 - [ ] T1.3 Create `modules/auth/authentik/oidc_blueprint/` (variables, providers, locals,
       `blueprint.tftpl`, main, outputs).
       **⛔ `name` MUST be exactly `"forgejo"`** (**A16-4**). The groups derive as `"${var.name}-admin"` /
@@ -71,15 +75,22 @@ gitignored.
       `https://auth.<domain>/application/o/forgejo/.well-known/openid-configuration` — note the
       `application/o/` prefix and **no trailing slash**. A wrong path is a loud 500 (caught by V-C5), so
       this is a verification, not a silent risk.
-- [ ] T1.5 **⛔ GATE:** apply the blueprint under a scratch name (`forgejo-oidc-test`); confirm the
-      worker logs `applied` and the app appears in authentik; then remove the scratch blueprint + objects
+- [ ] T1.5 **⛔ GATE — test via `exec`, NOT via a helm rev (corrected Pass 23).** As written this implied a
+      chart update (`extra_blueprints`) + a **live worker roll** *before* you even know the blueprint is
+      valid. **`ak apply_blueprint` has `--dry-run`** (verified live on the worker, authentik 2026.8.2) —
+      it exercises the *identical* engine with **zero blast radius**:
+      `kubectl -n kube-auth exec deploy/authentik-worker -- ak apply_blueprint --dry-run <file.yaml>`
+      Then drop `--dry-run` for a real scratch apply (`forgejo-oidc-test`), confirm the app appears in
+      authentik and check `apply_ok` / any error in the output. **Teardown:** `state: absent` on the entries
+      deletes them cleanly (every export entry carries `state: present`), then remove the scratch file.
 - [ ] T1.6 Confirm idempotency: re-running the blueprint does not duplicate objects
 - [ ] T1.7 **Fidelity (R8):** copy the **values** of `grant_types`, token validities, redirect URIs and all
       `property_mappings` from `oidc_provider/auth.tf` — but emit the model field **`redirect_uris`**, NOT
       `allowed_redirect_uris` (the terraform attr name). **`auth.tf` is NOT the source for ~6 fields** —
       `sub_mode`, `issuer_mode`, `include_claims_in_id_token`, `logout_method`, `access_code_validity`,
       `refresh_token_threshold` are provider *defaults*, visible only in the live
-      `.tmp/authentik-export.yaml` (§9). Diff the result against plan §10 (adopt, don't recreate).
+      `.tmp/authentik-export.yaml` (§9). Diff the result against **§9's fidelity list + the live export** —
+      **not §10** (Pass 23: §10 is an *identity/UUID* baseline, not a field baseline) — then adopt, don't recreate.
       **Framing correction (A16-6):** the OIDC config is **NOT** in `app.ini` — it is a DB `login_source`
       row, re-synced by the chart's init container on every pod start. R8's byte-match guards *that row*
       (and the chart emits its flags in Go-template sorted-key order, so the row is a pure function of the
@@ -224,6 +235,10 @@ gitignored.
       `discovery_url = module.forgejo_oidc.discovery_url, scopes = "openid,email,profile,groups",`
       `group_claim = "groups", admin_group = "forgejo-admin", restricted_group = "forgejo-user" }`
 - [ ] T4.2 `stacks/core`: `module "forgejo_oidc"` → `../../modules/auth/authentik/oidc_blueprint`
+      **with the input contract spelled out** (Pass 23 — it was never specified anywhere, O20-1 class):
+      `name = "forgejo"` (load-bearing, D3/A16-4), **`issuer_base = var.deployment.auth.server`** (the direct
+      replacement for the deleted `oidc_issuer_base` — the *only* thing `discovery_url` can be built from),
+      and `domain` (for the two redirect URIs). Consumes the module's four outputs (§4).
 - [ ] T4.3 `stacks/core`: `module "authentik"` gains `extra_blueprints = [module.forgejo_oidc.blueprint_secret]`
 - [ ] T4.4 `stacks/mantle/forgejo.tf`: repoint the CI module and **name it `forgejo_setup`** (sourcing
       `../../modules/devops/forgejo/mantle`) — matches `harbor_setup`/`argo_setup`, and avoids two
