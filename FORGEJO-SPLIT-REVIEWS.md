@@ -850,6 +850,59 @@ missed, because I searched the phrase and the doc had markdown emphasis inside i
 
 ---
 
+## Pass 25 — Phase 4 built, and the fold audited a third time (2026-10-13)
+
+### Part 1 — Phase 1-2 verification: ZERO defects
+
+Re-checked the built `oidc_blueprint` against the live cluster, field by field, without trusting the build
+report:
+
+| claim | verified |
+|---|---|
+| the "wrong-looking" flow slug is right | live `invalidation_flow` really is `fbfe9f96` (implicit-consent) |
+| both redirect URIs | exact — `strict`/`authorization`, same order |
+| app `meta_*` | identical, incl. the jsdelivr icon URL |
+| both custom scope expressions | **byte-identical** (77 / 380 chars) |
+| group identities | `forgejo-admin` `e99a0ce2…` (users `[jblack]`), `forgejo-user` `0e04476d…` — intact |
+| both binding pks | `20e35690…` / `3d4decc6…`, order 0 — match the §10 baseline |
+| scope set | 5/5, both custom pks preserved |
+| test residue | 0 stray objects, 0 extra `BlueprintInstance` rows |
+| T2.3 | `No changes` with the empty default |
+
+**The first clean verification in this project's history** — not because the bar moved, but because the
+builder had all 17 prior folds as input. That is the loop's premise; this is its first direct evidence.
+
+### Part 2 — Phase 4: a prerequisite, a hard stop, and four flags
+
+- **Prerequisite (F1):** T4.1 sources `../../modules/devops/forgejo/core`, which **T3.1 creates** — so Phase
+  4 cannot even validate until T3.1/T3.2 land. The agent did them here. The T3.1 triage also never said that
+  **every `source = "../../…"` gains a `../`** at the new depth; `tofu validate` caught it as **eight**
+  *"Module not installed"* errors.
+- **🛑 Hard stop:** `core` is wired but **not adopted** — its plan is **21 creates**, including
+  `module.forgejo.kubernetes_namespace_v1.namespace`, the PVC and the helm release. Applying it would try to
+  **create the live instance.** A careless apply dies loudly on `AlreadyExists`.
+- **The fidelity claim, verified independently:** the `oauth` block reproduces every live field
+  (`authentik`, `forgejo`, the discovery URL, `openid,email,profile,groups`, both group names,
+  `openidConnect`) — **only `secret` moves.**
+
+| # | Flag | Verdict |
+|---|---|---|
+| **F2** | **Parking DOES block Phase 5** — T4.4–T4.7 are Phase 4 *and* are the mantle half; C7c needs mantle to have stopped declaring `module.forgejo` | **Confirmed — and it falsifies our own claim** |
+| F3 | `tofu validate` doesn't evaluate *cross-variable* validations | **Confirmed** — four self-referencing conditions failed at validate; `admin_group == "${var.name}-admin"` passed validate, failed at plan |
+| F4 | T5.0's plan-reading pre-gate is unsatisfiable | **Confirmed on the saved plan** — `after_unknown.values = [true]` for `module.forgejo.helm_release.forgejo` (the secret is created in the same apply) |
+| F1 | Phase 4's prerequisite isn't in Phase 4; the `../` rule is undocumented | **Confirmed** — the files show `../../../…` throughout |
+
+### The FIFTH fold defect
+
+**F2 is ours.** Pass 23 asserted — in the plan header, *and* the Phase-3 banner, *and* DEF-15 — that parking
+did "not block the split." It does. Three documents, one wrong claim, all three now corrected.
+
+**That is the fifth time the fold step has been the defect source, and the second consecutive pass where a
+cold reader caught it.** The rule gains a third clause: *when a fold makes a claim about **structure** — what
+depends on what — treat it like a rewritten command: find the task IDs and read them.*
+
+---
+
 ## Pass 24 — the cold read's second round: it audited the fold (2026-10-13)
 
 The fresh context was told to re-read exactly what Pass 23 changed. It returned **9 more flags** — and

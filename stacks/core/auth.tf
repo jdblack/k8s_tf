@@ -26,6 +26,10 @@ module "authentik" {
   gateway_name      = module.network.gateway_name
   gateway_namespace = module.network.gateway_namespace
 
+  # The Forgejo OIDC blueprint, delivered as a Secret this stack writes into kube-auth: the chart mounts
+  # every listed Secret on the worker and the worker globs *.yaml inside it.
+  extra_blueprints = [module.forgejo_oidc.blueprint_secret]
+
   # oCIS resolves every account over LDAP, so it has to be allowed in at the outpost.
   ldap_client_namespaces = ["documents"]
 

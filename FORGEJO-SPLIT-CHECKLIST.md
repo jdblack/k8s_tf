@@ -156,9 +156,16 @@ gitignored.
 
 > **⏸️ Partly PARKED 2026-10-13 (DEF-15).** **T3.3 / T3.6 / T3.7 are deferred** (the whole `forgejo/mantle`
 > half + the repo list) per the owner. **The split tasks — T3.1, T3.2, T3.4, T3.5 — are NOT parked** and are
-> still required for Phase 5. Nothing in Phases 1/2/4/5 depends on the parked work.
+> still required for Phase 5. **T3.1/T3.2/T3.5 are DONE** (Pass 25); **T3.4 is blocked** on T4.4, so the flat
+> `modules/devops/forgejo/` and `forgejo/core/` must coexist for now — the very thing T3.4 forbids.
+> **⚠️ Corrected in Pass 25:** the old claim here — *"nothing in Phases 1/2/4/5 depends on the parked work"* —
+> is **false**. **Phase 4 contains the mantle half** (T4.4/T4.5/T4.6/T4.7 rewire `stacks/mantle/forgejo.tf`
+> onto `forgejo/mantle`) and **Phase 5's C7c requires mantle to have stopped declaring `module.forgejo`**.
+> So the parked work gates the surgery. See DEF-15.
+> **Prerequisite (Pass 25):** Phase 4 sources `../../modules/devops/forgejo/core`, which **T3.1 creates** —
+> so T3.1/T3.2 must land before any T4.x wiring, or `tofu validate` fails with *"Module not installed"*.
 
-- [ ] T3.1 Create `modules/devops/forgejo/core/`: `namespace`, `helm`, `storage`, `listener`, `ingress`,
+- [x] T3.1 Create `modules/devops/forgejo/core/`: `namespace`, `helm`, `storage`, `listener`, `ingress`,
       `egress`, `backup`, `locals`, `outputs`, `providers`, `variables`.
       **Exact symbol triage — do NOT hand-wave "minus `oidc_*`" (N2/B). Every line below is a real
       reference; a literal reading of "delete the OIDC bits" breaks the build or silently changes
@@ -180,7 +187,11 @@ gitignored.
         `expose`→`listener_set`/`http_route`, `ingress`, `egress*`, `backup`); keep
         `backend_name = local.http_service_name` (empty ⇒ `http_route[0]` vanishes ⇒ terraform **destroys
         the git HTTPRoute**); and keep `namespace`/`name` defaults identical.
-- [ ] T3.2 `forgejo/core`: replace the module's OIDC references with an **input** `oidc`, keys exactly
+      - **PATHS (Pass 25): every `source = "../../…"` gains one `../`.** `forgejo/core/` sits one directory
+        deeper than the flat module, so **all eight** submodule sources deepen to `../../../…`. Copying the
+        structure verbatim without this fails `tofu validate` with eight *"Module not installed"* errors —
+        which is exactly how it was found. (Not mentioned in the STRUCTURE list above; it is now.)
+- [x] T3.2 `forgejo/core`: replace the module's OIDC references with an **input** `oidc`, keys exactly
       `{client_id, client_secret, discovery_url, scopes, group_claim, admin_group, restricted_group}` —
       **values in §4** (a wrong `scopes`/`group_claim` = silent R8 break).
       **⛔ ADD `validation` blocks (F17-1/F17-2/F17-5).** The input is a free-form object, so a typed-but-wrong
@@ -247,7 +258,7 @@ gitignored.
 - [ ] T3.7 ⏸️ **PARKED 2026-10-13 (DEF-15).** **Declare `forgejo_registry_repos`** in `stacks/mantle/variables.tf` and thread it into the
       module (it was in the parked prototype; currently unowned).
 - [ ] T3.4 `git rm` the superseded old `modules/devops/forgejo/*.tf` — do NOT leave both
-- [ ] T3.5 **⛔ GATE:** `tofu fmt` clean on every new/changed file
+- [x] T3.5 **⛔ GATE:** `tofu fmt` clean on every new/changed file
 
 ---
 
@@ -295,7 +306,12 @@ gitignored.
       `provider "forgejo"` block — `host = https://git.<domain>` and `username`/`password` from a new
       **`data.kubernetes_secret_v1`** on the chart-minted `forgejo-admin` Secret (house pattern; no new
       credential). **← M1: this wiring was previously missing.**
-- [ ] T4.8 **⛔ GATE:** `tofu validate` both stacks
+- [x] T4.8 **⛔ GATE:** `tofu validate` both stacks — ✅ ran clean (Pass 25).
+      **⚠️ Pass 25 — `validate` is NECESSARY BUT NOT SUFFICIENT for the `oidc` input.** OpenTofu does **not**
+      evaluate *cross-variable* `validation` conditions at validate time; only self-referencing ones fail
+      there. Empirically: the four conditions referencing only their own variable failed at `validate`,
+      while `admin_group == "${var.name}-admin"` **passed validate and failed only at plan** (*Invalid value
+      for variable*). So T4.8 covers **half** the input — **run a `tofu plan`** to exercise the rest.
 - [ ] T4.9 `stacks/core/providers.tf`: add **`tls` 4.4.1** (matches mantle) to `required_providers` — the
       `oidc_blueprint` needs it
 - [ ] T4.10 `oidc_blueprint` writes its Secret into **`kube-auth`**; add `namespace` input +
@@ -318,6 +334,14 @@ gitignored.
       **not** `domain`, `ROOT_URL`, `autoDiscoverUrl`, redirects, scopes, or `groupClaimName`. The OIDC
       block is being re-plumbed (`local.oidc_issuer` → an `oidc` input); a stray value change restarts
       Forgejo with a broken `app.ini`. **T5.7 cannot be trusted without this.**
+      **⚠️ Pass 25 — this gate CANNOT be run by reading a plan.** The plan reports
+      `after_unknown.values = [true]` for `module.forgejo.helm_release.forgejo` (verified on the saved
+      plan): the chart values are unknown because `client_secret` comes from a `random_password` created in
+      the **same** apply. So "confirm the plan's update touches only the `client_secret`" is
+      **unsatisfiable**. **Substitute — and it works:** render `forgejo/core` through a **scratch root** with
+      a literal `client_secret`, then diff that against `helm get values`. Harness kept at
+      `.tmp/forgejo-core-render/`; the comparison came back **DIFF EMPTY** apart from the secret. **That
+      scratch-render diff IS the gate** — not an aside.
 
 Exact commands (single operator; `TOFU` = `tofu` from each stack dir):
 

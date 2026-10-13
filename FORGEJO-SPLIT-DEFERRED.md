@@ -42,11 +42,17 @@ Parked as a user todo: see `todo-backup-policy` in memory.
   CI workflow**, and **3 have both** (`jblack/billmebabe-api`, `jblack/ellmephant`, `jblack/newsapi`) —
   those three are the obvious first entries. Zero repos have `.forgejo/workflows`, i.e. nobody has ever used
   Forgejo Actions here (corroborates G18-1).
-  **What this does NOT park:** the split itself — T3.1/T3.2/T3.4/T3.5 and all of Phases 1, 2, 4, 5 are
-  **independent** of every parked task. The instance still moves to `core`; only the Harbor push stays
-  unbuilt.
-  **Consequences while parked:** gate 4 cannot fully pass (T3.6 undecided); T6.4 (apply mantle → robot +
-  secrets) becomes a no-op; and **validation section E (V-E1…V-E6) is inapplicable.**
+  **⚠️ Corrected in Pass 25 — parking is NOT free of the split.** T4.4–T4.7 are *Phase 4* tasks and they are
+  exactly the mantle half: they repoint `stacks/mantle/forgejo.tf` at `forgejo/mantle` and add the forgejo
+  provider. And **C7c requires mantle to have stopped declaring `module.forgejo` before the moved state
+  lands**, which is T4.4. **So Phase 5 cannot start until this is unparked** — or the mantle side is
+  rewritten to *drop* `module.forgejo` outright (T4.5's `data.authentik_group` + T4.6's literals already
+  remove every other consumer) rather than repoint it. The instance still moves to `core`; the
+  *completion* of the move does not.
+  **Consequences while parked:** gate 4 cannot fully pass (T3.6 undecided); **Phase 5 is unreachable**;
+  T3.4 is blocked on T4.4 (so the flat module and `forgejo/core/` coexist — T3.4's own prohibition);
+  T6.4 (apply mantle → robot + secrets) becomes a no-op; and **validation section E (V-E1…V-E6) is
+  inapplicable.**
   **NOT parked:** **T3.8** — the global flag is already cleared and applied (Pass 21); reverting it would be
   pointless churn.
   When: whenever CI pushing images to Harbor actually matters.

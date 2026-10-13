@@ -38,9 +38,17 @@ Status: REVIEWED — Q1–Q10 answered, D1–D9 decided; full pass trail in `FOR
   declare `sensitive = true`, or `tofu plan` fails at the root.
 - **Phase 3:** T3.8's global half is **done** (Pass 21); add only the per-repo PATCH for the pre-existing
   repos (T3.3) — the goal's second half is otherwise unblocked.
-- **⏸️ PARKED (owner, 2026-10-13): the entire Harbor → Actions half** — `forgejo/mantle` (T3.3), the
-  `forgejo_registry_repos` list (T3.6/T3.7), the per-repo PATCH. **It does not block the split** (Phases
-  1/2/4/5 are independent of it); it defers only the goal's second half. See **DEF-15**.
+- **⏸️ PARKED (owner, 2026-10-13): the Harbor → Actions half** — `forgejo/mantle` (T3.3), the
+  `forgejo_registry_repos` list (T3.6/T3.7), the per-repo PATCH.
+  **⚠️ Corrected in Pass 25: parking DOES block Phase 5.** T4.4–T4.7 are *Phase 4* tasks, and they rewire
+  `stacks/mantle/forgejo.tf` onto `forgejo/mantle`; C7c requires mantle to have **stopped declaring**
+  `module.forgejo` before the moved state lands. So **Phase 5 cannot start until DEF-15 is unparked** — or
+  the mantle side is instead rewritten to *drop* `module.forgejo` outright rather than repoint it. The
+  earlier claim that "Phases 1/2/4/5 are independent of the parked work" was **wrong**. See **DEF-15**.
+- **🛑 DO NOT APPLY EITHER STACK right now.** `core` is wired but **not adopted**: its plan is **21 creates**,
+  including `module.forgejo.kubernetes_namespace_v1.namespace`, the PVC and the helm release — applying it
+  would try to **create the live instance.** (Saving grace: it dies loudly on `AlreadyExists` at the
+  namespace, before anything downstream.) Nothing runs until Phase 5 moves the state.
 - **Open:** `DEF-1…DEF-14` in `-DEFERRED.md`; the parked normal-backup topic (`todo-backup-policy` in memory).
 - **Where things live:** move script `.tmp/forgejo-split-move.py` and export `.tmp/authentik-export.yaml`
   are **gitignored but kept**; surgery `state` scratch in `.tmp/backups/`; DR vault
