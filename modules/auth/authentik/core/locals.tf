@@ -23,9 +23,11 @@ locals {
       ]
     }
     blueprints = {
-      secrets = [
-        kubernetes_secret_v1.blueprint_deploy_key.metadata[0].name,
-      ]
+      # Names, not keys: the chart mounts each Secret whole, and the worker globs **/*.yaml inside it.
+      secrets = concat(
+        [kubernetes_secret_v1.blueprint_deploy_key.metadata[0].name],
+        var.extra_blueprints,
+      )
     }
     authentik = {
       secret_key = random_password.cookie_token.result

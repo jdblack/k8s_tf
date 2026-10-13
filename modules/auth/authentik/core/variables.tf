@@ -25,6 +25,12 @@ variable "ldap_client_namespaces" {
   description = "Namespaces whose pods read the directory through the LDAP outpost. Without this the egress side can be perfect and every search still times out, because this policy governs the outpost too."
 }
 
+variable "extra_blueprints" {
+  type        = list(string)
+  default     = []
+  description = "Extra k8s Secrets to mount as blueprints, by name. Each Secret's keys must be .yaml files or the worker mounts them and never applies them; this is a list of names, so it cannot express the key. Empty by default, which renders the same helm values as before this input existed."
+}
+
 variable "ldap_ports" {
   type        = list(number)
   default     = [3389, 6636]

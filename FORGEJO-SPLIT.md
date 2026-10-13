@@ -25,10 +25,17 @@ Status: REVIEWED — Q1–Q10 answered, D1–D9 decided; full pass trail in `FOR
   (fresh; mantle serial 1170 = live) — plus two `Completed` Velero backups, and the daily schedule **does
   fire** (**DEF-2 resolved**). What is still missing is the **deployment rehearsal**; DEF-1/12/13 remain
   load-bearing. Reviewing the *plan* is done; the *data* side needs the k8s restore drill.
-- **Next step:** freeze these docs and start **Phase 1** — copy-and-trim the live export
-  (`.tmp/authentik-export.yaml`) into `modules/auth/authentik/oidc_blueprint/`, then run gate **T1.5**
-  (blueprint applies on a scratch name) and **T1.6** (idempotent). **Remember `name = "forgejo"` (T1.3) and
-  the `.yaml` Secret key (T1.3).**
+- **✅ PHASES 1-2 ARE BUILT AND VERIFIED (2026-10-13).** `modules/auth/authentik/oidc_blueprint/` exists
+  (6 files, 291 lines); `modules/auth/authentik/core` accepts `extra_blueprints`. Gates green — T1.5
+  (`VALID: True` first try, applied, torn down with a `!Find` absent file → 0 leftovers), T1.6
+  (`IDENTICAL: True`, `signing_key_id` unchanged and non-null), T1.7 (13/13 provider fields), T2.3
+  (`No changes` with the empty default). **Independently re-verified against the live cluster** (Pass 25):
+  the invalidation flow really is `fbfe9f96`, both redirect URIs match exactly (`strict`/`authorization`),
+  the app's `meta_*` match, both custom scope expressions are **byte-identical**, both groups keep their
+  pks and membership, both bindings match the §10 baseline, and the scope set is **5/5**. **No defects
+  found.**
+- **Next: Phase 4** (stack wiring). ⚠️ `client_id` is **`sensitive`** — a root output referencing it must
+  declare `sensitive = true`, or `tofu plan` fails at the root.
 - **Phase 3:** T3.8's global half is **done** (Pass 21); add only the per-repo PATCH for the pre-existing
   repos (T3.3) — the goal's second half is otherwise unblocked.
 - **⏸️ PARKED (owner, 2026-10-13): the entire Harbor → Actions half** — `forgejo/mantle` (T3.3), the

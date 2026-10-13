@@ -33,8 +33,8 @@ gitignored.
 
 ## Phase 1 — Forgejo OIDC blueprint module (build + verify in isolation)
 
-- [ ] T1.1 Enumerate the objects `modules/auth/authentik/oidc_provider/auth.tf` creates (done: 192 lines)
-- [ ] T1.2 Blueprint schema **now pinned** (plan §9): model names, identifiers, `!Find`/`!KeyOf`, and the
+- [x] T1.1 Enumerate the objects `modules/auth/authentik/oidc_provider/auth.tf` creates (done: 192 lines)
+- [x] T1.2 Blueprint schema **now pinned** (plan §9): model names, identifiers, `!Find`/`!KeyOf`, and the
       atomic-apply + 60-min discovery behaviour.
       **⚠️ Pass 17 (D17-1): the matching mechanism FAILS OPEN.** `!Find` with **no** match returns `None` —
       not an error — and `.first()` has **no multi-match guard**; a live test on the worker
@@ -51,7 +51,7 @@ gitignored.
       (atomic apply). So: **`!KeyOf` for every *scalar* FK** (that is where a miss is invisible); lists are
       self-protecting, so the blanket "every FK" phrasing overstated it. Ordering
       (`certificatekeypair`/groups before referrers) is unchanged.
-- [ ] T1.2b **Use the live export as the template:**
+- [x] T1.2b **Use the live export as the template:**
       `kubectl -n kube-auth exec deploy/authentik-worker -- ak export_blueprint > .tmp/authentik-export.yaml`
       then copy-and-trim the Forgejo provider/application/mappings/bindings (already saved at
       `.tmp/authentik-export.yaml`)
@@ -62,7 +62,7 @@ gitignored.
       and `roles: []` on `forgejo-admin` (verified). "Copy-and-trim" done naively therefore **re-writes group
       membership** — and the umbrella `admin`/`user` nesting in `mantle` depends on it. Emit `name` (plus
       `attributes`/`is_superuser` if needed) and **nothing else**.
-- [ ] T1.3 Create `modules/auth/authentik/oidc_blueprint/` (variables, providers, locals,
+- [x] T1.3 Create `modules/auth/authentik/oidc_blueprint/` (variables, providers, locals,
       `blueprint.tftpl`, main, outputs).
       **⛔ `name` MUST be exactly `"forgejo"`** (**A16-4**). The groups derive as `"${var.name}-admin"` /
       `"-user"` (`oidc_provider/auth.tf:157-163`), and the app/provider adopt by `name` too — any other
@@ -80,7 +80,7 @@ gitignored.
       `'Terraform Deploy key' | mounted/secret-authentik-tfdeploykey/terraform.yaml | successful` — a third
       independent confirmation of F17-4, this time from the DB, with **no row at all** for the sibling
       `api_key` key.
-- [ ] T1.4 Reproduce: `forgejo-admin`/`forgejo-user` groups; `groups` + `profile` scope mappings
+- [x] T1.4 Reproduce: `forgejo-admin`/`forgejo-user` groups; `groups` + `profile` scope mappings
       (custom expressions); signing cert/key pair (PEMs from `tls_*`); oauth2 provider (client_id = app
       slug, client_secret from `random_password`, built-in flows via `!Find`, property mappings,
       `redirect_uris` *(the model field — do **not** emit `allowed_redirect_uris`, the terraform attr name)*,
@@ -92,7 +92,7 @@ gitignored.
       `https://auth.<domain>/application/o/forgejo/.well-known/openid-configuration` — note the
       `application/o/` prefix and **no trailing slash**. A wrong path is a loud 500 (caught by V-C5), so
       this is a verification, not a silent risk.
-- [ ] T1.5 **⛔ GATE — drive it via `ak shell` + `Importer.from_string`, NOT `apply_blueprint <path>`
+- [x] T1.5 **⛔ GATE — drive it via `ak shell` + `Importer.from_string`, NOT `apply_blueprint <path>`
       (rewritten Pass 24 — the Pass-23 version of this item *could not run*).**
       **Why the obvious command fails:** `BlueprintInstance(path=…).retrieve()` → `retrieve_file()` resolves
       the path under `blueprints_dir` and raises **`BlueprintRetrievalFailed: Invalid blueprint path`** for
@@ -119,7 +119,7 @@ gitignored.
       deleted. `!Find` fails open → `None` → matches nothing → the entry is skipped safely. Order:
       bindings → application → provider → scope mappings → groups → certificatekeypair; and delete the scratch
       `BlueprintInstance` row too if the file was ever discoverable.
-- [ ] T1.6 **⛔ GATE — idempotency, asserted on the ONE silent field (Pass 24).** Re-running the blueprint
+- [x] T1.6 **⛔ GATE — idempotency, asserted on the ONE silent field (Pass 24).** Re-running the blueprint
       must not duplicate objects — **and the assertion must target `signing_key_id`**, because that is the
       *only* failure in the set that fails **silently**: a `!Find` miss on a **nullable scalar FK** serializes
       as `None` with no complaint (provider adopts with `signing_key=None`, `apply_ok=True`). A `!Find` miss
@@ -127,7 +127,7 @@ gitignored.
       (`Invalid pk "None" - object does not exist.`) and the whole blueprint is refused, atomically.
       So: re-apply, then assert the provider's `signing_key_id` is **unchanged and non-null**, plus the
       identity set (app/provider/group pks) is byte-identical.
-- [ ] T1.7 **Fidelity (R8):** copy the **values** of `grant_types`, token validities, redirect URIs and all
+- [x] T1.7 **Fidelity (R8):** copy the **values** of `grant_types`, token validities, redirect URIs and all
       `property_mappings` from `oidc_provider/auth.tf` — but emit the model field **`redirect_uris`**, NOT
       `allowed_redirect_uris` (the terraform attr name). **`auth.tf` is NOT the source for ~6 fields** —
       `sub_mode`, `issuer_mode`, `include_claims_in_id_token`, `logout_method`, `access_code_validity`,
@@ -138,17 +138,17 @@ gitignored.
       row, re-synced by the chart's init container on every pod start. R8's byte-match guards *that row*
       (and the chart emits its flags in Go-template sorted-key order, so the row is a pure function of the
       value set) — guard the row, not `app.ini`.
-- [ ] T1.8 **Q6/Q7/Q8 answered** (plan §9): preset `client_secret` honoured; built-ins via `!Find` on
+- [x] T1.8 **Q6/Q7/Q8 answered** (plan §9): preset `client_secret` honoured; built-ins via `!Find` on
       `managed`; provider adopted by `identifiers: {name: forgejo}`
-- [ ] T1.9 **Q9 answered**: let the `tls_*` signing pair regenerate (blueprint carries the PEMs anyway)
+- [x] T1.9 **Q9 answered**: let the `tls_*` signing pair regenerate (blueprint carries the PEMs anyway)
 
 ---
 
 ## Phase 2 — authentik core accepts extra blueprints
 
-- [ ] T2.1 Add `variable "extra_blueprints" { default = [] }` to `modules/auth/authentik/core`
-- [ ] T2.2 `local.helm_values.blueprints.secrets = concat([<own>], var.extra_blueprints)`
-- [ ] T2.3 **⛔ GATE:** `tofu validate` core; confirm no diff when `extra_blueprints = []`
+- [x] T2.1 Add `variable "extra_blueprints" { default = [] }` to `modules/auth/authentik/core`
+- [x] T2.2 `local.helm_values.blueprints.secrets = concat([<own>], var.extra_blueprints)`
+- [x] T2.3 **⛔ GATE:** `tofu validate` core; confirm no diff when `extra_blueprints = []`
 
 ---
 
