@@ -20,10 +20,26 @@ variable "registration_token" {
 
 # Labels decide which jobs this runner picks up, and how they run. `docker://` = the container
 # executor (which needs the DinD sidecar below); a bare `host` label would run with no isolation.
+#
+# `ubuntu-latest` is the NAME workflows put in `runs-on:` (kept GitHub-shaped so a ported workflow
+# needs no edit); the image is what the job's steps actually run in.
+#
+# Image choice: `catthehacker/ubuntu:act-*` -- the act ecosystem's image. A job container MUST
+# carry all four of these (learned the hard way; see the `forgejo-runner-job-image` memory):
+#   node   -- the runner execs it INSIDE the container for every JavaScript action, so
+#             `actions/checkout` dies with `exec: "node": executable file not found` without it;
+#   git    -- for the checkout itself;
+#   docker -- the CLI, to reach the DinD sidecar;
+#   bash   -- most workflows assume it, and alpine images do not have it.
+# Both earlier values failed on a live run: the docs' example label (`node:20-bookworm`) had
+# node + git but NO docker, and `docker:29-cli` had git + docker but NO node.
+# Its size is a one-time cost -- the DinD daemon caches the image across jobs, for the pod's life.
+# TODO (see the `todos` index): replace this with a lean purpose-built `library/ci-base` image
+# published to Harbor, carrying the same four, so the label stops depending on a third-party image.
 variable "labels" {
   type = list(string)
   default = [
-    "ubuntu-latest:docker://node:20-bookworm",
+    "ubuntu-latest:docker://catthehacker/ubuntu:act-22.04",
     "docker:docker://data.forgejo.org/oci/alpine:3.20",
   ]
 }

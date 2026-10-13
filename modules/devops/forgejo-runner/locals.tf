@@ -56,8 +56,16 @@ locals {
             timeout  = var.job_timeout
             labels   = var.labels
 
-            # Handed to every job container so `docker` inside a job reaches the sidecar.
-            envs = { DOCKER_HOST = "tcp://127.0.0.1:2376" }
+            # Handed to every job container so `docker` inside a job reaches the sidecar. ALL THREE
+            # ARE REQUIRED: DOCKER_HOST alone fails with "Client sent an HTTP request to an HTTPS
+            # server" -- the daemon listens with TLS on 2376 (verified live in the smoke run). The
+            # certs are already mounted at /certs/client by `container.options` below; these two
+            # vars are what point the CLI at them.
+            envs = {
+              DOCKER_HOST       = "tcp://127.0.0.1:2376"
+              DOCKER_TLS_VERIFY = "1"
+              DOCKER_CERT_PATH  = "/certs/client"
+            }
           }
 
           container = {
