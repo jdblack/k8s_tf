@@ -20,9 +20,7 @@ Status: REVIEWED — Q1–Q10 answered, D1–D9 decided; full pass trail in `FOR
   the `.yaml` Secret key (T1.3).**
 - **Before Phase 3:** fix the **Actions blocker (T3.8)** — the goal's second half ships inert otherwise.
 - **Open:** `forgejo_registry_repos` (the repo list — **owner-gated**, T3.6/T3.7, blocks V-E4);
-  **⚠️ the Actions repo-unit is globally DISABLED in the live `app.ini` (G18-1 / T3.8) — the goal's second
-  half is inert until that is fixed**; `DEF-1…DEF-14` in `-DEFERRED.md`; the parked normal-backup topic
-  (`todo-backup-policy` in memory).
+  `DEF-1…DEF-14` in `-DEFERRED.md`; the parked normal-backup topic (`todo-backup-policy` in memory).
 - **Where things live:** move script `.tmp/forgejo-split-move.py` and export `.tmp/authentik-export.yaml`
   are **gitignored but kept**; surgery `state` scratch in `.tmp/backups/`; DR vault
   `/Users/jblack/backups/forgejo/`.

@@ -179,7 +179,8 @@ Adversarial "asshole" read-through of all five docs. **19 defects found**; every
 
 ### Holes
 
-11. **Only off-box copy expires** (Velero **ttl 168h**, Longhorn down). Added **T6.0** — re-take right
+11. **Only off-box copy expires** (Velero **ttl 168h** *(corrected Pass 20: the backup's ttl is **720h** —
+    168h is the schedule's)*, Longhorn down). Added **T6.0** — re-take right
     before applying.
 12. **Rollback §8 omitted the authentik rollback** Pass 5 discovered. Added (`helm … rollback authentik 18`).
 13. **`forgejo_registry_repos` unnamed, defaults `[]`.** Added **T3.6** to decide the list.
@@ -234,7 +235,8 @@ S3-compatible and reachable: `aws --endpoint-url https://s3.vn.linuxguru.net s3 
 **`/Users/jblack/backups/forgejo/`** with `dump/`, `s3/`, `tfstate/` (+ its own `README.md`). Three pieces,
 because no single tool covers the data. Velero keeps its in-cluster BSL; `.tmp/backups/` stays transient.
 
-**This closes the Tier-1 hole.** Before: the entire recovery story was one Velero copy with a 168h TTL and
+**This closes the Tier-1 hole.** Before: the entire recovery story was one Velero copy with a 168h TTL *(the
+backup's real ttl is **720h** — corrected Pass 20)* and
 a dead Longhorn target. Now the critical data (git + DB + config) has an **app-native** copy that restores
 without Kubernetes at all, and the blobs have a second copy too.
 
