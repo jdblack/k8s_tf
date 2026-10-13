@@ -8,8 +8,7 @@ Move the Forgejo **instance** (helm release, namespace, storage, exposure, backu
 stack and into `core`, re-implement Forgejo's authentik OIDC as an authentik **blueprint** (so no
 authentik terraform provider is needed in core), and **add** the **forgejo terraform provider** +
 Harbor push robot + Actions secrets in `mantle` — **none of that exists yet** (see §3). Constraint:
-**zero Forgejo data loss**. Expected disruption: a **brief Forgejo pod restart** (its helm values change)
-plus **one SSO re-login**; the authentik *worker* roll does **not** interrupt login.
+**zero Forgejo data loss**.
 
 **PRIORITY (owner, explicit): short service disruption is acceptable; data loss is not.** So the plan
 optimises for **exactly one thing — zero data loss**. Every availability concern (pod restarts, SSO gaps,
@@ -256,15 +255,9 @@ decisions **D1–D9** in §5. The narrative for every pass — **passes 1–11**
 
 ### Gaps found and closed as tasks
 
-1. `stacks/core` has **no `tls` provider** — the `oidc_blueprint` needs it. → **T4.9**
-2. `oidc_blueprint` writes its Secret into **`kube-auth`**; needs a `namespace` input + the namespace
-   resource as a dependency. → **T4.10**
-3. ~~Serialize: `module.forgejo` (core) `depends_on = [module.authentik]`~~ — **dropped; D8 makes the R9
-   race irrelevant.** (was T4.11)
-4. `kubernetes_manifest` move must yield **no diff**. → **T5.10** / **V-A7**
-5. `s3_user` secrets must **not** rotate (a rotation breaks Forgejo→SeaweedFS). → **V-B8**
-6. The Velero schedule must survive the move. → **V-B9**
-7. Blueprints mount on the **worker only** → worker roll-out check. → **T6.3b**
+Seven gaps surfaced across the passes; each is now a **task in the checklist** (with its reason inline):
+`T3.3` (robot's `depends_on`), `T3.6`/`T3.7` (repo list + variable), `T4.9` (core `tls` provider),
+`T4.10` (blueprint Secret → `kube-auth`), `T5.10` (manifest move, no diff), `T6.3b` (worker roll).
 
 ### State move dry-run (verified, no push)
 

@@ -7,14 +7,11 @@ Gate marker: **⛔ GATE** = do not proceed until the stated check passes.
 
 ## Phase 0 — Safety (DONE)
 
-- [x] T0.1 `tofu state pull` both stacks → `.tmp/backups/{core,mantle}-<ts>.tfstate`
-- [x] T0.2 Dump backend Secrets → `.tmp/backups/{core,mantle}-secret-<ts>.yaml`
-- [x] T0.3 Validate both state files parse (jq); count resources (189 / 477)
-- [x] T0.4 Commit pending work; tree clean (`4513f9c`)
-- [x] T0.5 Gitignore `.tmp/` (state backups live there)
-- [x] T0.6 Velero backup `forgejo-pre-split` → **Completed 54/54**, PVB 8.33 GB
-- [ ] T0.7 Re-take backups **immediately before** Phase 5 (states will have drifted)
-- [x] T0.8 Capture pre-change authentik UUID baseline → plan §10 (done)
+Done 2026-10-13: state pulls + backend-Secret dumps (`.tmp/backups/`), pre-change authentik UUID baseline
+(plan §10), Velero backup `forgejo-pre-split` (Completed 54/54), git committed (`4513f9c`), `.tmp/`
+gitignored.
+
+- [ ] **T0.7 — still open: re-take the state backups right before Phase 5** (they will have drifted).
 
 > **Backup home (D9).** Durable, off-cluster backups now live in **`/Users/jblack/backups/forgejo/`**
 > (`dump/`, `s3/`, `tfstate/`). `.tmp/backups/` remains the *transient* working area. Before this, the only
@@ -40,8 +37,6 @@ Gate marker: **⛔ GATE** = do not proceed until the stated check passes.
       `grant_types`); application; policy bindings for both groups
 - [ ] T1.5 **⛔ GATE:** apply the blueprint under a scratch name (`forgejo-oidc-test`); confirm the
       worker logs `applied` and the app appears in authentik; then remove the scratch blueprint + objects
-- [ ] T1.5b ~~verify no-rollout delivery~~ **RETIRED** — D7 now extends `blueprints.secrets`; the worker
-      roll is harmless (login unaffected)
 - [ ] T1.6 Confirm idempotency: re-running the blueprint does not duplicate objects
 - [ ] T1.7 **Fidelity (R8):** copy the **values** of `grant_types`, token validities, redirect URIs and all
       `property_mappings` from `oidc_provider/auth.tf` — but emit the model field **`redirect_uris`**, NOT
@@ -98,8 +93,6 @@ Gate marker: **⛔ GATE** = do not proceed until the stated check passes.
 - [ ] T4.9 `stacks/core/providers.tf`: add **`tls`** to `required_providers` (the `oidc_blueprint` needs it)
 - [ ] T4.10 `oidc_blueprint` writes its Secret into **`kube-auth`**; add `namespace` input +
       `depends_on` the namespace resource
-- [x] T4.11 ~~serialize the helm behind authentik~~ **DROPPED** — D8 makes the R9 race an availability
-      concern, and availability is accepted
 
 ---
 
@@ -153,7 +146,6 @@ python3 "$ROOT/.tmp/forgejo-split-move.py" "$TS"
 - [ ] T5.9 Verify backups still intact before proceeding
 - [ ] T5.10 Confirm the `expose`/`listener_set` **`kubernetes_manifest`** resources moved with **no diff**
       (they re-read live objects on plan)
-- [x] T5.11 (waived by owner — `.tmp/` will not be wiped; the script stays there)
 
 ---
 

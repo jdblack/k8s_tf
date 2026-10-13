@@ -34,27 +34,14 @@ and fixed a `$PWD`-in-subshell bug in my own instructions.
 
 ## Pass 4 — adversarial: "should we do this at all?" ✅ (resolved by Q10)
 
-Purpose: stop optimising how to do it, and re-test **whether** to do it.
+Purpose: stop optimising *how*, and re-test *whether*.
 
-### A1. What problem does this actually solve, *today*?
+**What it actually fixes:** `mantle` is **greenfield-broken** — `data.external.forgejo_runner_token` reads
+the `forgejo-admin` Secret that `module.forgejo` creates **in the same stack** (`set -eu`, no fallback), so
+a from-scratch `mantle plan` **fails today**. Moving the instance to `core` puts the Secret before its
+reader. (An earlier draft called this "tidiness, not a bug fix" — **wrong**, and the correction is below.)
 
-Nothing is broken. Forgejo runs; the runner is registered; OIDC works. The split fixes a
-**greenfield-only** wart: mantle's `provider "forgejo"` (and its `data.forgejo_repository`) reads the
-`forgejo-admin` Secret that `module.forgejo` creates **in the same stack**, so a from-scratch
-`apply` of mantle would fail at plan. On the live cluster it works *because Forgejo already exists*.
-
-### A2. Does "doing nothing" make greenfield any worse?
-
-**No.** Mantle *already* has the identical shape — `data.external.forgejo_runner_token` shells out to
-read that same `forgejo-admin` Secret, created by `module.forgejo` in the same stack. That data source
-already fails on a fresh mantle apply. So adding `provider "forgejo"` introduces **no new class of
-problem**. The split is therefore a **structural-tidiness refactor**, not a bug fix.
-
-> **⚠️ SUPERSEDED.** The conclusion above is **wrong**. "Already broken" ≠ "harmless": the same-stack
-> `data.external` read *is* a real greenfield break, and greenfield is a DR tenet (Q10). The split **fixes**
-> a live DR-blocking bug. See the CORRECTION under Pass 4's verdict.
-
-### A3. If the split is about consistency, is consistency worth R8–R12?
+### Options weighed
 
 The expensive part is entirely the **blueprint** — and the blueprint exists *only* to let the instance
 live in core (Forgejo's OIDC must ride the helm install). If we don't move the instance, we need no
@@ -68,42 +55,11 @@ blueprint at all. So the cost/benefit is:
 | **D. No split; provider → curl** | mantle | provider (mantle) | medium | ✗ (and less declarative) |
 | **E. Split; provider-based OIDC in core** | core | provider (core) | — | blocked: token unknown at plan (greenfield) |
 
-### A4. The decision hinge
-
-**Do we require clean, from-scratch rebuilds?**
-- **Yes** → the split is justified (it makes "core ran first" hold uniformly, like Harbor/Argo), and the
-  blueprint is the only tfvars-clean way to get OIDC into core.
-- **No** → **Option A** is defensible: we're paying high risk/cost for a wart that only bites on rebuilds,
-  and which the runner-token source already exhibits anyway.
-
-### A5. Does the split even *fully* fix greenfield?
-
-Partly. Core runs first, so mantle's forgejo provider resolves. But the runner still needs Forgejo
-**online and registered** — its registration + `data.external` reads the admin Secret — so a greenfield
-still has ordering/staging. The split removes one wart, not the category.
-
-### A6. What would make us abandon this?
-
-If **Q6–Q8** (does a blueprint honour a preset `client_secret`, how to reference built-in scope
-mappings, the provider's identifier field) can't be pinned down with confidence → the blueprint's
-fidelity risk (R8) and silent-failure risk (R9) dominate → **Option A or D wins**.
-
-### A7. Questions this pass puts to the owner
-
-1. Do we genuinely need greenfield-clean rebuilds, or is the cluster effectively "pets"?
-2. If it's tidiness: is the *tidiness* worth a new OIDC mechanism + a cluster-wide SSO blip?
-3. Would a **one-line note** in the plan ("applied in stages; core then mantle") buy us Option A's
-   benefit at zero cost?
-
-> **Pass 4 verdict: the premise is weaker than Passes 1–3 assumed.** Recommend answering A7 before
-> spending anything on Phase 1. If A7-1 is "no", stop here and take Option A.
-
-> **⚠️ CORRECTION (after Q10 was answered).** A7-1 came back **"yes — greenfield is a DR tenet."** That
-> kills Option A, and it also revealed Pass 4 was **wrong on one point**: doing nothing is *not* harmless,
-> because `mantle` is **already greenfield-broken** — `data.external.forgejo_runner_token` reads a
-> same-stack Secret with no fallback, so a fresh `mantle plan` fails today. The split **fixes a real
-> DR-blocking bug**, so it is *necessary*, not tidiness. Pass 4's adversarial framing is retired; A1–A3
-> stand as analysis, A6/A7 are resolved.
+**Verdict (final, after Q10):** the premise held up **inverted**. The draft's "Option A is defensible"
+rested on greenfield not mattering — but greenfield rebuilds are a **DR tenet** (Q10-answered YES), and
+`mantle` is already broken for them. Option A is off the table; the split is **necessary** and **fixes a
+live DR-blocking bug**. (The "cluster-wide SSO blip" that also propped up Option A was likewise wrong —
+R12 is worker-only, login unaffected.)
 
 ---
 

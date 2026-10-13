@@ -45,13 +45,13 @@ Parked as a user todo: see `todo-backup-policy` in memory.
 
 ## Housekeeping
 
-- **D-7 · `.tmp/` is gitignored** — it holds raw state backups and the migration script; the owner keeps
-  it (waived, T5.11). Prune junk when convenient.
 - **D-8 · `blueprints.secrets` auto-discovery.** authentik's label-based ConfigMap/Secret discovery was
   unverified; we use the explicit list. Revisit if we ever want blueprint delivery without a chart update.
 - **D-9 · Other apps' OIDC still uses the provider** and stays in `mantle`. Only Forgejo moves to a
   blueprint (because only Forgejo's instance moves to core). If more instances move to core, consider
   generalising `oidc_blueprint`.
+
+*(D-7 — a `.tmp/` housekeeping item — was dropped as dead; the gap is harmless.)*
 
 ## DR follow-ups (greenfield optionality is a tenet)
 
