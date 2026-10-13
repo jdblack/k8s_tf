@@ -67,12 +67,19 @@ gitignored.
 
 ## Phase 3 — Module split
 
-- [ ] T3.1 Create `modules/devops/forgejo/core/`: `namespace`, `helm`, `storage`, `listener`,
-      `ingress`, `egress`, `backup`, `locals` (minus oidc_*), `outputs` (fqdn/name/namespace/ssh_fqdn),
-      `providers` (helm/kubernetes/kubectl), `variables`
-- [ ] T3.2 `forgejo/core`: replace `module "oidc"` with an **input** `oidc = { client_id, client_secret,
-      discovery_url, scopes, group_claim, admin_group, restricted_group }` — **exact values in §4**
-      (a wrong `scopes`/`group_claim` = silent role-mapping break, the R8 class)
+- [ ] T3.1 Create `modules/devops/forgejo/core/`: `namespace`, `helm`, `storage`, `listener`, `ingress`,
+      `egress`, `backup`, `locals`, `outputs`, `providers` (helm/kubernetes/kubectl), `variables`.
+      **Exact triage of the OIDC bits — do NOT hand-wave "minus `oidc_*`" (N2):**
+      - **DELETE:** `auth.tf` (whole file); `local.oidc_issuer`; `variable "oidc_issuer_base"`;
+        `outputs.{client_id,admin_group_id,user_group_id}`; **and the `module.oidc` entry in `helm.tf`'s
+        `depends_on`** (N1 — it is `[module.bucket, module.s3_user, module.oidc]`; leave it and
+        `tofu validate` dies with *reference to undeclared module*).
+      - **KEEP:** `local.oidc_source_name = "authentik"` (it names the OAuth source at `locals.tf:84`);
+        delete it and the source is silently renamed → `app.ini` changes → an R8 break. Also keep the
+        `gitea.oauth` block (now fed from the input).
+- [ ] T3.2 `forgejo/core`: replace the module's OIDC references with an **input** `oidc`, keys exactly
+      `{client_id, client_secret, discovery_url, scopes, group_claim, admin_group, restricted_group}` —
+      **values in §4** (a wrong `scopes`/`group_claim` = silent R8 break)
 - [ ] T3.3 Create `modules/devops/forgejo/mantle/` = `harbor_robot_account` (**with
       `depends_on = [module.harbor_setup]`** — it targets project `library`, same stack) +
       `forgejo_repository_action_secret` (names `HARBOR_USER` / `HARBOR_TOKEN`), `variables`, `outputs`,
@@ -89,7 +96,12 @@ gitignored.
 ## Phase 4 — Stack wiring
 
 - [ ] T4.1 `stacks/core`: `module "forgejo"` → `../../modules/devops/forgejo/core` with `domain`,
-      `cert_issuer`, `host_network`, `oidc = module.forgejo_oidc.*`
+      `cert_issuer`, `host_network`, and an **explicit** `oidc` object (N3 — `module.forgejo_oidc.*` can't
+      satisfy the input, since `scopes`/`group_claim`/the group names are stack literals, not module
+      outputs):
+      `oidc = { client_id = module.forgejo_oidc.client_id, client_secret = module.forgejo_oidc.client_secret,`
+      `discovery_url = module.forgejo_oidc.discovery_url, scopes = "openid,email,profile,groups",`
+      `group_claim = "groups", admin_group = "forgejo-admin", restricted_group = "forgejo-user" }`
 - [ ] T4.2 `stacks/core`: `module "forgejo_oidc"` → `../../modules/auth/authentik/oidc_blueprint`
 - [ ] T4.3 `stacks/core`: `module "authentik"` gains `extra_blueprints = [module.forgejo_oidc.blueprint_secret]`
 - [ ] T4.4 `stacks/mantle/forgejo.tf`: repoint the CI module and **name it `forgejo_setup`** (sourcing
@@ -104,7 +116,8 @@ gitignored.
       **`data.kubernetes_secret_v1`** on the chart-minted `forgejo-admin` Secret (house pattern; no new
       credential). **← M1: this wiring was previously missing.**
 - [ ] T4.8 **⛔ GATE:** `tofu validate` both stacks
-- [ ] T4.9 `stacks/core/providers.tf`: add **`tls`** to `required_providers` (the `oidc_blueprint` needs it)
+- [ ] T4.9 `stacks/core/providers.tf`: add **`tls` 4.4.1** (matches mantle) to `required_providers` — the
+      `oidc_blueprint` needs it
 - [ ] T4.10 `oidc_blueprint` writes its Secret into **`kube-auth`**; add `namespace` input +
       `depends_on` the namespace resource
 

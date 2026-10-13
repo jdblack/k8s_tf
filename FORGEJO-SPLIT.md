@@ -1,6 +1,6 @@
 # Forgejo core/mantle split — PLAN
 
-Status: REVIEWED — passes 1–12 complete, Q1–Q10 answered, D1–D9 decided · Owner: jblack · Scope: `stacks/core`, `stacks/mantle`, `modules/devops/forgejo*`, `modules/auth/authentik*`
+Status: REVIEWED — Q1–Q10 answered, D1–D9 decided; full pass trail in `FORGEJO-SPLIT-REVIEWS.md` · Owner: jblack · Scope: `stacks/core`, `stacks/mantle`, `modules/devops/forgejo*`, `modules/auth/authentik*`
 
 ## 1. Goal
 
@@ -78,9 +78,9 @@ worker rolls, the OIDC window, downtime during a restore) is a **non-issue**, an
   (**note the slash after `forgejo`** — the old module built it from `${oidc_issuer_base}/application/o/${name}/`).
 - `modules/devops/forgejo/mantle/` — CI integration: `harbor_robot_account` + `forgejo_*_action_secret`.
 - `modules/auth/authentik/oidc_blueprint/` — **NEW**: emits an authentik **blueprint Secret**
-  (cert/key + client secret templated in); outputs `client_id`, `client_secret`, **`discovery_url`**
-  (so the stack doesn't have to hand-build it) and the group names. The provider-based
-  `oidc_provider` stays for every other app.
+  (cert/key + client secret templated in). **Outputs exactly three things: `client_id`, `client_secret`,
+  `discovery_url`** — the rest of the `oidc` input (`scopes`, `group_claim`, the group names) are stack
+  literals (N3). The provider-based `oidc_provider` stays for every other app.
 - `modules/auth/authentik/core/` — new input `extra_blueprints` (names appended to `blueprints.secrets`).
 
 ### Stack wiring
@@ -95,6 +95,9 @@ worker rolls, the OIDC window, downtime during a restore) is a **non-issue**, an
   house way via a new `data "kubernetes_secret_v1"` on the chart-minted `forgejo-admin` Secret (`host =
   https://git.<domain>`, `username`/`password` from it — no new credential); the runner uses literals
   (`devops-forgejo`, `git.<domain>`).
+  **Coupling note (N8):** after the split, `data.external.forgejo_runner_token` reads a Secret that **`core`
+  now owns**, so a from-scratch `plan` of `mantle` requires a live `core` — the corollary of the DEF-10
+  greenfield tenet. Mid-surgery it is harmless (nothing destroys that Secret).
 
 ## 5. Design decisions
 
@@ -125,8 +128,8 @@ worker rolls, the OIDC window, downtime during a restore) is a **non-issue**, an
   footnotes; the gates narrow to **exactly two objects** — `kubernetes_namespace_v1.namespace` and
   `module.bucket.*`. A `helm_release.forgejo` destroy is **survivable** (the chart's PVC carries
   `helm.sh/resource-policy: keep`), so it is a disruption, **not** a data-loss event. Recovery may freely
-  take a service gap. **(This also makes the `depends_on = [module.authentik]` ordering constraint
-  optional — it only guarded the R9 race, which D8 declares irrelevant.)**
+  take a service gap. **(This also RETIRED the `depends_on = [module.authentik]` ordering constraint — it
+  only guarded the R9 race, which D8 declares irrelevant. Do not add it.)**
 - **D9 — DR landing zone for THIS migration: `/Users/jblack/backups/forgejo/`** (off-cluster, on the
   operator machine; documented in its own `README.md`). These are **DR backups for the surgery**, *not* a
   backup policy — the ongoing/normal backup process is a **separate topic** (`todo-backup-policy` in
@@ -143,7 +146,7 @@ Rejected: **A** (no split — leaves `mantle` **greenfield-broken**, violating t
 ## 6. Major steps (high level)
 
 1. **S0 — Safety** *(DONE)*: state backups, git commit, a Velero backup (note: its BSL is **in-cluster**,
-   so it is not a second failure domain — D-13).
+   so it is not a second failure domain — DEF-13).
 2. **S1 — Blueprint module.** Build `modules/auth/authentik/oidc_blueprint`; reproduce everything
    `oidc_provider` creates for Forgejo as blueprint entries (groups, scope mappings, signing cert,
    oauth2 provider, application, policy bindings). Verify on a scratch name before touching Forgejo.
@@ -255,7 +258,7 @@ flows (`fbfe9f96-7fcf-450e-b067-a9328f109730`) and the built-in scope mappings `
 ## 11. Execution notes
 
 Findings from **all** passes are folded in: risks **R8–R12** live in §7, questions **Q6–Q10** in §9,
-decisions **D1–D9** in §5. The narrative for every pass — **passes 1–12** — is in
+decisions **D1–D9** in §5. The narrative for every pass is in
 `FORGEJO-SPLIT-REVIEWS.md`.
 
 ### Gaps found and closed as tasks
@@ -286,13 +289,11 @@ module.forgejo_oidc  (secret in kube-auth, random_password, tls)   -- no deps
         |
         +--> module.authentik        (input extra_blueprints = [forgejo_oidc.blueprint_secret])
         |
-        +--> module.forgejo (core)   (input oidc = forgejo_oidc.*  AND  depends_on = [module.authentik])
+        +--> module.forgejo (core)   (input oidc = forgejo_oidc.{client_id,client_secret,discovery_url} + literals)
 ```
 `forgejo_oidc → authentik → forgejo` — acyclic. It only stays acyclic because `forgejo_oidc` derives its
-redirect URI, group names and launch URL from **vars**, never from `module.forgejo`.
-
-**Refinement:** `depends_on = [module.authentik]` orders the *helm updates* only — **not** the async
-blueprint apply (R9); the post-apply check remains the real guard.
+redirect URI, group names and launch URL from **vars**, never from `module.forgejo`. **No `depends_on` is
+needed** (D8 retired it).
 
 
 

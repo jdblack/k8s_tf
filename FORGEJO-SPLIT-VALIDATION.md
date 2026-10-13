@@ -100,6 +100,6 @@ Run **after** Phase 6 applies, in order. Any FAIL = investigate before declaring
 ## H. Sign-off
 
 - [ ] V-H1 All gates above pass
-- [ ] V-H2 Deferred items re-filed (D-1…D-13; D-1/D-2/D-3/D-12/D-13 are the parked backup-policy topic)
+- [ ] V-H2 Deferred items re-filed (DEF-1…DEF-13; DEF-1/DEF-2/DEF-3/DEF-12/DEF-13 are the parked backup-policy topic)
 - [ ] V-H3 Memory updated
 - [ ] V-H4 Commit + push

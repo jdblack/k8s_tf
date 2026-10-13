@@ -6,11 +6,13 @@ and the reasoning, including things we deliberately rejected.
 
 **Pass index:** 1 correctness · 2 completeness & risk · 3 executability · 4 adversarial premise-check ·
 5 failure simulation · 6 unknowns resolved · 8 hostile findings · 9 priority re-rank (owner) ·
-10 backup strategy (owner) · 11 second hostile run · 12 third hostile run · 13 cold read (no-context
-reviewer). *(6 ran before 5; sections are labelled, order on disk is as-completed.)* **Pass 7 (minimality)
-was dropped** — Q10 (greenfield is a DR tenet) settled it: Option A, the only "smaller" option, is off the
-table. *(Naming note: the "D7" in the Pass 5/8 text is the **retired** "blueprint as a Secret key" idea;
-the surviving delivery decision is **D2**.)*
+10 backup strategy (owner) · 11 second hostile run · 12 third hostile run · 13 cold read · 14 second cold
+read. *(6 ran before 5; sections are labelled, order on disk is as-completed.)* **Pass 7 (minimality) was
+dropped** — Q10 settled it: Option A, the only "smaller" option, is off the table.
+
+**Naming, so the letters don't confuse you:** plan decisions are **`D1`–`D9`**; deferred items are
+**`DEF-1`–`DEF-13`** (renamed in Pass 14 — they used to be `D-1…`, which collided). The **"D7"** in the
+Pass 5/8 text is the *retired* "blueprint as a Secret key" idea; the surviving delivery decision is **D2**.
 
 ---
 
@@ -142,7 +144,7 @@ R12 downgraded from "cluster-wide SSO blip" to "background-task pause".
 If the **namespace** enters a destroy plan (or is deleted), the **PVC goes with it regardless of
 `helm.sh/resource-policy: keep`** — namespace deletion cascades. There is **no forward path**: the only
 recovery is a restore from Velero `forgejo-pre-split` (or the Longhorn snapshot… which is currently
-unavailable, D-1). This is the one place where "stop and restore" is **mandatory, not optional**.
+unavailable, DEF-1). This is the one place where "stop and restore" is **mandatory, not optional**.
 
 ---
 
@@ -165,13 +167,13 @@ Adversarial "asshole" read-through of all five docs. **19 defects found**; every
 
 ### Lies (factual errors)
 
-6. **D-4 cited the wrong version** ("serves on 15.0.9"; deployed image is **16.0.5**). Fixed.
+6. **DEF-4 cited the wrong version** ("serves on 15.0.9"; deployed image is **16.0.5**). Fixed.
 7. **§1/§3 described a state that isn't on disk** (provider/robot/repos are parked; module still flat).
    Added an explicit **"on disk vs planned"** note to §3.
 8. **§1's "no outage beyond a re-login"** understated the **Forgejo pod restart**. Fixed.
 9. **V-A3/V-A4 grepped `^module.forgejo`** — matches `module.forgejo_runner` (the exact prefix trap the
    script guards). Fixed → escaped dot + "must return nothing".
-10. **"four core docs"; "D-1…D-9"** — now five, and D-1…D-11. Fixed.
+10. **"four core docs"; "DEF-1…DEF-9"** — now five, and DEF-1…DEF-11. Fixed.
 
 ### Holes
 
@@ -188,7 +190,7 @@ Adversarial "asshole" read-through of all five docs. **19 defects found**; every
 
 17. Phase 2 dead weight — resolved (it's the design now).
 18. Reviews **A2** asserted the wrong conclusion unmarked. Marked **⚠️ SUPERSEDED**.
-19. **T5.11 / D-7** stale. Marked waived.
+19. **T5.11 / DEF-7** stale. Marked waived.
 
 ### Also: R12 corrected
 `authentik-server` mounts **no** blueprint volume → the worker roll pauses **background tasks, not login**.
@@ -233,7 +235,7 @@ because no single tool covers the data. Velero keeps its in-cluster BSL; `.tmp/b
 a dead Longhorn target. Now the critical data (git + DB + config) has an **app-native** copy that restores
 without Kubernetes at all, and the blobs have a second copy too.
 
-New deferred: **D-12** (nightly `forgejo dump` + S3 sync CronJob), **D-13** (a second, off-site Velero BSL —
+New deferred: **DEF-12** (nightly `forgejo dump` + S3 sync CronJob), **DEF-13** (a second, off-site Velero BSL —
 only one exists today, so even Velero shares a failure domain).
 
 ---
@@ -293,7 +295,7 @@ Third adversarial read. **9 defects**, all fixed. Two were *self-inflicted by Pa
 3. **REVIEWS pass index omitted Pass 11** — it listed 8/9/10 but not the pass that had just happened.
 4. **§7 R3's mitigation still said "do it in a quiet window"** — stale under D8/T6.6 (availability is
    free). Reworded to "Accepted (D8)".
-5. **§6 S0 called the Velero backup "off-box"** — its BSL is **in-cluster** (D-13), so it shares the
+5. **§6 S0 called the Velero backup "off-box"** — its BSL is **in-cluster** (DEF-13), so it shares the
    failure domain. Corrected.
 6. **§6 S6 said "zero destroys"** — the pre-D8 gate; now "zero destroys on the namespace or the bucket".
 
@@ -353,5 +355,43 @@ best external pass so far.
 **Verdict from the cold reader:** *"unusually rigorous… the mechanics, DAG and state-move are sound"*; the
 soft spots were provider auth/version, the unproven byte-identical assumption behind T5.7, the missing
 restore drill, and doc hygiene. All now closed.
+
+---
+
+## Pass 14 — second cold read ✅ (all folded)
+
+A second no-context reader, told there had been 12 passes, "went looking for what those passes missed".
+It found **8 more**, and the important ones were real **Phase-3 traps**:
+
+### Phase-3 traps (the meat)
+- **N1 — `helm.tf` has a SECOND `module.oidc` reference.** `depends_on = [module.bucket, module.s3_user,
+  module.oidc]`. T3.1/T3.2 only mentioned the *values* reference (`locals.tf:86`). Copy `helm.tf` verbatim
+  and `tofu validate` dies with *reference to undeclared module*. Now named explicitly.
+- **N2 — "locals (minus `oidc_*`)" is a trap.** A literal reading deletes
+  `local.oidc_source_name = "authentik"`, which names the OAuth **source** at `locals.tf:84` — silently
+  renaming it changes `app.ini`: the R8 class. Replaced the hand-wave with an exact **DELETE / KEEP**
+  symbol list.
+- **N3 — the `oidc` input's wiring was under-specified.** `oidc = module.forgejo_oidc.*` can't satisfy the
+  input, because `scopes`/`group_claim`/`admin_group`/`restricted_group` are **stack literals**, not module
+  outputs. §4 now pins the module's outputs to exactly `client_id`/`client_secret`/`discovery_url`, and
+  T4.1 spells the object out.
+
+### Confusion / hygiene
+- **N5 — `tls` unpinned** in core (every neighbour is pin-exact) → **4.4.1**, matching mantle.
+- **N6 — three framings of `depends_on = [module.authentik]`** (§4/§11 implied it, D8 called it "optional",
+  §11 said it "orders helm updates only"). Now **retired outright** in one place — D8 makes the race
+  irrelevant, so don't add it.
+- **N7 — two decision namespaces collided**: plan `D1–D9` vs deferred `D-1…D-13` (which had *already* bitten
+  us twice). Renamed the deferred family to **`DEF-1…DEF-13`** across all five docs + the todo memory.
+- **N8 — mantle's plan is no longer standalone.** `data.external.forgejo_runner_token` now reads a Secret
+  **core** owns, so a from-scratch `mantle plan` needs a live core — the corollary of the greenfield tenet
+  (DEF-10). Now stated in §4.
+
+**N4** (`forgejo_registry_repos` undecided) was already tracked (T3.6/T3.7) and remains the one genuine
+**owner-gated** decision — it hard-blocks V-E4.
+
+**Reader's bottom line:** *"the risks/gates are solid… the soft spots are all in Phase 3's 'trim the oidc
+bits' step — it's described by pattern (`minus oidc_*`, `.*`) where it needs an exact symbol list."*
+Agreed, and now it has one.
 
 
