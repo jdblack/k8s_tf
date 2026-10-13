@@ -24,6 +24,11 @@ resource "kubernetes_deployment_v1" "resident" {
       }
 
       spec {
+        # The PVC mounts root-owned; without fs_group, uid 1000 (node) cannot create dirs on it.
+        security_context {
+          fs_group = 1000
+        }
+
         # A subPath file mount needs its parent dir to exist first.
         init_container {
           name    = "mk-settings"
