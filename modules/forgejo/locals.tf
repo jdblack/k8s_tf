@@ -123,10 +123,11 @@ locals {
           PATH    = "/data/forgejo.db"
         }
 
-        # Repo storage path is left at the chart's default (/data/git/gitea-repositories, on the
-        # data claim); a fresh instance, so there is nothing to migrate.
-        repository = {
-          DISABLED_REPO_UNITS = "repo.actions"
+        # Actions on. Job logs and artifacts are already [storage] blobs, so they ride SeaweedFS
+        # over S3 with everything else; the repo path stays at the chart default on the data claim.
+        actions = {
+          ENABLED             = true
+          DEFAULT_ACTIONS_URL = "https://data.forgejo.org"
         }
 
         # Every [storage] subsystem -- LFS, attachments, avatars, repo-avatars, repo-archive,
