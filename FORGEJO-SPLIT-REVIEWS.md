@@ -7,9 +7,9 @@ and the reasoning, including things we deliberately rejected.
 **Pass index:** 1 correctness · 2 completeness & risk · 3 executability · 4 adversarial premise-check ·
 5 failure simulation · 6 unknowns resolved · 8 hostile findings · 9 priority re-rank (owner) ·
 10 backup strategy (owner) · 11 second hostile run · 12 third hostile run · 13 cold read · 14 second cold
-read · 15 directed subagents · 16 directed subagents (round 2). *(6 ran before 5; sections are labelled,
-order on disk is as-completed.)* **Pass 7 (minimality) was dropped** — Q10 settled it: Option A, the only
-"smaller" option, is off the table.
+read · 15 directed subagents · 16 directed subagents (round 2) · 17 directed subagents (round 3). *(6 ran
+before 5; sections are labelled, order on disk is as-completed.)* **Pass 7 (minimality) was dropped** — Q10
+settled it: Option A, the only "smaller" option, is off the table.
 
 **Naming, so the letters don't confuse you:** plan decisions are **`D1`–`D9`**; deferred items are
 **`DEF-1`–`DEF-13`** (renamed in Pass 14 — they used to be `D-1…`, which collided). The **"D7"** in the
@@ -502,5 +502,58 @@ quietly accepted. Every headline finding was then **re-verified by me by hand** 
 **A16-2/A16-5/C16-1..C16-5 all VERIFIED** (three keys touch OIDC; `depends_on` removal harmless; the
 same-stack bug is real; no TF cycle; blueprint-without-provider mechanism sound; `svalabs/forgejo` 1.6.1
 exists). **Net: 11 findings folded, 3 of them capable of causing silent data loss or silent zero-admin.**
+
+---
+
+## Pass 17 — third directed-agent wave ✅ (all folded)
+
+Fresh angles: the **adoption prover**, the **greenfield-rebuild prover**, the **interface attacker**. All
+three falsified something again — and one caught a bug **I introduced in Pass 16**.
+
+### D — adopt-don't-duplicate (hypothesis: *"the blueprint adopts existing objects; it cannot match the wrong one or duplicate"*)
+The strongest evidence of any review so far: the agent rebuilt the plan's blueprint entries and ran
+`Importer._apply_models()` inside a `transaction_rollback()` **on the live worker**. All 8 entries
+**ADOPTED their exact baseline pk** (provider→57, app→`03666c87`, both policy bindings). Every identifier
+was genuinely unique cluster-wide (43/43 group names, 19/19 app slugs, 16/16 providers, 11/11 certs,
+24/24 scope-mapping names; each `managed` filter hit exactly one row). **The claim holds today.**
+- **D17-1 — BUT the mechanism FAILS OPEN.** `!Find` with **no** match returns **`None`, not an error**, and
+  `.first()` has **no multi-match guard**. Tested: `signing_key: !Find [cert,[name,DOES-NOT-EXIST]]` →
+  `apply_ok=True`, provider adopted **with `signing_key=None`**, zero errors. So Pass 15's mitigation
+  ("set it explicitly so it can never silently resolve to a *wrong* cert") does **not** protect against a
+  *missing* one — and a signing-key-less provider invalidates every issued token. → T1.2 now mandates
+  **`!KeyOf` to same-blueprint entries** and strict entry ordering.
+- **D17-2** — a miss normally creates a **duplicate**, loud only where `name` is unique; **`policybinding` is
+  the one model that can duplicate silently** (its `unique_together` defeated by a NULL `policy`). The A16-4
+  trap is therefore a *silent wrong-named create*.
+
+### E — greenfield rebuild (hypothesis: *"after the split, a from-scratch rebuild of core then mantle succeeds"*)
+- **E17-1 — I BROKE IT IN PASS 16.** C16-9 made T4.1 add `depends_on = [module.seaweedfs, module.backup,
+  module.network]`. But `stacks/core` declares **no `module "backup"`** (verified: core declares only
+  network/storage/cert_man/authentik/harbor/argo/seaweedfs/…). I copied a line from a *module-internal*
+  file (`modules/storage/backup.tf:31` — correct there) into *stack* scope, where it is a hard
+  `tofu validate` failure: *"reference to undeclared module"*. → corrected to **`module.storage`**.
+- **E17-3 — the plan optimises the PLAN and hand-waves the DATA.** A rebuild has an empty PVC and an empty
+  DB; nothing in the checklist restores either, and DEF-1/12/13 turn out to be **load-bearing
+  prerequisites, not follow-ups**. → new **DEF-14**; DEF-1/12/13 marked load-bearing.
+- **E17-4 — D6 rotation + any DB restore = silent SSO failure.** The source is a DB `login_source` row;
+  restoring an *old* DB while carrying the *new* secret makes the token endpoint reject while the login page
+  still renders. → folded into D6 with a restore-ordering rule.
+- **E17-2** — the async-group gate (T6.3c) is a *human* check, so an unattended rebuild still fails. Noted.
+
+### F — interface contract (hypothesis: *"the `oidc` input cannot be populated with a value that type-checks but silently breaks OIDC"*)
+- **F17-1 — `scopes` is a comma-split flag living in a free-form string.** Forgejo reads `--scopes` via
+  `StringSlice`; `"openid email profile groups"` (spaces), `""`, or any list missing `groups` **validates and
+  silently drops the groups scope → nobody is admin, no error.** → validation added (T3.2).
+- **F17-4 — the blueprint Secret's key must end in `.yaml`, and `list(string)` cannot express that.** Proof
+  in-repo: `modules/auth/authentik/core/scopes.tf` writes **`terraform.yaml`** (applied) *and* **`api_key`**
+  (silently ignored) into one Secret. A correctly-named Secret keyed `blueprint` **mounts and is never
+  applied** — the provider is simply never created. → pinned in T1.3.
+- **F17-2/F17-3/F17-5** — `admin_group`/`restricted_group` and `group_claim` are hand-written stack literals
+  opposed to producer-derived values, with **no `validation` anywhere** on the input. The A16-4 link was
+  pinned only by *prose*; now it is validated.
+
+**Net: 9 findings folded, 3 severe — E17-1 (a self-inflicted validate break), D17-1 (a fail-open path to a
+signing-key-less provider), F17-4 (a blueprint that mounts and is silently never applied).** The yield is
+**not** decaying.
 
 

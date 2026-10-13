@@ -4,9 +4,11 @@ Status: REVIEWED — Q1–Q10 answered, D1–D9 decided; full pass trail in `FOR
 
 ## RESUME HERE (handoff)
 
-- **State:** the plan is fully reviewed — **16 passes** (12 self, 2 blind cold reads, 6 directed subagents
-  across two waves). **Nothing has been built or applied.** Every decision (D1–D9) and question (Q1–Q10) is
+- **State:** the plan is fully reviewed — **17 passes** (12 self, 2 blind cold reads, 9 directed subagents
+  across three waves). **Nothing has been built or applied.** Every decision (D1–D9) and question (Q1–Q10) is
   settled.
+- **⚠️ The DR story is the open sore:** the vault is empty, DEF-1/12/13 are load-bearing, and there is **no
+  restore path** (DEF-14). Reviewing the *plan* is done; the *data* side needs its own work.
 - **Next step:** freeze these docs and start **Phase 1** — copy-and-trim the live export
   (`.tmp/authentik-export.yaml`) into `modules/auth/authentik/oidc_blueprint/`, then run gate **T1.5**
   (blueprint applies on a scratch name) and **T1.6** (idempotent).
@@ -149,6 +151,12 @@ worker rolls, the OIDC window, downtime during a restore) is a **non-issue**, an
   both the blueprint and the helm values in the same apply. Expect **one `update` to
   `helm_release.forgejo`** plus a brief window where the two disagree — accepted (D8). *Preservation is
   possible (the live secret round-trips in the export) but buys nothing here.*
+  **⚠️ Pass 17 (E17-4): this interacts dangerously with any DB restore.** The OAuth source is a DB
+  `login_source` **row**. Restoring an OLD database (old row) while the blueprint + helm carry the NEW
+  `client_secret` makes the token endpoint reject — and **SSO fails silently**, because the login page still
+  renders. Any restore must therefore either preserve the old secret or re-run the helm update (which
+  re-syncs the row). **Restore order: DB first, then let the Forgejo pod come up, then exercise OIDC** — and
+  re-check `login_source` after every restore.**
 - **D8 — PRIORITY: availability is cheap, data is sacred** (owner, explicit). Service disruption is
   acceptable; data loss is not. Consequences: availability risks (**R3, R7, R9, R12**) are downgraded to
   footnotes; the gates narrow to **exactly two objects** — `kubernetes_namespace_v1.namespace` and

@@ -12,6 +12,7 @@ Parked as a user todo: see `todo-backup-policy` in memory.
   Impact: **no** Longhorn off-box backups at all — Velero is the only off-box path.
   Action: fix the Longhorn backup target (BSL/bucket/creds); verify with a test snapshot.
   When: before trusting Longhorn for anything; independent of this split.
+  **⚠️ Pass 17 (E17-3): this is LOAD-BEARING for a greenfield rebuild, not cosmetic** — see DEF-14.
 
 - **DEF-2 · `forgejo-data` Velero schedule has never fired.**
   Schedule created 2026-10-12T07:38Z; first `0 3 * * *` run not yet reached.
@@ -23,8 +24,11 @@ Parked as a user todo: see `todo-backup-policy` in memory.
 
 - **DEF-12 · No app-native backup exists.** No scheduled `forgejo dump` + bucket sync; add a CronJob for the
   pair (git+DB+config, and the S3 blobs) — app-native beats the Velero-only story.
+  **⚠️ Pass 17 (E17-3): LOAD-BEARING for a rebuild — see DEF-14.**
 - **DEF-13 · Only ONE Velero BSL** (`default`, in-cluster SeaweedFS), so even Velero shares a failure domain.
   A second, off-site BSL (AWS S3 — the cluster already has Route53 creds) would make it genuinely redundant.
+  **⚠️ Pass 17 (E17-3): LOAD-BEARING** — the only backup shares a failure domain with the cluster it would
+  have to rebuild.
 
 ## Follow-ups on this change
 
@@ -61,5 +65,19 @@ Parked as a user todo: see `todo-backup-policy` in memory.
   `data.external.forgejo_runner_token`, which this change fixes. Anything else found becomes its own task.
 - **DEF-11 · Prove greenfield afterwards.** Once the split lands, validate DR by a from-scratch
   `plan` (or a scratch cluster) of `core` then `mantle` with no staging/retries required.
+
+- **DEF-14 · There is no RESTORE path, and no restore has ever been tested. ← the real DR gap.**
+  **Pass 17 (E17-3): the plan optimises the *plan* and hand-waves the *data*.** T6.0 *takes* three backups
+  and stops; nothing says how to put them back, in what order, or how to prove it worked. And Forgejo is
+  stateful (SQLite DB + git repos on the PVC, blobs in the SeaweedFS bucket).
+  - **Ordering matters:** DB/PVC first, then the Forgejo pod, then OIDC — a pod that starts before its DB
+    exists has no `login_source` row and no admin user.
+  - **Rotation vs restore:** a restored *old* DB carries the *old* `client_secret` row; the blueprint carries
+    the *new* one. That mismatch is **silent** (E17-4) — the login page renders and SSO just fails.
+  - **The vault is empty (R16-3), DEF-1/12/13 are load-bearing, and the only backup shares a failure domain
+    with the cluster being rebuilt.**
+  Action: write + **rehearse** a restore runbook (dump → PVC → pod → OIDC check) and make DEF-1/12/13
+  prerequisites, not follow-ups.
+  When: **before** this migration is relied upon as DR cover.
 
 *(Ongoing-backup items DEF-12/DEF-13 were moved up to the parked section — they're a separate topic.)*

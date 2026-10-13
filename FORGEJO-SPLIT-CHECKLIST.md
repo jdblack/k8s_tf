@@ -29,7 +29,15 @@ gitignored.
 
 - [ ] T1.1 Enumerate the objects `modules/auth/authentik/oidc_provider/auth.tf` creates (done: 192 lines)
 - [ ] T1.2 Blueprint schema **now pinned** (plan §9): model names, identifiers, `!Find`/`!KeyOf`, and the
-      atomic-apply + 60-min discovery behaviour
+      atomic-apply + 60-min discovery behaviour.
+      **⚠️ Pass 17 (D17-1): the matching mechanism FAILS OPEN.** `!Find` with **no** match returns `None` —
+      not an error — and `.first()` has **no multi-match guard**; a live test on the worker
+      (`Importer._apply_models()` inside a rollback) showed a provider adopting successfully with
+      **`signing_key=None`** and `apply_ok=True`. Therefore: **use `!KeyOf` to same-blueprint entries for
+      every FK reference**, and order the `certificatekeypair`/group entries **before** anything that refers
+      to them. A missed match usually creates a **duplicate** (loud only where `name` is unique —
+      **`policybinding` is the one model that can duplicate silently**, its `unique_together` being defeated
+      by a NULL `policy`).
 - [ ] T1.2b **Use the live export as the template:**
       `kubectl -n kube-auth exec deploy/authentik-worker -- ak export_blueprint > .tmp/authentik-export.yaml`
       then copy-and-trim the Forgejo provider/application/mappings/bindings (already saved at
@@ -40,6 +48,11 @@ gitignored.
       `"-user"` (`oidc_provider/auth.tf:157-163`), and the app/provider adopt by `name` too — any other
       value makes authentik create `forgejo-oidc-admin` while Forgejo is told to read `forgejo-admin`:
       **login works, nobody is admin, zero errors.**
+      **⛔ The Secret's KEY must end in `.yaml`** (**F17-4**). authentik discovers only `*.yaml` inside the
+      mounted Secret — proof in-repo: `modules/auth/authentik/core/scopes.tf` writes **`terraform.yaml`**
+      (applied) *and* **`api_key`** (silently ignored) into the same Secret. Since `extra_blueprints` is a
+      `list(string)` of **names**, it *cannot* express the key: this module must write e.g. `forgejo.yaml`,
+      or the blueprint validates, mounts, and is **never applied**.
 - [ ] T1.4 Reproduce: `forgejo-admin`/`forgejo-user` groups; `groups` + `profile` scope mappings
       (custom expressions); signing cert/key pair (PEMs from `tls_*`); oauth2 provider (client_id = app
       slug, client_secret from `random_password`, built-in flows via `!Find`, property mappings,
@@ -105,7 +118,14 @@ gitignored.
         the git HTTPRoute**); and keep `namespace`/`name` defaults identical.
 - [ ] T3.2 `forgejo/core`: replace the module's OIDC references with an **input** `oidc`, keys exactly
       `{client_id, client_secret, discovery_url, scopes, group_claim, admin_group, restricted_group}` —
-      **values in §4** (a wrong `scopes`/`group_claim` = silent R8 break)
+      **values in §4** (a wrong `scopes`/`group_claim` = silent R8 break).
+      **⛔ ADD `validation` blocks (F17-1/F17-2/F17-5).** The input is a free-form object, so a typed-but-wrong
+      value is accepted and **silently disables auth**. `scopes` goes verbatim to Forgejo's `--scopes`, which
+      is a **comma-split `StringSliceFlag`**: `"openid email profile groups"` (spaces), `""`, or any list
+      without `groups` **validates and drops the groups scope → nobody is admin, no error.** Validate:
+      comma-separated, non-empty, contains `openid` **and** `groups`. Validate `admin_group`/
+      `restricted_group` are non-empty **and equal the names the blueprint creates** — that link is
+      currently two independent hand-written strings (F17-2/F17-3), so make it structural or validate it.
 - [ ] T3.3 Create `modules/devops/forgejo/mantle/` = `harbor_robot_account` (**with
       `depends_on = [module.harbor_setup]`** — it targets project `library`, same stack) +
       `forgejo_repository_action_secret` (names `HARBOR_USER` / `HARBOR_TOKEN`), `variables`, `outputs`,
@@ -130,10 +150,15 @@ gitignored.
       **⛔ ADD `depends_on` for the producers it used to inherit for free (C16-9).** In `mantle` these were
       ordered by cross-stack sequencing; inside `core` they are same-stack and **unguarded**, because the
       module reaches them through *defaulted string literals*, not module references:
-      `depends_on = [module.seaweedfs, module.backup, module.network]` — the `bucket`/`s3_user` submodules
-      `kubectl exec` into SeaweedFS (`stacks/core/storage.tf`); `module.backup` creates the Velero CRDs
-      the `Schedule` needs (core's own analogue does exactly this: `modules/storage/backup.tf:31`); and
-      `expose`/`egress` default to the `private` gateway, which `module.network` creates.
+      `depends_on = [module.seaweedfs, module.storage, module.network]` — the `bucket`/`s3_user` submodules
+      `kubectl exec` into SeaweedFS (`stacks/core/storage.tf:1`); **`module.storage`** owns Velero (its
+      `module "backup"` lives at `modules/storage/backup.tf:1`, and core's own analogue does exactly this
+      at `modules/storage/backup.tf:31`); and `expose`/`egress` default to the `private` gateway, which
+      `module.network` creates.
+      **⚠️ Pass 17 correction (E17-1): `module.backup` does NOT exist at stack scope.** `core` declares
+      only `network`, `storage`, `cert_man`, `authentik`, `harbor`, `argo`, `seaweedfs`, … The Pass-16 edit
+      copied `depends_on = [module.backup]` from a *module-internal* file into *stack* scope, where it is a
+      hard `tofu validate` error (**"reference to undeclared module"**). Use **`module.storage`**.
       `oidc = { client_id = module.forgejo_oidc.client_id, client_secret = module.forgejo_oidc.client_secret,`
       `discovery_url = module.forgejo_oidc.discovery_url, scopes = "openid,email,profile,groups",`
       `group_claim = "groups", admin_group = "forgejo-admin", restricted_group = "forgejo-user" }`
