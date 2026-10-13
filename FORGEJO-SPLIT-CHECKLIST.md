@@ -67,10 +67,14 @@ Gate marker: **⛔ GATE** = do not proceed until the stated check passes.
       `providers` (helm/kubernetes/kubectl), `variables`
 - [ ] T3.2 `forgejo/core`: replace `module "oidc"` with an **input** `oidc = { client_id, client_secret,
       discovery_url, scopes, group_claim, admin_group, restricted_group }`
-- [ ] T3.3 Create `modules/devops/forgejo/mantle/` = `harbor_robot_account` +
-      `forgejo_repository_action_secret` (+ org variant per Q3), `variables`, `outputs`, `providers`
+- [ ] T3.3 Create `modules/devops/forgejo/mantle/` = `harbor_robot_account` (**with
+      `depends_on = [module.harbor_setup]`** — it targets project `library`, same stack) +
+      `forgejo_repository_action_secret` (names `HARBOR_USER` / `HARBOR_TOKEN`), `variables`, `outputs`,
+      `providers`
 - [ ] T3.6 **Decide the repo list** for `forgejo_registry_repos` (owner/name) — the plan does not name
       them. Default `[]` means **no secrets are created** and V-E4 cannot pass.
+- [ ] T3.7 **Declare `forgejo_registry_repos`** in `stacks/mantle/variables.tf` and thread it into the
+      module (it was in the parked prototype; currently unowned).
 - [ ] T3.4 `git rm` the superseded old `modules/devops/forgejo/*.tf` — do NOT leave both
 - [ ] T3.5 **⛔ GATE:** `tofu fmt` clean on every new/changed file
 
@@ -94,8 +98,8 @@ Gate marker: **⛔ GATE** = do not proceed until the stated check passes.
 - [ ] T4.9 `stacks/core/providers.tf`: add **`tls`** to `required_providers` (the `oidc_blueprint` needs it)
 - [ ] T4.10 `oidc_blueprint` writes its Secret into **`kube-auth`**; add `namespace` input +
       `depends_on` the namespace resource
-- [ ] T4.11 Serialize: `module "forgejo"` (core) `depends_on = [module.authentik]` so the helm update
-      can't race the worker's blueprint apply (R9)
+- [x] T4.11 ~~serialize the helm behind authentik~~ **DROPPED** — D8 makes the R9 race an availability
+      concern, and availability is accepted
 
 ---
 
@@ -192,6 +196,6 @@ python3 "$ROOT/.tmp/forgejo-split-move.py" "$TS"
 4. **T3.5** fmt clean; **T3.6** repo list decided
 5. **T4.8** both stacks validate
 6. **T5.7 / T5.8** both plans show **0 destroys** on protected objects (T5.7 also enumerates expected adds/update)
-7. **T6.0** fresh Velero backup taken
+7. **T6.0** fresh **DR set** taken — `forgejo dump` + `aws s3 sync` + state pulls + Velero
 8. **T6.1** final read-through before any apply
 

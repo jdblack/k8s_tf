@@ -5,9 +5,10 @@ One section per review pass. Findings get **folded into the core docs**
 and the reasoning, including things we deliberately rejected.
 
 **Pass index:** 1 correctness · 2 completeness & risk · 3 executability · 4 adversarial premise-check ·
-5 failure simulation · 6 unknowns resolved. *(6 ran before 5; sections are labelled, order on disk is
-as-completed.)* **Pass 7 (minimality) was dropped** — Q10 (greenfield is a DR tenet) settled it: Option A,
-the only "smaller" option, is off the table.
+5 failure simulation · 6 unknowns resolved · 8 hostile findings · 9 priority re-rank (owner) ·
+10 backup strategy (owner). *(6 ran before 5; sections are labelled, order on disk is as-completed.)*
+**Pass 7 (minimality) was dropped** — Q10 (greenfield is a DR tenet) settled it: Option A, the only
+"smaller" option, is off the table.
 
 ---
 
@@ -276,5 +277,44 @@ without Kubernetes at all, and the blobs have a second copy too.
 
 New deferred: **D-12** (nightly `forgejo dump` + S3 sync CronJob), **D-13** (a second, off-site Velero BSL —
 only one exists today, so even Velero shares a failure domain).
+
+---
+
+## Pass 11 — second hostile run, end to end ✅ (all folded)
+
+Second adversarial read. **15 defects**, all fixed. Nothing changed the *design* — this was drift plus three
+real gaps.
+
+### Broken (reading order / load-bearing names)
+1. **§5's decision list was scrambled.** `grep` proved `D7` sat at **line 125, *after* the `Rejected:` line**
+   at 122 — so §5 read D1–D6, D8, D9, Rejected, D7, with a stray blank slot. Two of my own edits had
+   inserted D8/D9 *before* `Rejected:`. **Reordered** to D1–D9 → Rejected.
+2. **§4 contradicted the checklist on a load-bearing name**: §4 said mantle's CI module is `module "forgejo"`,
+   while T4.4/V-A4 rename it **`forgejo_setup`** precisely to avoid two `forgejo` modules. §4 fixed.
+
+### Stale counters
+3. Header said `passes 1–6` → **1–10** (+ D1–D9).
+4. §11 said "decisions D1–D7" → **D1–D9**.
+5. §11 said "passes 1–6 plus Pass 8" → **1–10**.
+6. REVIEWS **pass index** stopped at 6 → now lists **8, 9, 10**.
+7. V-G1 pointed at the transient `.tmp/backups/*` → now the **D9** home.
+8. Gates summary item 7 said "fresh Velero backup" → now the **4-part DR set**.
+
+### Contradiction / dead weight
+9. **T4.11 (serialize the helm behind authentik) was guarding a race D8 declared irrelevant** — dropped, with
+   the reasoning recorded in D8 and §11.
+10. **D6 vs Q2**: D6 asserted `client_secret` "may rotate"; Q2 says it's **preservable**. D6 now states the
+    *choice*.
+
+### Real gaps
+11. **No `depends_on` for the robot's project.** `harbor_robot_account` targets project `library`, created by
+    `module.harbor_setup` in the **same stack** — the exact same-stack ordering bug this project exists to
+    fix. Added to §4 and **T3.3**.
+12. **The workflow secret names were nowhere** in the target state (`HARBOR_USER`/`HARBOR_TOKEN` only existed
+    in V-E4). Added to §4 and T3.3.
+13. **No task declared `forgejo_registry_repos`** (only "decide the list"). Added **T3.7**.
+14. **§4 never mentioned the `tls` provider** — a required core addition, previously only in T4.9. Added.
+15. **V-C4 was circular** (it leaned on V-A2's "no changes"). Rewritten to check **authentik directly** —
+    a changed group UUID would re-read silently and still plan clean.
 
 

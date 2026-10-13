@@ -46,8 +46,9 @@ Run **after** Phase 6 applies, in order. Any FAIL = investigate before declaring
       oauth2 provider pk = `57`, application slug = `forgejo`.
       A **changed** group UUID = the blueprint recreated instead of adopting → STOP, the umbrella
       `admin`/`user` nesting in `mantle` is at risk.
-- [ ] V-C4 Umbrella groups: `admin`/`user` (authentik) still list `forgejo-admin`/`forgejo-user` as parents
-      (`data.authentik_group` resolved; no diff in `stacks/mantle` plan)
+- [ ] V-C4 Umbrella groups (check **authentik directly**, not a plan diff): group `admin` still lists
+      **`forgejo-admin`** among its parents, and `user` lists **`forgejo-user`** (API/UI). Note V-A2's
+      "No changes" does **not** prove this — `data.authentik_group` would re-read a changed id silently.
 - [ ] V-C5 **Log in to Forgejo via SSO** end to end (fresh incognito), land authenticated
 - [ ] V-C6 An admin still gets admin (group claim maps `forgejo-admin` → admin)
 - [ ] V-C7 **Break-glass local admin** still works (password from `forgejo-admin` Secret)
@@ -86,7 +87,8 @@ Run **after** Phase 6 applies, in order. Any FAIL = investigate before declaring
 
 ## G. Rollback readiness check (do NOT delete yet)
 
-- [ ] V-G1 Backups still exist: `.tmp/backups/*` present and parse
+- [ ] V-G1 Backups still exist: `/Users/jblack/backups/forgejo/{dump,s3,tfstate}` populated (D9), and the
+      `.tmp/backups/*` state files still parse
 - [ ] V-G2 Velero backup `forgejo-pre-split` still `Completed` and within TTL
 - [ ] V-G3 The pre-change state backups are retrievable for at least a few days after cutover
 
