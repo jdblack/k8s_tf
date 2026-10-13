@@ -1,5 +1,5 @@
 module "storage" {
-  source    = "../../modules/storage"
+  source    = "./storage"
   namespace = "kube-storage"
 
   gateway_name      = module.network.gateway_name
@@ -16,14 +16,3 @@ module "storage" {
   backup_endpoint = var.deployment.storage.backup.endpoint
 }
 
-# SeaweedFS moved inside `module.storage` (modules/storage/seaweedfs.tf) so the kube-storage
-# namespace, SeaweedFS and the Velero backup that execs into it are all one module -- the ordering
-# becomes expressible and the bootstrap cycle disappears.
-#
-# This block relocates the live instance to its new address. Removing it would plan a destroy of the
-# old address, which is a helm uninstall of SeaweedFS (chart CRDs + the admin PVC that holds the IAM
-# identities). Keep it.
-moved {
-  from = module.seaweedfs
-  to   = module.storage.module.seaweedfs
-}

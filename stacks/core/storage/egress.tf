@@ -1,5 +1,5 @@
 module "egress_baseline" {
-  source    = "../network/firewalls/policy"
+  source    = "../../../modules/network/firewalls/policy"
   direction = "egress"
 
   namespace = var.namespace
@@ -8,7 +8,7 @@ module "egress_baseline" {
 
 # Cluster-wide VolumeSnapshot reconciliation, plus its leader-election lease.
 module "egress_snapshot_controller" {
-  source    = "../network/firewalls/policy"
+  source    = "../../../modules/network/firewalls/policy"
   direction = "egress"
 
   namespace     = var.namespace

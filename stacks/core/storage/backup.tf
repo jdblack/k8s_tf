@@ -1,6 +1,6 @@
 module "backup" {
   count  = var.backup_enabled ? 1 : 0
-  source = "./backup"
+  source = "../../../modules/storage/backup"
 
   bucket   = var.backup_bucket
   region   = var.backup_region
@@ -22,7 +22,7 @@ locals {
 # The namespace's own metadata (seaweedfs master/filer/admin): an accidental-wipe guard.
 module "seaweedfs_backup" {
   for_each = local.seaweedfs_targets
-  source   = "./backup/schedule"
+  source   = "../../../modules/storage/backup/schedule"
 
   target    = "seaweedfs-${each.key}"
   namespace = var.namespace

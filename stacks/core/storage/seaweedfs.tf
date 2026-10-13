@@ -2,7 +2,7 @@
 # be a sibling called at stack scope; folding it in here lets `module.backup` (below/backup.tf) take a
 # real ordering edge to it, since its provisioner execs into the SeaweedFS S3 pod.
 module "seaweedfs" {
-  source = "./seaweedfs"
+  source = "../../../modules/storage/seaweedfs"
 
   namespace   = var.namespace
   cert_issuer = var.cert_issuer

@@ -1,5 +1,5 @@
 module "ingress_longhorn_system" {
-  source    = "../network/firewalls/policy"
+  source    = "../../../modules/network/firewalls/policy"
   direction = "ingress"
 
   namespace = var.longhorn_namespace

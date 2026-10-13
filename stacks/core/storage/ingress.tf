@@ -1,5 +1,5 @@
 module "ingress_baseline" {
-  source    = "../network/firewalls/policy"
+  source    = "../../../modules/network/firewalls/policy"
   direction = "ingress"
 
   namespace = var.namespace
