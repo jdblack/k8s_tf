@@ -2,6 +2,21 @@
 
 Status: REVIEWED — Q1–Q10 answered, D1–D9 decided; full pass trail in `FORGEJO-SPLIT-REVIEWS.md` · Owner: jblack · Scope: `stacks/core`, `stacks/mantle`, `modules/devops/forgejo*`, `modules/auth/authentik*`
 
+## RESUME HERE (handoff)
+
+- **State:** the plan is fully reviewed — **15 passes** (12 self, 2 blind cold reads, 3 directed subagents).
+  **Nothing has been built or applied.** Every decision (D1–D9) and question (Q1–Q10) is settled.
+- **Next step:** freeze these docs and start **Phase 1** — copy-and-trim the live export
+  (`.tmp/authentik-export.yaml`) into `modules/auth/authentik/oidc_blueprint/`, then run gate **T1.5**
+  (blueprint applies on a scratch name) and **T1.6** (idempotent).
+- **Open:** `forgejo_registry_repos` (the repo list — **owner-gated**, T3.6/T3.7, blocks V-E4);
+  `DEF-1…DEF-13` in `-DEFERRED.md`; the parked normal-backup topic (`todo-backup-policy` in memory).
+- **Where things live:** move script `.tmp/forgejo-split-move.py` and export `.tmp/authentik-export.yaml`
+  are **gitignored but kept**; surgery `state` scratch in `.tmp/backups/`; DR vault
+  `/Users/jblack/backups/forgejo/`.
+- **Do this first:** `tofu validate` both stacks, and re-read **Phase 3's triage** (T3.1) before touching a
+  single `oidc_*` symbol — that step is where every real trap lives.
+
 ## 1. Goal
 
 Move the Forgejo **instance** (helm release, namespace, storage, exposure, backup) out of the `mantle`
