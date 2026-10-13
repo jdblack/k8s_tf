@@ -797,7 +797,18 @@ the S3 half — worth stating plainly: **that half was their doing, not this pas
 - **Pass 21 bumped the mantle state** (1169 → 1170), so `.tmp/backups/` is one revision stale — T0.7 already
   mandates re-taking it before Phase 5, and the vault now carries a fresh **1170**.
 
-**Still open:** a **rehearsed restore** (DEF-14). This pass *took* the backups; nothing has *put them back*.
-"Backup" was never the goal — "restore that works" is. That remains the last unproven thing in the picture.
+**Restore test — the part DEF-14 says nobody ever does.** The archive was **opened**, not just weighed:
+- `gzip -t` → OK; the full TOC parsed with no truncation (10,062 members).
+- Extracted `app.ini` + `data/forgejo.db` → `pragma integrity_check` = **ok**; **87 repositories** — and
+  **three independent counts agree**: the DB says 87, the live API says 87, the tar holds 87 dirs. Plus
+  4 users, and **`login_source` = `authentik`, type=6, active** — *the exact DEF-14 trap: a restored DB must
+  carry its login row, and it does.*
+- Extracted `repos/breakglass/actions-probe.git` → `git log` shows `f4e9a2f Initial commit`; `git fsck --full`
+  printed **nothing** (clean). The git repos restore, with history and intact objects.
+
+**Still open:** the **k8s-level restore** — mounting the dump back into a PVC and booting the pod to prove the
+OIDC round trip end to end. The archive is now *proven* to hold a valid, complete DB and intact repos; what is
+left unproven is the deployment step around them. **DEF-14 narrows from "no tested restore" to "no tested
+k8s restore".**
 
 

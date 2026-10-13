@@ -82,6 +82,11 @@ Parked as a user todo: see `todo-backup-policy` in memory.
   `plan` (or a scratch cluster) of `core` then `mantle` with no staging/retries required.
 
 - **DEF-14 · There is no RESTORE path, and no restore has ever been tested. ← the real DR gap.**
+  **✅ Pass 22 (2026-10-13) NARROWED this:** the DR archive was opened and verified — `gzip -t` OK, TOC clean,
+  the extracted `forgejo.db` passes `pragma integrity_check`, holds **87/87 repos** (three counts agree) and
+  its **`login_source` = `authentik` (active)**, and an extracted `.git` passes `git fsck`. So **the data is
+  proven recoverable**; what remains unproven is the **k8s step** (dump → PVC → pod → OIDC check). The task
+  below is therefore now *only* the deployment rehearsal, not the whole story.
   **Pass 17 (E17-3): the plan optimises the *plan* and hand-waves the *data*.** T6.0 *takes* three backups
   and stops; nothing says how to put them back, in what order, or how to prove it worked. And Forgejo is
   stateful (SQLite DB + git repos on the PVC, blobs in the SeaweedFS bucket).
