@@ -18,3 +18,13 @@ data "kubernetes_secret_v1" "argocd_auth" {
     name      = var.deployment.argo.auth_secret
   }
 }
+
+# The break-glass local admin the Forgejo chart mints. The instance lives in `core` now, so this
+# stack only reads it (the runner's registration-token data source reads the same Secret). Both
+# halves are here, which is what the forgejo provider needs.
+data "kubernetes_secret_v1" "forgejo_admin" {
+  metadata {
+    namespace = "devops-forgejo"
+    name      = "forgejo-admin"
+  }
+}

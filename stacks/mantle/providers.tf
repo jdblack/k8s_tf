@@ -42,6 +42,10 @@ terraform {
       source  = "hashicorp/external"
       version = "2.3.5"
     }
+    forgejo = {
+      source  = "svalabs/forgejo"
+      version = "1.6.1"
+    }
   }
 }
 
@@ -74,4 +78,15 @@ provider "argocd" {
   server_addr = "${var.deployment.argo.server}.${var.deployment.cluster.domains.private}:443"
   username    = "admin"
   password    = data.kubernetes_secret_v1.argocd_auth.data["password"]
+}
+
+# The Forgejo API, authed the house way: the chart-minted `forgejo-admin` Secret supplies both
+# halves of the credential, so this introduces no new secret. Used by module.forgejo_setup to
+# write the Harbor robot's credentials as repo-level Actions secrets. The namespace/name are
+# literals for the same reason the runner's token data source uses them (T4.6): they belong to
+# the instance, which `core` now owns, not to this stack's deployment config.
+provider "forgejo" {
+  host     = "https://git.${var.deployment.cluster.domains.private}"
+  username = data.kubernetes_secret_v1.forgejo_admin.data["username"]
+  password = data.kubernetes_secret_v1.forgejo_admin.data["password"]
 }
