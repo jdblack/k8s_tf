@@ -126,10 +126,30 @@ gitignored.
       comma-separated, non-empty, contains `openid` **and** `groups`. Validate `admin_group`/
       `restricted_group` are non-empty **and equal the names the blueprint creates** — that link is
       currently two independent hand-written strings (F17-2/F17-3), so make it structural or validate it.
-- [ ] T3.3 Create `modules/devops/forgejo/mantle/` = `harbor_robot_account` (**with
-      `depends_on = [module.harbor_setup]`** — it targets project `library`, same stack) +
+- [ ] T3.3 Create `modules/devops/forgejo/mantle/` = `harbor_robot_account` +
       `forgejo_repository_action_secret` (names `HARBOR_USER` / `HARBOR_TOKEN`), `variables`, `outputs`,
-      `providers`
+      `providers`.
+      **⛔ Pass 18 (G18-2): `forgejo_repository_action_secret` takes a NUMERIC `repository_id`, not
+      `owner`/`name`** (provider v1.6.1 docs + source — every path calls `getRepositoryByID`). The plan never
+      created the lookup. Add **`data.forgejo_repository { owner, name }`** per entry in
+      `forgejo_registry_repos` and pass `.id`; a missing repo then fails at **plan** time, which is what we
+      want.
+      **Pass 18 (G18-3): the old `depends_on = [module.harbor_setup]` rationale was wrong** — `harbor_setup`
+      owns the `linuxguru` project, not `library`. `library` is Harbor's *default public* project (verified
+      live: `GET /api/v2.0/projects`). Keep the edge if the robot needs it, but **fix the comment**.
+      *(Verified good: `harbor_robot_account` exists in `goharbor/harbor` 3.12.5, and its `secret` is
+      `Optional+Computed` — filled from the POST response — so `HARBOR_TOKEN` sources in the same apply.)*
+- [ ] T3.8 **⛔ PRE-FLIGHT GATE — the Actions repo-unit is GLOBALLY DISABLED (G18-1, the biggest find of 18
+      passes).** The live `app.ini` contains `[repository] DISABLED_REPO_UNITS = repo.actions`, and **no
+      `.tf` file sets it** (stale drift baked onto the PVC by a removed module version). Forgejo guards the
+      actions-secrets API behind the Actions unit (`reqOwner(unit.TypeActions)`), so **every
+      `forgejo_repository_action_secret` 404s** — verified live on all 86 repos and on a scratch repo, and
+      `PATCH {"has_actions":true}` is a silent no-op.
+      **Without this fix the entire Harbor→Actions push path — the goal's second half — is INERT.**
+      Fix: set `gitea.config.repository.DISABLED_REPO_UNITS = ""` in `forgejo/core` helm values (and enable
+      the Actions unit per target repo), then verify `GET /api/v1/repos/<owner>/<repo>/actions/secrets`
+      returns **200**, not 404. **Note the plan's other gates only diff rendered helm values — they would
+      NEVER have caught `app.ini` drift.**
 - [ ] T3.6 **Decide the repo list** for `forgejo_registry_repos` (owner/name) — the plan does not name
       them. Default `[]` means **no secrets are created** and V-E4 cannot pass.
 - [ ] T3.7 **Declare `forgejo_registry_repos`** in `stacks/mantle/variables.tf` and thread it into the
@@ -222,7 +242,7 @@ python3 "$ROOT/.tmp/forgejo-split-move.py" "$TS"
 #    The two backends have NO transaction: between pushes both states could claim the same objects,
 #    so this order leaves an authz-gap at worst, not a double-ownership window.
 ( cd stacks/mantle && tofu state push "$ROOT/.tmp/backups/mantle-moved-$TS.tfstate" )
-( cd stacks/mantle && tofu state list | grep '^module\.forgejo' && echo 'ABORT: mantle still owns forgejo' || echo 'ok: mantle clean' )
+( cd stacks/mantle && tofu state list | grep -E '^module\.forgejo(\.|$)' && echo 'ABORT: mantle still owns forgejo' || echo 'ok: mantle clean' )
 ( cd stacks/core   && tofu state push "$ROOT/.tmp/backups/core-moved-$TS.tfstate" )
 
 # 4. GATES
@@ -240,7 +260,10 @@ python3 "$ROOT/.tmp/forgejo-split-move.py" "$TS"
       already pruned mantle (moved → core; oidc → **dropped = forgotten**), so there is **no `state rm`**
 - [ ] T5.6 Confirm the pushed **mantle** state holds **no `module.forgejo` entries at all** (moved *and*
       oidc gone) — the oidc is **forgotten, not destroyed** (D4). Verify with
-      `tofu state list | grep '^module\.forgejo'` (note the **dot** — `module.forgejo_runner` must not match)
+      `tofu state list | grep -E '^module\.forgejo(\.|$)'`.
+      **⚠️ Pass 18 (I18-1): the old pattern `grep '^module\.forgejo'` is a PREFIX match — it ALSO matches
+      `module.forgejo_runner`, which legitimately stays in mantle. So the guard fired on *every correct
+      push*.** The `(\.|$)` bound is what makes it exact.
 - [ ] T5.7 **⛔ GATE:** `tofu plan` **core** → **0 destroys** (hard). Enumerate the expected non-destroy
       changes and confirm each: adds from `module.forgejo_oidc` (blueprint Secret, `random_password`, tls
       key+cert) and **exactly TWO updates** (**C16-8**): `helm_release.forgejo` (the new `client_secret`)
@@ -252,6 +275,16 @@ python3 "$ROOT/.tmp/forgejo-split-move.py" "$TS"
 - [ ] T5.9 Verify backups still intact before proceeding
 - [ ] T5.10 Confirm the `expose`/`listener_set` **`kubernetes_manifest`** resources moved with **no diff**
       (they re-read live objects on plan)
+
+> **⚠️ Pass 18 (I18-3, I18-4) — two resumption traps:**
+> 1. **Never re-pull state mid-surgery.** If you stop after the mantle push but before the core push, the
+>    objects sit in *neither* state. Re-running T5.1 would re-pull with a **new `$TS`**; the script would
+>    then compute **0 moves**, the core push would no-op, and the namespace would be **silently orphaned** —
+>    a later `tofu apply core` would try to *create* an already-existing namespace. **Resume by pushing the
+>    `*-moved-$TS.tfstate` files already produced**, not by re-running the script.
+> 2. **The move script is NOT in git.** `.tmp/` is gitignored, so `forgejo-split-move.py` lives only on the
+>    author's machine (`git ls-files | grep -c '.tmp/'` → 0). **Copy it somewhere durable (or commit it)
+>    before Phase 5** — it is the artefact the surgery *executes*.
 
 ---
 

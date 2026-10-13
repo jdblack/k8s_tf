@@ -4,16 +4,20 @@ Status: REVIEWED — Q1–Q10 answered, D1–D9 decided; full pass trail in `FOR
 
 ## RESUME HERE (handoff)
 
-- **State:** the plan is fully reviewed — **17 passes** (12 self, 2 blind cold reads, 9 directed subagents
-  across three waves). **Nothing has been built or applied.** Every decision (D1–D9) and question (Q1–Q10) is
+- **State:** the plan is fully reviewed — **18 passes** (12 self, 2 blind cold reads, 12 directed subagents
+  across four waves). **Nothing has been built or applied.** Every decision (D1–D9) and question (Q1–Q10) is
   settled.
+- **⚠️ BLOCKER found in Pass 18 (G18-1):** the live `app.ini` disables the Actions repo-unit
+  (`DISABLED_REPO_UNITS = repo.actions`), so the goal's second half is **inert** until T3.8 fixes it.
 - **⚠️ The DR story is the open sore:** the vault is empty, DEF-1/12/13 are load-bearing, and there is **no
   restore path** (DEF-14). Reviewing the *plan* is done; the *data* side needs its own work.
 - **Next step:** freeze these docs and start **Phase 1** — copy-and-trim the live export
   (`.tmp/authentik-export.yaml`) into `modules/auth/authentik/oidc_blueprint/`, then run gate **T1.5**
   (blueprint applies on a scratch name) and **T1.6** (idempotent).
 - **Open:** `forgejo_registry_repos` (the repo list — **owner-gated**, T3.6/T3.7, blocks V-E4);
-  `DEF-1…DEF-13` in `-DEFERRED.md`; the parked normal-backup topic (`todo-backup-policy` in memory).
+  **⚠️ the Actions repo-unit is globally DISABLED in the live `app.ini` (G18-1 / T3.8) — the goal's second
+  half is inert until that is fixed**; `DEF-1…DEF-14` in `-DEFERRED.md`; the parked normal-backup topic
+  (`todo-backup-policy` in memory).
 - **Where things live:** move script `.tmp/forgejo-split-move.py` and export `.tmp/authentik-export.yaml`
   are **gitignored but kept**; surgery `state` scratch in `.tmp/backups/`; DR vault
   `/Users/jblack/backups/forgejo/`.
@@ -219,8 +223,11 @@ terraform-managed). Everything else below is *availability*, which is **accepted
 | R11 | `client_secret` rotation desyncs authentik vs helm | OIDC breaks until both converge | Preserve the secret (Q2) or land both in one apply |
 | R12 | The authentik **worker** rolls (blueprint list changes) | Background tasks / outpost sync pause briefly — **login is NOT affected** (`authentik-server` mounts no blueprints) | Low impact; verify other apps after (V-C10) |
 
+| R13 | **The Actions repo-unit is globally DISABLED** — live `app.ini` has `[repository] DISABLED_REPO_UNITS = repo.actions`, set by **no `.tf`** (stale PVC drift) | The goal's **second half** (Harbor robot → repo action secrets) is **inert**: every `forgejo_repository_action_secret` 404s (verified on all 86 repos) | **G18-1 — the biggest find of the 18 passes.** Set `DISABLED_REPO_UNITS = ""` + enable the unit per repo; gate on `GET .../actions/secrets == 200` (**T3.8**) |
+
 > **Under D8, everything except R1 is non-data-loss.** R3/R5/R7/R9/R11/R12 are *availability* — accepted, no
-> mitigation. R2/R6/R8 are *config* risks (fix forward). **R1 is the only data-loss row**, and
+> mitigation. R2/R6/R8 are *config* risks (fix forward). **R13 is a *goal* risk** — no data at stake, but the
+> change would ship without delivering half its purpose. **R1 is the only data-loss row**, and
 > `module.bucket.*` is the other untouchable object.
 
 ## 8. Rollback
@@ -237,13 +244,21 @@ PVC** — silent data loss, the one outcome D8 forbids.
 
 ### Rollback drill (exact, in order)
 
+0. **Set these TWO variables FIRST.** (Pass 18, H18-1: the drill below used `$TS`, which was never defined
+   here, and a *relative* `.tmp/…` that resolves under `stacks/<stack>/` after the `cd` — so it died on
+   line 1.)
+   ```sh
+   ROOT=/Users/jblack/code/k8s/terraform     # or: git rev-parse --show-toplevel
+   TS=<timestamp of the pre-Phase-5 backups> # ls "$ROOT/.tmp/backups/" to find it
+   ```
 1. **STOP. Apply nothing.** Freeze both stacks.
 2. Revert code: `git checkout -- . && git clean -fd modules/ stacks/` — note the new module dirs are
    **untracked**, so `checkout` alone will not remove them.
 3. **Push CORE first, then MANTLE (reverse of the forward order)** — never apply between them:
-   - `cd stacks/core   && tofu state push -force .tmp/backups/core-$TS.tfstate   && tofu plan`  → *No changes*
-   - `cd stacks/mantle && tofu state push -force .tmp/backups/mantle-$TS.tfstate && tofu plan`  → *No changes*
+   - `cd "$ROOT/stacks/core"   && tofu state push -force "$ROOT/.tmp/backups/core-$TS.tfstate"   && tofu plan`  → *No changes*
+   - `cd "$ROOT/stacks/mantle" && tofu state push -force "$ROOT/.tmp/backups/mantle-$TS.tfstate" && tofu plan`  → *No changes*
    `-force` is **required** (older serial); it also clobbers post-botch state changes, which is what we want.
+   **Always use the absolute `"$ROOT/…"` form** — the `cd` silently changes what a relative path means.
 4. Only when **both** plans say *No changes* may anything be applied — and nothing should need it.
 5. Verify PVC identity survived:
    `kubectl -n devops-forgejo get pvc forgejo-data -o jsonpath='{.spec.volumeName}'` (must be unchanged).

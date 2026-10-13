@@ -7,10 +7,13 @@ Run **after** Phase 6 applies, in order. Any FAIL = investigate before declaring
 - [ ] V-A1 `cd stacks/core && tofu plan` → **No changes**
 - [ ] V-A2 `cd stacks/mantle && tofu plan` → **No changes**
 - [ ] V-A3 `stacks/core` state now owns `module.forgejo.*` (namespace, helm, storage, expose, ingress,
-      egress*, backup) — `tofu state list | grep '^module\.forgejo'` (use the **escaped dot**; a bare
-      `module.forgejo` also matches `module.forgejo_runner`)
-- [ ] V-A4 `stacks/mantle` state owns **no `module.forgejo`** at all — `tofu state list | grep '^module\.forgejo'`
-      returns **nothing** (the CI module is named `module.forgejo_setup`)
+      egress*, backup) — `tofu state list | grep -E '^module\.forgejo(\.|$)'`.
+      **⚠️ Pass 18 (I18-1): the old pattern `grep '^module\.forgejo'` is a PREFIX match, so it ALSO matches
+      `module.forgejo_runner` — it could never pass or fail correctly.** The `(\.|$)` bound is what makes it
+      exact.
+- [ ] V-A4 `stacks/mantle` state owns **no `module.forgejo`** at all —
+      `tofu state list | grep -E '^module\.forgejo(\.|$)'` returns **nothing** (the CI module is named
+      `module.forgejo_setup`, and `module.forgejo_runner` legitimately remains).
 - [ ] V-A5 No resource in either state is `module.forgejo.module.oidc.*` anymore (forgotten, D4)
 - [ ] V-A6 `git status` clean; `tofu fmt -check` clean
 - [ ] V-A7 The moved `kubernetes_manifest` resources (`expose`/`listener_set`) show **no diff**
@@ -92,14 +95,18 @@ Run **after** Phase 6 applies, in order. Any FAIL = investigate before declaring
 
 ## G. Rollback readiness check (do NOT delete yet)
 
-- [ ] V-G1 Backups still exist: `/Users/jblack/backups/forgejo/{dump,s3,tfstate}` populated (D9), and the
-      `.tmp/backups/*` state files still parse
+- [ ] V-G1 **⚠️ Pass 18 (H18-3): this check was FALSE as written** — it asserted the D9 vault was
+      *populated*. It is **EMPTY** (`/Users/jblack/backups/forgejo/` holds only `README.md`; `dump/`, `s3/`
+      and `tfstate/` are all 0 bytes), directly contradicting `FORGEJO-SPLIT-CHECKLIST.md`. Corrected check:
+      verify `/Users/jblack/backups/forgejo/{dump,s3,tfstate}` **are populated** — run T6.0 first — and that
+      the `.tmp/backups/*` state files still parse. **An unpopulated vault must FAIL this gate, not pass it.**
 - [ ] V-G2 Velero backup `forgejo-pre-split` still `Completed` and within TTL
 - [ ] V-G3 The pre-change state backups are retrievable for at least a few days after cutover
 
 ## H. Sign-off
 
 - [ ] V-H1 All gates above pass
-- [ ] V-H2 Deferred items re-filed (DEF-1…DEF-13; DEF-1/DEF-2/DEF-3/DEF-12/DEF-13 are the parked backup-policy topic)
+- [ ] V-H2 Deferred items re-filed (**DEF-1…DEF-14**; DEF-1/DEF-2/DEF-3/DEF-12/DEF-13 are the parked
+      backup-policy topic, and DEF-1/12/13/14 are now marked **load-bearing**)
 - [ ] V-H3 Memory updated
 - [ ] V-H4 Commit + push

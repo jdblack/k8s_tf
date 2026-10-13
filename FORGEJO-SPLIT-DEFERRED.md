@@ -14,10 +14,12 @@ Parked as a user todo: see `todo-backup-policy` in memory.
   When: before trusting Longhorn for anything; independent of this split.
   **⚠️ Pass 17 (E17-3): this is LOAD-BEARING for a greenfield rebuild, not cosmetic** — see DEF-14.
 
-- **DEF-2 · `forgejo-data` Velero schedule has never fired.**
-  Schedule created 2026-10-12T07:38Z; first `0 3 * * *` run not yet reached.
-  Action: confirm a backup appears after the next 03:00Z tick; alert if missing.
-  When: next day after the split.
+- **DEF-2 · `forgejo-data` Velero schedule first run.**
+  Schedule created 2026-10-12T07:38Z; the first `0 3 * * *` tick was **2026-10-13T03:00Z**.
+  **⚠️ Pass 18 (H18-5): the doc's "not yet reached" is STALE — that tick is now in the past.**
+  Action: **confirm the tick actually produced a backup** (and alert if it did not); a schedule that exists
+  but never fires is the failure this item was meant to catch.
+  When: now.
 
 - **DEF-3 · `forgejo-data` PVC is only ~18h old.**
   Worth understanding *why* it was recreated (a prior redeploy?). Not blocking.

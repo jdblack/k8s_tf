@@ -7,9 +7,9 @@ and the reasoning, including things we deliberately rejected.
 **Pass index:** 1 correctness · 2 completeness & risk · 3 executability · 4 adversarial premise-check ·
 5 failure simulation · 6 unknowns resolved · 8 hostile findings · 9 priority re-rank (owner) ·
 10 backup strategy (owner) · 11 second hostile run · 12 third hostile run · 13 cold read · 14 second cold
-read · 15 directed subagents · 16 directed subagents (round 2) · 17 directed subagents (round 3). *(6 ran
-before 5; sections are labelled, order on disk is as-completed.)* **Pass 7 (minimality) was dropped** — Q10
-settled it: Option A, the only "smaller" option, is off the table.
+read · 15 directed subagents · 16 directed subagents (round 2) · 17 directed subagents (round 3) · 18
+directed subagents (round 4). *(6 ran before 5; sections are labelled, order on disk is as-completed.)*
+**Pass 7 (minimality) was dropped** — Q10 settled it: Option A, the only "smaller" option, is off the table.
 
 **Naming, so the letters don't confuse you:** plan decisions are **`D1`–`D9`**; deferred items are
 **`DEF-1`–`DEF-13`** (renamed in Pass 14 — they used to be `D-1…`, which collided). The **"D7"** in the
@@ -191,7 +191,8 @@ Adversarial "asshole" read-through of all five docs. **19 defects found**; every
 
 17. Phase 2 dead weight — resolved (it's the design now).
 18. Reviews **A2** asserted the wrong conclusion unmarked. Marked **⚠️ SUPERSEDED**.
-19. **T5.11 / DEF-7** stale. Marked waived.
+19. **T5.11 / DEF-7** stale. Marked waived. *(T5.11 was later dropped from the checklist; this log entry is
+    retained as-written. — Pass 18, H18-6)*
 
 ### Also: R12 corrected
 `authentik-server` mounts **no** blueprint volume → the worker roll pauses **background tasks, not login**.
@@ -555,5 +556,60 @@ was genuinely unique cluster-wide (43/43 group names, 19/19 app slugs, 16/16 pro
 **Net: 9 findings folded, 3 severe — E17-1 (a self-inflicted validate break), D17-1 (a fail-open path to a
 signing-key-less provider), F17-4 (a blueprint that mounts and is silently never applied).** The yield is
 **not** decaying.
+
+---
+
+## Pass 18 — fourth wave: angles nobody had tried ✅ (all folded)
+
+Waves 1-3 attacked the **move** half three times. This wave went at the **other half of the goal**, the
+**documents' facts**, and the **operator's runbook**. It found the single biggest defect of all 18 passes.
+
+### G — the mantle half (never reviewed before) — hypothesis: *"the provider, the Harbor robot and the repo secrets are implementable as described"*
+- **G18-1 — THE SHOWSTOPPER: Actions is globally DISABLED on the live instance.** `app.ini` contains
+  `[repository] DISABLED_REPO_UNITS = repo.actions`, set by **no `.tf` file** (I re-ran the grep myself: it
+  returns nothing) — stale drift baked onto the PVC by a removed module version. Forgejo gates the
+  actions-secrets API behind the Actions unit (`reqOwner(unit.TypeActions)`), so **every
+  `forgejo_repository_action_secret` returns 404**. Live proof: 404 on all 86 repos *and* on a scratch repo;
+  `PATCH {"has_actions":true}` is a silent no-op. **The entire Harbor→Actions push path — the goal's second
+  half — is inert, and 17 passes never looked**, because the plan's gates only diff *rendered helm values*
+  and could never see `app.ini` drift. → **R13** + pre-flight gate **T3.8**.
+- **G18-2 — `forgejo_repository_action_secret` needs a NUMERIC `repository_id`**, not `owner`/`name`
+  (v1.6.1 docs + source call `getRepositoryByID` on every path). The plan never created the lookup. →
+  `data.forgejo_repository` added to T3.3.
+- **G18-3** — the `depends_on = [module.harbor_setup]` rationale was wrong: `harbor_setup` owns `linuxguru`,
+  not `library`; `library` is Harbor's *default public* project.
+- VERIFIED: `svalabs/forgejo` 1.6.1 exists and its auth model fits; the chart's `forgejo-admin` Secret has
+  the right keys; `harbor_robot_account` exists in `goharbor/harbor` 3.12.5 with an `Optional+Computed`
+  `secret`, so `HARBOR_TOKEN` sources in the same apply.
+
+### H — claims audit — hypothesis: *"the documents' concrete facts are accurate against the tree today"*
+The auditor's summary: *"I tried to break this thing. It barely broke."* **All 14 file:line citations
+resolved; every version pin real; every count reproduced** (477/18/15/444; 43/19/16/11/24; serials
+1169/783). The rot was quarantined in exactly one place:
+- **H18-3 — `VALIDATION.md` V-G1 claimed the D9 vault was "populated". It is EMPTY**, directly contradicting
+  the checklist's own Pass-16 correction — *on the highest-stakes object in the plan*. The fallback gate
+  would have waved through a backup set that does not exist. → rewritten to **fail** on an empty vault.
+- **H18-1** — the §8 rollback block used `$TS` (never defined there) and a relative `.tmp/…` that resolves
+  under `stacks/<stack>/` after the `cd`: **the "exact" drill died on line 1.** → `$ROOT`/`$TS` prepended.
+- H18-2/H18-4/H18-5/H18-6 — stale `DEF-1…DEF-13` in two docs, a stale DEF-2 (its tick is now in the past),
+  and a dangling T5.11.
+
+### I — runbook walk — hypothesis: *"an operator following the checklist will succeed"*
+- **I18-1 — THE GATE THAT COULD NEVER PASS.** T5.6 and the Phase-5 block guarded the surgery with
+  `grep '^module\.forgejo'` — a **prefix match**, so it also matches `module.forgejo_runner`, which
+  *legitimately stays in mantle*. The "ABORT: mantle still owns forgejo" check **would have fired on every
+  correct push** — while guarding the single most dangerous step. → `grep -E '^module\.forgejo(\.|$)'`
+  (also fixed in V-A3/V-A4). *(I introduced this myself in Pass 16 when I added the push-order guard.)*
+- **I18-2** — the rollback's wrong-directory path (same root cause as H18-1).
+- **I18-3** — a resumption trap: stop between the two pushes, re-pull with a fresh `$TS`, and the script
+  computes **0 moves** → the namespace is **silently orphaned**, and a later `core apply` tries to create it.
+- **I18-4** — the move script **is not in git** (`.tmp/` is ignored), so the artefact the surgery *executes*
+  exists on one laptop only.
+- **VERIFIED: nothing acts on its own.** No CI, no hooks, no Argo app tracking this repo (the app-of-apps
+  points at a different repo) — merging the docs fires nothing. The two backends are separate Secrets, so
+  **no lock contention**; and the forward push order is legal without `-force`.
+
+**Net: 12 findings folded, 5 severe.** The worst defect of the entire effort — *the second half of the goal
+does not work* — was hiding in a file nobody had been asked to read.
 
 
