@@ -109,6 +109,14 @@ worker rolls, the OIDC window, downtime during a restore) is a **non-issue**, an
   `helm.sh/resource-policy: keep`), so it is a disruption, **not** a data-loss event. Recovery may freely
   take a service gap.
 
+- **D9 — Backup landing zone: `/Users/jblack/backups/forgejo/`** (off-cluster, on the operator machine;
+  documented in its own `README.md`). Three pieces, because **no single tool covers it**: `dump/` =
+  `forgejo dump` (git repos + SQLite DB + config, app-native, restores without k8s); `s3/` = a mirror of
+  the SeaweedFS bucket **`forgejo`** (`lfs/`, `avatars/`, `repo-avatars/`, attachments, artifacts — all
+  `[storage]` blobs); `tfstate/` = state pulls. Velero keeps its own in-cluster BSL. Rationale: data loss
+  is the only unacceptable outcome (D8), and before this the whole story was **one perishable Velero copy**
+  (ttl 168h) — a `forgejo dump` alone is *incomplete*, because the blob data lives in S3, not `/data`.
+
 Rejected: **A** (no split — leaves `mantle` **greenfield-broken**, violating the DR tenet, §2.5);
 **C** (operator-provided authentik token in tfvars — violates the "tfvars is a symlink, don't touch" rule).
 

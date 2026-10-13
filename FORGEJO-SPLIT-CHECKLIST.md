@@ -16,6 +16,10 @@ Gate marker: **⛔ GATE** = do not proceed until the stated check passes.
 - [ ] T0.7 Re-take backups **immediately before** Phase 5 (states will have drifted)
 - [x] T0.8 Capture pre-change authentik UUID baseline → plan §10 (done)
 
+> **Backup home (D9).** Durable, off-cluster backups now live in **`/Users/jblack/backups/forgejo/`**
+> (`dump/`, `s3/`, `tfstate/`). `.tmp/backups/` remains the *transient* working area. Before this, the only
+> off-box copy was a single Velero backup.
+
 ---
 
 ## Phase 1 — Forgejo OIDC blueprint module (build + verify in isolation)
@@ -151,8 +155,13 @@ python3 "$ROOT/.tmp/forgejo-split-move.py" "$TS"
 
 ## Phase 6 — Apply
 
-- [ ] T6.0 **Re-take the Velero backup** immediately before applying — `forgejo-pre-split` has **ttl 168h**
-      and is the ONLY off-box copy (Longhorn's target is down, D-1). Do not let it expire first.
+- [ ] T6.0 **Take fresh OFF-CLUSTER backups immediately before applying** (D8/D9). The Velero backup has
+      a **168h ttl** and is not the only copy any more — but take all of these, in this order:
+      - `forgejo dump` → `/Users/jblack/backups/forgejo/dump/` (git + SQLite DB + config)
+      - `aws s3 sync s3://forgejo/` → `/Users/jblack/backups/forgejo/s3/` (LFS/attachments/avatars/artifacts)
+      - `tofu state pull` (both stacks) → `/Users/jblack/backups/forgejo/tfstate/`
+      - a fresh Velero backup too
+      - exact commands: `/Users/jblack/backups/forgejo/README.md`
 - [ ] T6.1 **⛔ GATE — the DATA-LOSS gate (D8):** re-read both plans. **ABORT on ANY destroy of
       `kubernetes_namespace_v1.namespace` or `module.bucket.*`** — those are the only irrecoverable ones.
       A `helm_release.forgejo` destroy is survivable (its PVC carries `keep`) = disruption, not data loss.

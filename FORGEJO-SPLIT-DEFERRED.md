@@ -53,3 +53,9 @@ Things deliberately NOT in this change. Each has a "why" and a "when".
   `data.external.forgejo_runner_token`, which this change fixes. Anything else found becomes its own task.
 - **D-11 · Prove greenfield afterwards.** Once the split lands, validate DR by a from-scratch
   `plan` (or a scratch cluster) of `core` then `mantle` with no staging/retries required.
+- **D-12 · Nightly app-native backups.** The `forgejo-data` Velero schedule has never fired (D-2) and the
+  Longhorn target is down (D-1), so add a **CronJob** running `forgejo dump` + `aws s3 sync s3://forgejo/`
+  into the D9 layout (or a durable volume). App-native beats the current Velero-only story.
+- **D-13 · Second off-site BSL.** Only **one** Velero BSL exists (`default`, in-cluster SeaweedFS), so even
+  the Velero copy shares a failure domain. A second, off-site BSL (e.g. AWS S3 — the cluster already has
+  Route53 creds) would make the Velero path genuinely redundant.

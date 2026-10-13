@@ -252,4 +252,29 @@ constraint, not a pass, but it re-ranks everything and is recorded as **D8**:
 - T5.8, T6.1 and §8's rollback gate were rewritten around **those two objects**, not "any destroy".
 - Recovery may freely take a service gap (no quiet-window gymnastics).
 
+---
+
+## Pass 10 — backup strategy (owner input) ✅
+
+Owner asked two things: **how to back up the LFS**, and **name one place for non-Velero backups**.
+
+### LFS / blob store
+The `[storage]` blobs (LFS, attachments, avatars, repo-avatars, artifacts) live in the SeaweedFS bucket
+**`forgejo`**, not in `/data` — so `forgejo dump` alone is **incomplete**. Verified the bucket is
+S3-compatible and reachable: `aws --endpoint-url https://s3.vn.linuxguru.net s3 ls s3://forgejo/` lists
+`lfs/  avatars/  repo-avatars/`. `aws`, `rclone` and `restic` are all installed locally.
+
+**Answer: `aws s3 sync s3://forgejo/ <dest>`**, creds from the `forgejo-s3` Secret, path-style endpoint.
+
+### Landing zone — **D9**
+**`/Users/jblack/backups/forgejo/`** with `dump/`, `s3/`, `tfstate/` (+ its own `README.md`). Three pieces,
+because no single tool covers the data. Velero keeps its in-cluster BSL; `.tmp/backups/` stays transient.
+
+**This closes the Tier-1 hole.** Before: the entire recovery story was one Velero copy with a 168h TTL and
+a dead Longhorn target. Now the critical data (git + DB + config) has an **app-native** copy that restores
+without Kubernetes at all, and the blobs have a second copy too.
+
+New deferred: **D-12** (nightly `forgejo dump` + S3 sync CronJob), **D-13** (a second, off-site Velero BSL —
+only one exists today, so even Velero shares a failure domain).
+
 
