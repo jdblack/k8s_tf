@@ -832,7 +832,7 @@ true cold read of the *finished* artefact.
 | 1 | §9 Q4's sample `identifiers` used **`!Find`** on both FKs — the exact pattern T1.2/D17-1 forbids *in the same document* | **Confirmed** — the docs contradicted themselves |
 | 2 | `auth.tf:25` names a flow `default-provider-invalidation-flow` but points it at the **implicit-consent** slug; a real flow by that name exists to be picked by mistake | **Confirmed live** — `fbfe9f96…` (implicit-consent) vs `28c991a8…` (the real invalidation flow) |
 | 3 | A16-4 conflates **the module's `name` variable** with the blueprint's `metadata.name` | **Partly** — the doc says "the blueprint *module's* `name`"; the **handoff prompt and the memory** were what garbled it |
-| 4 | T1.5 as written forces a **helm rev + worker roll** just to test; a `--dry-run` exists | **Confirmed** — `ak apply_blueprint --dry-run` is on the worker (2026.8.2) |
+| 4 | T1.5 as written forces a **helm rev + worker roll** just to test; a `--dry-run` exists | **Confirmed** — `ak apply_blueprint --dry-run` is on the worker (2026.8.2). ⚠️ **Pass 24 corrected the FIX: that command cannot run at all (N1) — the route is `Importer.from_string`, not `apply_blueprint <path>`.** |
 | 5 | §8 step 6 still claims the vault is empty | **Confirmed** — and **my own earlier grep missed it twice**, because the text reads `vault is **empty**` |
 | 6 | T1.7 says "diff against §10", but §10 is an identity/UUID baseline | **Confirmed** — the field baseline is §9's fidelity list + the export |
 | 7 | The new module's **inputs** are specified nowhere; `discovery_url` has nothing to derive from | **Confirmed** — the same O20-1 class as the "exactly three" defect |
@@ -847,3 +847,37 @@ no history read them as a **stranger** and immediately found a self-contradictio
 mismatch in the source (2), and a whole missing interface (7). Flag 5 was a grep I ran **twice** and still
 missed, because I searched the phrase and the doc had markdown emphasis inside it.
 **The cold read is not a formality — it is the only pass that tests the artefact as a reader receives it.**
+
+---
+
+## Pass 24 — the cold read's second round: it audited the fold (2026-10-13)
+
+The fresh context was told to re-read exactly what Pass 23 changed. It returned **9 more flags** — and
+**four of them are defects Pass 23 *introduced*.** All 9 verified here against the source and the live system.
+**9/9 real.**
+
+| # | Flag | Verdict |
+|---|---|---|
+| N1 | The `T1.5` dry-run command **cannot run** | **Confirmed in source** — `retrieve_file()` has a containment guard raising `BlueprintRetrievalFailed`; and `/blueprints` is `root:root 0755` vs the worker's **uid 1000**, so it's unwritable *and* discovery would apply it for real |
+| N2 | "Zero blast radius" needs its caveat | **Confirmed** — `validate()` = `_apply_models()` inside `transaction_rollback()`: it **really applies**, then rolls back. Row locks on the live DB; `raise_validation_errors=False` ⇒ first-error-only |
+| N3 | D17-1 is right for the wrong reason | **Confirmed** — a `!Find` miss in a **list** is **loud** (serializer rejects the `None`); only a **nullable scalar FK** fails silent. Rule scoped to scalar FKs; T1.6 now asserts `signing_key_id` |
+| N4 | `redirect_uris` is required | **Confirmed** — probe failed with `'This field is required.'` |
+| N5 | The new input contract omits `namespace` | **Confirmed** — T4.10 already demanded it. My Pass-23 contract contradicted it |
+| N6 | The contract silently internalises a Forgejo convention | **Confirmed** — `git.${domain}` + the callback path + the source name are baked into a generically-named module |
+| N7 | The D6 rotation race is documented backwards | **Confirmed** — the real race is the *mirror*: new secret via worker, old via pod start; disagreement = token endpoint rejects while the page renders |
+| N8 | `BlueprintInstance.unique_together = (name, path)` | **Confirmed** in source + live rows — renaming the Secret/key **orphans the old instance and creates a second** |
+| N9 | The teardown must use `!Find`, never `!KeyOf` | **Confirmed** — `KeyOf.resolve` ends in `raise EntryInvalidError`; a teardown's targets have no instance |
+
+**The uncomfortable result: 4 of 9 are mine** (N1, N2, N5, N9 — all defects in the Pass-23 fold, one of which
+was build-breaking: a command that cannot execute). This is now the **fourth** time this plan has found the
+**fold step** to be the leading defect source — and the second time in consecutive passes.
+
+**Why the second cold read was worth it.** Pass 23's reader found the docs' defects. Pass 24's reader found
+the *repairs'* defects. The fold is where a verified finding turns into a written instruction, and it is the
+one step with no independent check — every finding gets verified, then the **fix** for it ships unverified.
+`N1` is the case in point: a correct finding ("don't force a helm rev") folded into a command that **cannot
+run**, because nobody re-tested the *replacement*.
+
+**Rule extracted:** *a fold is a change, and a change earns a verification.* When a pass rewrites a command,
+a contract or a rule, the next pass must **execute/read the rewrite**, not merely confirm the finding it came
+from. Fold-and-move-on is the recurring generator of defects in this plan.

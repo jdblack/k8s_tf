@@ -6,10 +6,10 @@ Status: REVIEWED — Q1–Q10 answered, D1–D9 decided; full pass trail in `FOR
 
 - **State:** the plan is fully reviewed and **FROZEN** — **20 review passes** (12 self, 2 blind cold reads,
   18 directed subagents across six waves; the loop closed when a wave found the *fold process* itself had
-  become the leading defect source), **then Passes 21-23**: the first live change (**T3.8**, applied and
-  verified), the **DR set taken + proven restorable**, and a **fresh-context cold read** that returned
-  **8/8 real findings**. Every decision (D1–D9) and question (Q1–Q10) is settled. Move verified sound
-  (18/18 addresses, **re-verified after the apply**).
+  become the leading defect source), **then Passes 21-24**: the first live change (**T3.8**, applied and
+  verified), the **DR set taken + proven restorable**, and **two rounds of fresh-context cold reads — 17/17
+  real findings, four of which were defects Pass 23's own fold introduced.** Every decision (D1–D9) and
+  question (Q1–Q10) is settled. Move verified sound (18/18 addresses, **re-verified after the apply**).
 - **✅ T3.8 RESOLVED and verified live (Pass 21) — was the blocker (G18-1/J19-1).** The stale
   `[repository] DISABLED_REPO_UNITS = repo.actions` is **cleared and applied** (2026-10-13, **1 changed /
   0 destroyed**, helm rev 5→6, clean restart); the line now reads empty and **new repos default to
@@ -125,8 +125,16 @@ worker rolls, the OIDC window, downtime during a restore) is a **non-issue**, an
   fourth — implementing §4 literally and then wiring T4.3 would have failed `tofu validate` in Phase 4.)*
   **Inputs (Pass 23 — never specified before; the same O20-1 class):** `name` (default `"forgejo"`,
   load-bearing per D3/A16-4), **`issuer_base`** (the direct replacement for the deleted
-  `oidc_issuer_base` — without it there is literally nothing to build `discovery_url` from), and `domain`
-  (for the two redirect URIs). Pinned in T4.2.
+  `oidc_issuer_base` — without it there is literally nothing to build `discovery_url` from), `domain`
+  (for the two redirect URIs), and **`namespace`** (Pass 24 — the destination of the Secret, `kube-auth`;
+  T4.10 already required it). Pinned in T4.2.
+  **Constants, NOT inputs (Pass 24 — state this or the next reader "fixes" the contract a third time):**
+  `meta_icon`, `meta_launch_url`, `open_in_new_tab`, `bind_app`, `client_id` (= `name`) and `client_secret`
+  (an internal `random_password`) are module constants. ⚠️ **One of them is a Forgejo convention living inside
+  a generically-named module:** the redirect URIs bake in `git.${domain}`,
+  `/user/oauth2/authentik/callback` and the source name `authentik`. Fine today (DEF-8: only Forgejo moves)
+  — but that is exactly what will hurt if DEF-8 is ever revisited. **Keep the URI derivation in
+  `locals.tf` with a comment naming the convention**, so the Forgejo-ism is visible rather than buried.
   The rest of the `oidc` input (`scopes`, `group_claim`, the group names) are stack literals (N3). The
   provider-based `oidc_provider` stays for every other app.
 - `modules/auth/authentik/core/` — new input `extra_blueprints` (names appended to `blueprints.secrets`).

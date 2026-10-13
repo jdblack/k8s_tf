@@ -44,10 +44,20 @@ gitignored.
       to them. A missed match usually creates a **duplicate** (loud only where `name` is unique —
       **`policybinding` is the one model that can duplicate silently**, its `unique_together` being defeated
       by a NULL `policy`).
+      **⚠️ Pass 24 — refine the rule to where fail-open actually bites.** D17-1's evidence (the
+      `signing_key=None` provider) is the **nullable-SCALAR-FK** case, and that is the only silent one. Probes
+      on 2026.8.2: a `!Find` miss inside a **list** (`property_mappings`) is **LOUD** — the serializer raises
+      `Invalid pk "None" - object does not exist.`, `VALID: False`, and the whole blueprint is rejected
+      (atomic apply). So: **`!KeyOf` for every *scalar* FK** (that is where a miss is invisible); lists are
+      self-protecting, so the blanket "every FK" phrasing overstated it. Ordering
+      (`certificatekeypair`/groups before referrers) is unchanged.
 - [ ] T1.2b **Use the live export as the template:**
       `kubectl -n kube-auth exec deploy/authentik-worker -- ak export_blueprint > .tmp/authentik-export.yaml`
       then copy-and-trim the Forgejo provider/application/mappings/bindings (already saved at
       `.tmp/authentik-export.yaml`)
+      **⛔ PASS 24 — `redirect_uris` is a REQUIRED serializer field.** A probe that was testing something else
+      still failed with `'redirect_uris': ['This field is required.']`. The template must **always** emit it
+      non-empty — the two URIs below are not optional polish, they are what stops the entry being rejected.
       **⛔ PASS 23 — NEVER emit relation lists for the groups.** The export carries `users: [5]`, `parents: []`
       and `roles: []` on `forgejo-admin` (verified). "Copy-and-trim" done naively therefore **re-writes group
       membership** — and the umbrella `admin`/`user` nesting in `mantle` depends on it. Emit `name` (plus
@@ -63,6 +73,13 @@ gitignored.
       (applied) *and* **`api_key`** (silently ignored) into the same Secret. Since `extra_blueprints` is a
       `list(string)` of **names**, it *cannot* express the key: this module must write e.g. `forgejo.yaml`,
       or the blueprint validates, mounts, and is **never applied**.
+      **⛔ PASS 24 — pick the Secret NAME and its `.yaml` KEY once, then never touch them.** `BlueprintInstance`
+      has `unique_together = (name, path)` (`blueprints/models.py:85-90`). Renaming the Secret or renaming the
+      key changes the `path`, which **orphans the old instance** (a stale row pointing at an unresolvable path)
+      *and* creates a **second** one. Live rows confirm the mechanics: the working instance is
+      `'Terraform Deploy key' | mounted/secret-authentik-tfdeploykey/terraform.yaml | successful` — a third
+      independent confirmation of F17-4, this time from the DB, with **no row at all** for the sibling
+      `api_key` key.
 - [ ] T1.4 Reproduce: `forgejo-admin`/`forgejo-user` groups; `groups` + `profile` scope mappings
       (custom expressions); signing cert/key pair (PEMs from `tls_*`); oauth2 provider (client_id = app
       slug, client_secret from `random_password`, built-in flows via `!Find`, property mappings,
@@ -75,15 +92,41 @@ gitignored.
       `https://auth.<domain>/application/o/forgejo/.well-known/openid-configuration` — note the
       `application/o/` prefix and **no trailing slash**. A wrong path is a loud 500 (caught by V-C5), so
       this is a verification, not a silent risk.
-- [ ] T1.5 **⛔ GATE — test via `exec`, NOT via a helm rev (corrected Pass 23).** As written this implied a
-      chart update (`extra_blueprints`) + a **live worker roll** *before* you even know the blueprint is
-      valid. **`ak apply_blueprint` has `--dry-run`** (verified live on the worker, authentik 2026.8.2) —
-      it exercises the *identical* engine with **zero blast radius**:
-      `kubectl -n kube-auth exec deploy/authentik-worker -- ak apply_blueprint --dry-run <file.yaml>`
-      Then drop `--dry-run` for a real scratch apply (`forgejo-oidc-test`), confirm the app appears in
-      authentik and check `apply_ok` / any error in the output. **Teardown:** `state: absent` on the entries
-      deletes them cleanly (every export entry carries `state: present`), then remove the scratch file.
-- [ ] T1.6 Confirm idempotency: re-running the blueprint does not duplicate objects
+- [ ] T1.5 **⛔ GATE — drive it via `ak shell` + `Importer.from_string`, NOT `apply_blueprint <path>`
+      (rewritten Pass 24 — the Pass-23 version of this item *could not run*).**
+      **Why the obvious command fails:** `BlueprintInstance(path=…).retrieve()` → `retrieve_file()` resolves
+      the path under `blueprints_dir` and raises **`BlueprintRetrievalFailed: Invalid blueprint path`** for
+      anything outside it (`blueprints/v1/models.py:104-119`, the containment guard). And `/blueprints` is
+      **not** a workaround: it is `root:root 0755` while the worker runs as **uid 1000**, so it is unwritable —
+      *and* you must not, because anything under `/blueprints` is picked up by the **discovery scan and
+      applied for real.**
+      **Working route (verified live, authentik 2026.8.2):** `kubectl cp` the file to `/tmp` on the worker, then
+      ```
+      kubectl -n kube-auth exec deploy/authentik-worker -- ak shell -c \
+        "from authentik.blueprints.v1.importer import Importer; \
+         i = Importer.from_string(open('/tmp/forgejo.yaml').read()); print(i.validate())"
+      ```
+      `.apply()` for a real scratch apply (`forgejo-oidc-test`). **This also removes the old cost:** no chart
+      update, no `extra_blueprints`, no live worker roll.
+      **⚠️ `validate()` is NOT free (Pass 24).** It is `_apply_models()` wrapped in `transaction_rollback()` +
+      `capture_logs()` (`blueprints/v1/importer.py:453-467`) — it **really executes the apply** and then rolls
+      it back. Two consequences: (a) it takes **row locks on the live DB**, so don't run it concurrently with
+      the worker's own scan; (b) `apply_blueprint` calls `validate()` with `raise_validation_errors=False`, so
+      **`VALID: True` covers everything, but `VALID: False` tells you only about the *earliest* error.**
+      **Teardown (Pass 24):** a `state: absent` file must reference its targets with **`!Find`, never `!KeyOf`**
+      — `KeyOf.resolve` **raises `EntryInvalidError`** when its target has no instance
+      (`blueprints/v1/common.py:239-252`), and in a teardown the targets are precisely the objects being
+      deleted. `!Find` fails open → `None` → matches nothing → the entry is skipped safely. Order:
+      bindings → application → provider → scope mappings → groups → certificatekeypair; and delete the scratch
+      `BlueprintInstance` row too if the file was ever discoverable.
+- [ ] T1.6 **⛔ GATE — idempotency, asserted on the ONE silent field (Pass 24).** Re-running the blueprint
+      must not duplicate objects — **and the assertion must target `signing_key_id`**, because that is the
+      *only* failure in the set that fails **silently**: a `!Find` miss on a **nullable scalar FK** serializes
+      as `None` with no complaint (provider adopts with `signing_key=None`, `apply_ok=True`). A `!Find` miss
+      inside a **list** (`property_mappings`) is **loud** — the serializer rejects it
+      (`Invalid pk "None" - object does not exist.`) and the whole blueprint is refused, atomically.
+      So: re-apply, then assert the provider's `signing_key_id` is **unchanged and non-null**, plus the
+      identity set (app/provider/group pks) is byte-identical.
 - [ ] T1.7 **Fidelity (R8):** copy the **values** of `grant_types`, token validities, redirect URIs and all
       `property_mappings` from `oidc_provider/auth.tf` — but emit the model field **`redirect_uris`**, NOT
       `allowed_redirect_uris` (the terraform attr name). **`auth.tf` is NOT the source for ~6 fields** —
@@ -238,7 +281,8 @@ gitignored.
       **with the input contract spelled out** (Pass 23 — it was never specified anywhere, O20-1 class):
       `name = "forgejo"` (load-bearing, D3/A16-4), **`issuer_base = var.deployment.auth.server`** (the direct
       replacement for the deleted `oidc_issuer_base` — the *only* thing `discovery_url` can be built from),
-      and `domain` (for the two redirect URIs). Consumes the module's four outputs (§4).
+      `domain` (for the two redirect URIs), and **`namespace`** (Pass 24 — it was missing here while T4.10
+      already required it for the Secret's destination, `kube-auth`). Consumes the module's four outputs (§4).
 - [ ] T4.3 `stacks/core`: `module "authentik"` gains `extra_blueprints = [module.forgejo_oidc.blueprint_secret]`
 - [ ] T4.4 `stacks/mantle/forgejo.tf`: repoint the CI module and **name it `forgejo_setup`** (sourcing
       `../../modules/devops/forgejo/mantle`) — matches `harbor_setup`/`argo_setup`, and avoids two
@@ -369,7 +413,14 @@ python3 "$ROOT/.tmp/forgejo-split-move.py" "$TS"
 - [ ] T6.4 `tofu apply` **mantle** (creates robot + repo secrets; re-syncs admins/users groups)
 - [ ] T6.5 `tofu plan` both → **No changes** (idempotency)
 - [ ] T6.6 Verify **other apps still log in** after the apply (V-C10) — the worker roll shouldn't affect
-      login, but confirm rather than assume (R12)
+      login, but confirm rather than assume (R12).
+      **⚠️ Pass 24 — the D6 rotation race is documented backwards, and this is where to check it.** R7/R9 frame
+      it as "Forgejo points at a provider that doesn't exist". The real race is the **mirror image**: the *new*
+      `client_secret` reaches the provider via the **worker** (chart rollout, or up to the 60-min scan), while
+      the *old* one leaves the Forgejo **init-container `login_source` re-sync at pod start**. Whichever wins,
+      the two disagree — and the token endpoint rejects while **the login page still renders** (E17-4's silent
+      shape, on the *normal* path). Accepted per D8, but verify it rather than assume: one `ak shell` line
+      comparing `OAuth2Provider.objects.get(name='forgejo').client_secret` against the live `login_source` row.
 
 ---
 
