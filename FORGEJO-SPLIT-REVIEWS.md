@@ -235,4 +235,21 @@ Adversarial "asshole" read-through of all five docs. **19 defects found**; every
 `authentik-server` mounts **no** blueprint volume → the worker roll pauses **background tasks, not login**.
 The whole "cluster-wide SSO blip" premise was wrong; R12 downgraded.
 
+---
+
+## Pass 9 — priority re-rank (owner input) ✅
+
+Owner stated the actual priority: **short service disruption is ACCEPTABLE; data loss is NOT.** That is a
+constraint, not a pass, but it re-ranks everything and is recorded as **D8**:
+
+- The plan now optimises for **one thing**: zero data loss. Availability is free.
+- **R3 / R7 / R9 / R12 downgraded to footnotes** — they cost a brief service gap, which is accepted.
+- This **confirms D7's retirement**: its only benefit was dodging an SSO blip we don't care about.
+- The gates **sharpen to two objects**. Data-loss vectors are only:
+  - `kubernetes_namespace_v1.namespace` — destroy cascades to the PVC → git + DB gone. **Never.**
+  - `module.bucket.*` — drops the SeaweedFS bucket → LFS/attachments/artifacts. **Never.**
+  - (`helm_release.forgejo` destroy is *survivable* — the chart's PVC is `keep` — so it's a disruption.)
+- T5.8, T6.1 and §8's rollback gate were rewritten around **those two objects**, not "any destroy".
+- Recovery may freely take a service gap (no quiet-window gymnastics).
+
 

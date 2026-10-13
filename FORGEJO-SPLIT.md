@@ -11,6 +11,10 @@ Harbor push robot + Actions secrets in `mantle` — **none of that exists yet** 
 **zero Forgejo data loss**. Expected disruption: a **brief Forgejo pod restart** (its helm values change)
 plus **one SSO re-login**; the authentik *worker* roll does **not** interrupt login.
 
+**PRIORITY (owner, explicit): short service disruption is acceptable; data loss is not.** So the plan
+optimises for **exactly one thing — zero data loss**. Every availability concern (pod restarts, SSO gaps,
+worker rolls, the OIDC window, downtime during a restore) is a **non-issue**, and the gates say so (D8).
+
 ## 2. Why (root causes)
 
 1. **Provider bootstrap.** A terraform provider used by a stack must target something that already
@@ -98,6 +102,13 @@ plus **one SSO re-login**; the authentik *worker* roll does **not** interrupt lo
 - **D6 — Keep `client_id` (= app slug `forgejo`) stable; `client_secret` may rotate** (acceptable; the
   helm values update and the pod reconfigures once).
 
+- **D8 — PRIORITY: availability is cheap, data is sacred** (owner, explicit). Service disruption is
+  acceptable; data loss is not. Consequences: availability risks (**R3, R7, R9, R12**) are downgraded to
+  footnotes; the gates narrow to **exactly two objects** — `kubernetes_namespace_v1.namespace` and
+  `module.bucket.*`. A `helm_release.forgejo` destroy is **survivable** (the chart's PVC carries
+  `helm.sh/resource-policy: keep`), so it is a disruption, **not** a data-loss event. Recovery may freely
+  take a service gap.
+
 Rejected: **A** (no split — leaves `mantle` **greenfield-broken**, violating the DR tenet, §2.5);
 **C** (operator-provided authentik token in tfvars — violates the "tfvars is a symlink, don't touch" rule).
 
@@ -131,6 +142,10 @@ Rejected: **A** (no split — leaves `mantle` **greenfield-broken**, violating t
 
 ## 7. Risks & mitigations
 
+**Data-loss surface — the ONLY things that matter (D8).** `kubernetes_namespace_v1.namespace` (destroy →
+cascade → PVC gone), `module.bucket.*` (SeaweedFS LFS/attachments/artifacts), and the PVC itself (not
+terraform-managed). Everything else below is *availability*, which is **accepted**.
+
 | # | Risk | Impact | Mitigation |
 |---|------|--------|------------|
 | R1 | Move botched → terraform plans to **destroy the namespace** | Namespace delete cascades to the PVC → **data loss** | Never apply unless `plan` shows 0 destroys; backups in place; PVC is `keep`-annotated |
@@ -146,6 +161,10 @@ Rejected: **A** (no split — leaves `mantle` **greenfield-broken**, violating t
 | R11 | `client_secret` rotation desyncs authentik vs helm | OIDC breaks until both converge | Preserve the secret (Q2) or land both in one apply |
 | R12 | The authentik **worker** rolls (blueprint list changes) | Background tasks / outpost sync pause briefly — **login is NOT affected** (`authentik-server` mounts no blueprints) | Low impact; verify other apps after (V-C10) |
 
+> **R3, R7, R9, R12 are *availability* concerns — ACCEPTED (D8).** No mitigation required; they cost a
+> brief service gap at most. The only rows that matter are the data-loss ones (R1, and R2/R5 insofar as
+> they could cascade).
+
 ## 8. Rollback
 
 - **Before any apply:** `git checkout` the changes; restore state with
@@ -154,8 +173,9 @@ Rejected: **A** (no split — leaves `mantle` **greenfield-broken**, violating t
   case, restore the Forgejo PVC contents from the Velero backup `forgejo-pre-split`.
 - **authentik mis-applied:** roll the release back — `helm -n kube-auth rollback authentik 18` (last
   known-good rev) — **before** re-applying core. A bad blueprint is inert on its own (atomic apply).
-- **Rollback gate:** if `plan` (either stack) shows any `destroy` on the namespace, PVC, or
-  `helm_release.forgejo`, STOP and restore.
+- **Rollback gate:** if `plan` (either stack) shows a `destroy` on `kubernetes_namespace_v1.namespace` or
+  `module.bucket.*`, STOP and restore. (Per D8 a `helm_release.forgejo` destroy is survivable, and a
+  service gap during any restore is acceptable.)
 
 ## 9. Questions — answered (research pass 6)
 

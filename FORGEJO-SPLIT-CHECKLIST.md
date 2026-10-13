@@ -140,7 +140,8 @@ python3 "$ROOT/.tmp/forgejo-split-move.py" "$TS"
       changes and confirm each: adds from `module.forgejo_oidc` (blueprint Secret, `random_password`, tls
       key+cert) and **exactly one update** — `helm_release.forgejo` values (the new `client_secret`).
       **Anything else = STOP.**
-- [ ] T5.8 **⛔ GATE:** `tofu plan` **mantle** → instance gone with **0 destroy**; CI module adds robot/secrets
+- [ ] T5.8 **⛔ GATE:** `tofu plan` **mantle** → instance gone with **0 destroys** (**especially none on the
+      namespace or the bucket** — D8); CI module adds robot/secrets
 - [ ] T5.9 Verify backups still intact before proceeding
 - [ ] T5.10 Confirm the `expose`/`listener_set` **`kubernetes_manifest`** resources moved with **no diff**
       (they re-read live objects on plan)
@@ -152,7 +153,9 @@ python3 "$ROOT/.tmp/forgejo-split-move.py" "$TS"
 
 - [ ] T6.0 **Re-take the Velero backup** immediately before applying — `forgejo-pre-split` has **ttl 168h**
       and is the ONLY off-box copy (Longhorn's target is down, D-1). Do not let it expire first.
-- [ ] T6.1 **⛔ GATE:** re-read both plans for ANY `destroy` on namespace / PVC / `helm_release.forgejo`; abort if found
+- [ ] T6.1 **⛔ GATE — the DATA-LOSS gate (D8):** re-read both plans. **ABORT on ANY destroy of
+      `kubernetes_namespace_v1.namespace` or `module.bucket.*`** — those are the only irrecoverable ones.
+      A `helm_release.forgejo` destroy is survivable (its PVC carries `keep`) = disruption, not data loss.
 - [ ] T6.2 `tofu apply` **core** (creates blueprint secret, updates authentik, adopts the release)
 - [ ] T6.3 Verify authentik applied the blueprint (worker log; app appears in authentik)
 - [ ] T6.3b Confirm the **worker** (not just server) rolled out — blueprints mount on the worker only (R10)
