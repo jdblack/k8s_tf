@@ -2,7 +2,10 @@
 
 Things deliberately NOT in this change. Each has a "why" and a "when".
 
-## Infrastructure gaps found while preparing
+## Parked — normal/ongoing backup policy (SEPARATE topic)
+
+These concern the **ongoing** backup machinery, **not** this migration (whose backups are DR-only — D9).
+Parked as a user todo: see `todo-backup-policy` in memory.
 
 - **D-1 · Longhorn off-box backup target is DOWN.**
   `longhorn-backup` VolumeSnapshotClass fails with `backup target default is not available`.
@@ -17,6 +20,11 @@ Things deliberately NOT in this change. Each has a "why" and a "when".
 
 - **D-3 · `forgejo-data` PVC is only ~18h old.**
   Worth understanding *why* it was recreated (a prior redeploy?). Not blocking.
+
+- **D-12 · No app-native backup exists.** No scheduled `forgejo dump` + bucket sync; add a CronJob for the
+  pair (git+DB+config, and the S3 blobs) — app-native beats the Velero-only story.
+- **D-13 · Only ONE Velero BSL** (`default`, in-cluster SeaweedFS), so even Velero shares a failure domain.
+  A second, off-site BSL (AWS S3 — the cluster already has Route53 creds) would make it genuinely redundant.
 
 ## Follow-ups on this change
 
@@ -53,9 +61,5 @@ Things deliberately NOT in this change. Each has a "why" and a "when".
   `data.external.forgejo_runner_token`, which this change fixes. Anything else found becomes its own task.
 - **D-11 · Prove greenfield afterwards.** Once the split lands, validate DR by a from-scratch
   `plan` (or a scratch cluster) of `core` then `mantle` with no staging/retries required.
-- **D-12 · Nightly app-native backups.** The `forgejo-data` Velero schedule has never fired (D-2) and the
-  Longhorn target is down (D-1), so add a **CronJob** running `forgejo dump` + `aws s3 sync s3://forgejo/`
-  into the D9 layout (or a durable volume). App-native beats the current Velero-only story.
-- **D-13 · Second off-site BSL.** Only **one** Velero BSL exists (`default`, in-cluster SeaweedFS), so even
-  the Velero copy shares a failure domain. A second, off-site BSL (e.g. AWS S3 — the cluster already has
-  Route53 creds) would make the Velero path genuinely redundant.
+
+*(Ongoing-backup items D-12/D-13 were moved up to the parked section — they're a separate topic.)*

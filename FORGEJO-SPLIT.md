@@ -109,8 +109,10 @@ worker rolls, the OIDC window, downtime during a restore) is a **non-issue**, an
   `helm.sh/resource-policy: keep`), so it is a disruption, **not** a data-loss event. Recovery may freely
   take a service gap.
 
-- **D9 — Backup landing zone: `/Users/jblack/backups/forgejo/`** (off-cluster, on the operator machine;
-  documented in its own `README.md`). Three pieces, because **no single tool covers it**: `dump/` =
+- **D9 — DR landing zone for THIS migration: `/Users/jblack/backups/forgejo/`** (off-cluster, on the
+  operator machine; documented in its own `README.md`). These are **DR backups for the surgery**, *not* a
+  backup policy — the ongoing/normal backup process is a **separate topic** (`todo-backup-policy` in
+  memory). Three pieces, because **no single tool covers it**: `dump/` =
   `forgejo dump` (git repos + SQLite DB + config, app-native, restores without k8s); `s3/` = a mirror of
   the SeaweedFS bucket **`forgejo`** (`lfs/`, `avatars/`, `repo-avatars/`, attachments, artifacts — all
   `[storage]` blobs); `tfstate/` = state pulls. Velero keeps its own in-cluster BSL. Rationale: data loss
