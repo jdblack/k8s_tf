@@ -6,9 +6,10 @@ Status: REVIEWED — passes 1–6 complete, Q1–Q10 answered · Owner: jblack �
 
 Move the Forgejo **instance** (helm release, namespace, storage, exposure, backup) out of the `mantle`
 stack and into `core`, re-implement Forgejo's authentik OIDC as an authentik **blueprint** (so no
-authentik terraform provider is needed in core), and keep the new **forgejo terraform provider** +
-Harbor push robot + Actions secrets in `mantle`. Constraint: **zero Forgejo data loss**, and no OIDC
-outage beyond a brief re-login.
+authentik terraform provider is needed in core), and **add** the **forgejo terraform provider** +
+Harbor push robot + Actions secrets in `mantle` — **none of that exists yet** (see §3). Constraint:
+**zero Forgejo data loss**. Expected disruption: a **brief Forgejo pod restart** (its helm values change)
+plus **one SSO re-login**; the authentik *worker* roll does **not** interrupt login.
 
 ## 2. Why (root causes)
 
@@ -34,6 +35,11 @@ outage beyond a brief re-login.
 
 ## 3. Current state (facts / evidence)
 
+- **On disk vs planned (READ THIS).** `modules/devops/forgejo/` is still the **original flat module**
+  (`auth.tf backup.tf egress.tf helm.tf ingress.tf listener.tf locals.tf namespace.tf outputs.tf
+  providers.tf storage.tf variables.tf`), used by `stacks/mantle/forgejo.tf` as `module.forgejo`. The
+  forgejo provider, the push robot, and `forgejo_registry_repos` are **not present** — prototyped, then
+  **parked/reverted**. **Everything in §4 is planned, not built.**
 - **Stacks.** `core` modules: `network`, `storage`, `seaweedfs`, `cert_man`, `authentik`,
   `oidc_client_alias`, `harbor`, `argo`, `prometheus`, `metrics_server`, `hardware`, `smartctl`,
   `wireguard`. `mantle` modules: `forgejo`, `forgejo_runner`, `harbor_setup`, `argo_setup`,
@@ -82,9 +88,10 @@ outage beyond a brief re-login.
   mechanism. Cost: an authentik helm update (worker restart) when the list changes.
 - **D3 — Groups created by the blueprint** (`forgejo-admin`, `forgejo-user`); `mantle` looks them up
   with `data "authentik_group"`. Avoids cross-stack outputs (no `terraform_remote_state`).
-- **D4 — Preserve authentik object identity.** Convert with `tofu state rm` (forget), NOT destroy, so
-  the blueprint **adopts** the existing app/provider/groups by identifier → UUIDs (and memberships)
-  survive. Destroy+recreate would break the umbrella `admin`/`user` nesting in `mantle`.
+- **D4 — Preserve authentik object identity.** Convert by **dropping** the `oidc` entries from the pushed
+  mantle state (**forget**), NOT destroying them, so the blueprint **adopts** the existing
+  app/provider/groups by identifier → UUIDs (and memberships) survive. Destroy+recreate would break the
+  umbrella `admin`/`user` nesting in `mantle`.
 - **D5 — Address-preserving state move.** Both stacks name the module `module.forgejo` with identical
   submodule paths, so state entries transplant **verbatim**. Required because `terraform_data.bucket`
   / `terraform_data.user` **cannot be imported**.
@@ -94,12 +101,14 @@ outage beyond a brief re-login.
 Rejected: **A** (no split — leaves `mantle` **greenfield-broken**, violating the DR tenet, §2.5);
 **C** (operator-provided authentik token in tfvars — violates the "tfvars is a symlink, don't touch" rule).
 
-- **D7 — Blueprint delivery (Pass 5).** Deliver the Forgejo blueprint as **an extra key in the existing
-  `authentik-tfdeploykey` Secret** (which is mounted **non-subPath** on the worker): the file updates in
-  place (~60 s) and authentik's file-watch triggers discovery — **no helm change, no worker rollout, no
-  cluster-wide SSO blip (R12 avoided)**. Cost: an app blueprint rides the bootstrap Secret. Alternative:
-  a separate Secret listed in `blueprints.secrets` — cleaner separation, but forces a rollout. **Verify
-  the no-rollout path in T1.5b before committing.**
+- **D7 — Blueprint delivery: extend `blueprints.secrets` with the plan's own Secret.** The `oidc_blueprint`
+  module creates a Secret (in `kube-auth`); `modules/auth/authentik/core` gains an `extra_blueprints`
+  input taking **names** (never *content* — the IdP module must not import app YAML) and appends them to
+  `blueprints.secrets`. The chart mounts blueprints on the **worker only**, so the resulting roll pauses
+  background tasks/outpost sync but **does not interrupt login** (verified: `authentik-server` mounts no
+  blueprint volume). A previous idea — injecting the blueprint as an extra *key* into the bootstrap
+  Secret to dodge the rollout — is **rejected**: it forces core's IdP module to import app-generated
+  YAML, and the rollout it avoids is harmless.
 
 ## 6. Major steps (high level)
 
@@ -114,9 +123,9 @@ Rejected: **A** (no split — leaves `mantle` **greenfield-broken**, violating t
 5. **S4 — Stack wiring.** `core` instantiates `forgejo/core` + `oidc_blueprint` + `extra_blueprints`;
    `mantle` instantiates `forgejo/mantle`; swap `module.forgejo.*` refs (admins/users → data lookups;
    runner → literals).
-6. **S5 — State surgery.** `tofu init` both stacks. Move `module.forgejo.*` **minus `module.oidc`**
-   from mantle state to core state (JSON pull/append/push); `state rm` those from mantle plus the
-   `module.forgejo.module.oidc.*` resources (D4).
+6. **S5 — State surgery.** `tofu init` both stacks. Move `module.forgejo.*` **minus `module.oidc`** from
+   mantle state to core state (**JSON pull/append/push**). The pushed mantle state already excludes *both*
+   the moved entries **and** the `oidc` entries (forgotten, D4) — nothing is `state rm`'d.
 7. **S6 — Apply core**, then **apply mantle**. Both plans must show **zero destroys** before any apply.
 8. **S7 — Verify & commit** (see VALIDATION).
 
@@ -125,7 +134,7 @@ Rejected: **A** (no split — leaves `mantle` **greenfield-broken**, violating t
 | # | Risk | Impact | Mitigation |
 |---|------|--------|------------|
 | R1 | Move botched → terraform plans to **destroy the namespace** | Namespace delete cascades to the PVC → **data loss** | Never apply unless `plan` shows 0 destroys; backups in place; PVC is `keep`-annotated |
-| R2 | authentik objects churn (destroy/recreate) | Group UUIDs change → umbrella `admin`/`user` nesting breaks | D4: `state rm` (forget) so the blueprint adopts by identifier |
+| R2 | authentik objects churn (destroy/recreate) | Group UUIDs change → umbrella `admin`/`user` nesting breaks | D4: **forget** (drop from the pushed state) so the blueprint adopts by identifier |
 | R3 | Brief OIDC/login outage | Users can't SSO during cutover | Break-glass local admin stays; do it in a quiet window |
 | R4 | State JSON surgery error | Corrupt state | Backups; validate JSON; `plan` dry-run gates each step |
 | R5 | helm release recreated | Forgejo restarts, possible PVC re-bind | Plan must show no change to `helm_release.forgejo`; PVC `keep` |
@@ -135,7 +144,7 @@ Rejected: **A** (no split — leaves `mantle` **greenfield-broken**, violating t
 | R9 | authentik applies blueprints **asynchronously**; terraform returns "success" first | Window where Forgejo points at a provider that doesn't exist; **silent** failure if malformed | Worker-log + app-exists checks (V-C1/V-C2); expect a short window |
 | R10 | Blueprints mount on the **worker only** | A server-only restart applies nothing | Confirm the worker rolled out (T6.3b) |
 | R11 | `client_secret` rotation desyncs authentik vs helm | OIDC breaks until both converge | Preserve the secret (Q2) or land both in one apply |
-| R12 | The **worker rollout** interrupts **SSO cluster-wide** | Every app's login blips | **Avoidable** — deliver via a new key in the existing (non-subPath) secret → no rollout (**D7**); else quiet window + V-C10 |
+| R12 | The authentik **worker** rolls (blueprint list changes) | Background tasks / outpost sync pause briefly — **login is NOT affected** (`authentik-server` mounts no blueprints) | Low impact; verify other apps after (V-C10) |
 
 ## 8. Rollback
 
@@ -143,6 +152,8 @@ Rejected: **A** (no split — leaves `mantle` **greenfield-broken**, violating t
   `tofu state push .tmp/backups/<stack>-<ts>.tfstate` (or re-import from the `.yaml` Secret dumps).
 - **After a bad apply:** restore both states from backups, then `tofu apply` to converge back; worst
   case, restore the Forgejo PVC contents from the Velero backup `forgejo-pre-split`.
+- **authentik mis-applied:** roll the release back — `helm -n kube-auth rollback authentik 18` (last
+  known-good rev) — **before** re-applying core. A bad blueprint is inert on its own (atomic apply).
 - **Rollback gate:** if `plan` (either stack) shows any `destroy` on the namespace, PVC, or
   `helm_release.forgejo`, STOP and restore.
 
@@ -154,7 +165,7 @@ That export is a **ready-made blueprint template** for every object, incl. the F
 
 | # | Question | **Answer** |
 |---|----------|-----------|
-| Q1 | Blueprint delivery | **Extend `blueprints.secrets`** — works. The chart mounts the Secret; authentik discovers `*.yaml` (on worker start, or the periodic scan — default **60 min**). Alt: an **OCI** blueprint (`oci://…`) avoids the chart change but adds a publish step. |
+| Q1 | Blueprint delivery | **Extend `blueprints.secrets`** with the plan's Secret (**D7**): the chart mounts it on the **worker only**; authentik discovers `*.yaml` on worker start or the periodic scan (default **60 min**). **No login impact.** |
 | Q2 | `client_secret` rotation | **Preservable** — the export prints the current secret in clear (`client_secret: ElCZ…`), so the blueprint can carry the exact value. Otherwise a new `random_password` rotates it. |
 | Q3 | Robot secret target | **Repo-level** (`forgejo_repository_action_secret`). The provider has no user-secret resource, and the publishing repos live under user `jblack/*`. |
 | Q4 | `policybinding` refs | `identifiers: {target: !Find [authentik_core.application,[slug,forgejo]], order: N}` + **exactly one** of `policy`/`group`/`user` in `attrs`. |
@@ -202,8 +213,8 @@ flows (`fbfe9f96-7fcf-450e-b067-a9328f109730`) and the built-in scope mappings `
 
 ## 11. Execution notes
 
-Passes 1–3 findings are folded: risk rows **R8–R12** now live in §7, questions **Q6–Q9** in §9. The
-narrative for every pass — including the **adversarial "should we do this at all" review** — is in
+Findings from **all** passes are folded in: risks **R8–R12** live in §7, questions **Q6–Q10** in §9,
+decisions **D1–D7** in §5. The narrative for every pass — passes 1–6 plus the hostile **Pass 8** — is in
 `FORGEJO-SPLIT-REVIEWS.md`.
 
 ### Gaps found and closed as tasks

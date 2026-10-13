@@ -7,9 +7,10 @@ Run **after** Phase 6 applies, in order. Any FAIL = investigate before declaring
 - [ ] V-A1 `cd stacks/core && tofu plan` → **No changes**
 - [ ] V-A2 `cd stacks/mantle && tofu plan` → **No changes**
 - [ ] V-A3 `stacks/core` state now owns `module.forgejo.*` (namespace, helm, storage, expose, ingress,
-      egress*, backup) — `tofu state list | grep '^module.forgejo' | grep -v oidc`
-- [ ] V-A4 `stacks/mantle` state no longer owns any `module.forgejo.` **instance** resources
-      (`tofu state list | grep '^module.forgejo'` shows only the CI module)
+      egress*, backup) — `tofu state list | grep '^module\.forgejo'` (use the **escaped dot**; a bare
+      `module.forgejo` also matches `module.forgejo_runner`)
+- [ ] V-A4 `stacks/mantle` state owns **no `module.forgejo`** at all — `tofu state list | grep '^module\.forgejo'`
+      returns **nothing** (the CI module is named `module.forgejo_setup`)
 - [ ] V-A5 No resource in either state is `module.forgejo.module.oidc.*` anymore (forgotten, D4)
 - [ ] V-A6 `git status` clean; `tofu fmt -check` clean
 - [ ] V-A7 The moved `kubernetes_manifest` resources (`expose`/`listener_set`) show **no diff**
@@ -52,9 +53,9 @@ Run **after** Phase 6 applies, in order. Any FAIL = investigate before declaring
 - [ ] V-C7 **Break-glass local admin** still works (password from `forgejo-admin` Secret)
 - [ ] V-C8 Redirect URI matches: `https://git.<domain>/user/oauth2/authentik/callback`
 - [ ] V-C9 **Provider fidelity (R8):** the adopted provider's `grant_types`, `access_token_validity`,
-      `refresh_token_validity`, `allowed_redirect_uris`, and `property_mappings` match the pre-change
-      values in `oidc_provider/auth.tf` (a missing scope = broken role mapping; empty `grant_types` =
-      every flow rejected)
+      `refresh_token_validity`, **`redirect_uris`** (the model field — *not* `allowed_redirect_uris`), and
+      `property_mappings` match the pre-change values in `oidc_provider/auth.tf` (a missing scope = broken
+      role mapping; empty `grant_types` = every flow rejected)
 - [ ] V-C10 **Cluster-wide SSO still healthy (R12):** the authentik worker rolled out cleanly and
       **another** app (harbor / argo / grafana) still logs in — the blueprint change touched the shared
       authentik worker
@@ -92,6 +93,6 @@ Run **after** Phase 6 applies, in order. Any FAIL = investigate before declaring
 ## H. Sign-off
 
 - [ ] V-H1 All gates above pass
-- [ ] V-H2 Deferred items re-filed (D-1…D-9)
+- [ ] V-H2 Deferred items re-filed (D-1…D-11)
 - [ ] V-H3 Memory updated
 - [ ] V-H4 Commit + push

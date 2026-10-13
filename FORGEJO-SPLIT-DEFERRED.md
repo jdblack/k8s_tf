@@ -20,10 +20,11 @@ Things deliberately NOT in this change. Each has a "why" and a "when".
 
 ## Follow-ups on this change
 
-- **D-4 · Forgejo provider registration-token endpoint is deprecated (Forgejo 15).**
-  `GET /api/v1/admin/actions/runners/registration-token` still serves on 15.0.9.
+- **D-4 · Forgejo provider registration-token endpoint is deprecated.** The swagger marks
+  `GET /api/v1/admin/actions/runners/registration-token` deprecated as of Forgejo 15; the deployed image
+  is **16.0.5-rootless** and it **still works** (verified).
   Action: migrate to `POST /admin/actions/runners` when it stops working (note: not idempotent).
-  When: on Forgejo upgrade past 15.
+  When: on Forgejo upgrade past 16.
 
 - **D-5 · Actions cache is ephemeral.**
   `HOME=/data`, cache at `/data/.cache/actcache`, on an `emptyDir` → wiped on pod restart.
@@ -36,7 +37,8 @@ Things deliberately NOT in this change. Each has a "why" and a "when".
 
 ## Housekeeping
 
-- **D-7 · `.tmp/` is now gitignored.** Old untracked junk remains on disk; prune when convenient.
+- **D-7 · `.tmp/` is gitignored** — it holds raw state backups and the migration script; the owner keeps
+  it (waived, T5.11). Prune junk when convenient.
 - **D-8 · `blueprints.secrets` auto-discovery.** authentik's label-based ConfigMap/Secret discovery was
   unverified; we use the explicit list. Revisit if we ever want blueprint delivery without a chart update.
 - **D-9 · Other apps' OIDC still uses the provider** and stays in `mantle`. Only Forgejo moves to a

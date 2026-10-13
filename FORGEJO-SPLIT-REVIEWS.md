@@ -1,6 +1,6 @@
 # Forgejo core/mantle split — REVIEW LOG
 
-One section per review pass. Findings get **folded into the four core docs**
+One section per review pass. Findings get **folded into the core docs**
 (`FORGEJO-SPLIT.md`, `-CHECKLIST.md`, `-VALIDATION.md`, `-DEFERRED.md`); this log records the *process*
 and the reasoning, including things we deliberately rejected.
 
@@ -48,6 +48,10 @@ Nothing is broken. Forgejo runs; the runner is registered; OIDC works. The split
 read that same `forgejo-admin` Secret, created by `module.forgejo` in the same stack. That data source
 already fails on a fresh mantle apply. So adding `provider "forgejo"` introduces **no new class of
 problem**. The split is therefore a **structural-tidiness refactor**, not a bug fix.
+
+> **⚠️ SUPERSEDED.** The conclusion above is **wrong**. "Already broken" ≠ "harmless": the same-stack
+> `data.external` read *is* a real greenfield break, and greenfield is a DR tenet (Q10). The split **fixes**
+> a live DR-blocking bug. See the CORRECTION under Pass 4's verdict.
 
 ### A3. If the split is about consistency, is consistency worth R8–R12?
 
@@ -138,15 +142,18 @@ recovery**. Cluster facts confirmed for this pass: the blueprint volume is a **p
 secret mount** at `/blueprints/mounted/secret-authentik-tfdeploykey`; rollback targets are
 **authentik rev 18**, **forgejo rev 4**.
 
-### Headline finding — **R12 (cluster-wide SSO blip) is avoidable**
+### Headline finding — **first draft was WRONG; corrected**
 
-Because that mount is **not** `subPath`, **adding a new key to the existing `authentik-tfdeploykey`
-Secret** updates the mounted file in place (~60 s kubelet sync) with **no helm change and no worker
-rollout** — and authentik watches the blueprint dir for file creation, which triggers discovery. So we
-can apply the new blueprint **without interrupting SSO for the cluster**.
+The first draft claimed the non-subPath mount let us dodge the worker rollout by adding a *key* to the
+bootstrap Secret (**D7**, now **retired**). Two things sink it:
 
-Trade-off: an app blueprint rides in the bootstrap secret. The clean alternative (a separate Secret
-listed in `blueprints.secrets`) **requires** a rollout. → decision **D7**.
+1. It forces core's IdP module to import **app-generated YAML** — architectural rot for a rollout it avoids.
+2. **The rollout isn't even harmful.** Verified: `authentik-server` mounts **no** blueprint volume — only
+   the worker does — and login is served by `authentik-server`. So a blueprint-list change rolls the
+   **worker only**, which pauses **background tasks / outpost sync** but **does not interrupt login**.
+
+**Net: D7 = extend `blueprints.secrets` with the plan's own Secret. Accept the (harmless) worker roll.**
+R12 downgraded from "cluster-wide SSO blip" to "background-task pause".
 
 ### Matrix (symptom → recovery)
 
@@ -177,5 +184,55 @@ If the **namespace** enters a destroy plan (or is deleted), the **PVC goes with 
 `helm.sh/resource-policy: keep`** — namespace deletion cascades. There is **no forward path**: the only
 recovery is a restore from Velero `forgejo-pre-split` (or the Longhorn snapshot… which is currently
 unavailable, D-1). This is the one place where "stop and restore" is **mandatory, not optional**.
+
+---
+
+## Pass 8 — hostile findings ✅ (all folded)
+
+Adversarial "asshole" read-through of all five docs. **19 defects found**; every one fixed.
+
+### Blockers (would break the run)
+
+1. **D7 vs Phase 2 — two mutually exclusive designs.** Fixed: **D7 retired**, Phase 2 (`extra_blueprints`
+   = list of **names**) is the design. See corrected Pass 5.
+2. **D7 was never designed** (adding a *key* to the bootstrap Secret needs the IdP module to import app
+   YAML). Moot — D7 retired.
+3. **`allowed_redirect_uris` vs `redirect_uris`.** T1.4 / T1.7 / V-C9 told you the **wrong field name**
+   that §9 explicitly corrects. All three fixed to `redirect_uris` (+ a do-not-use warning).
+4. **T5.5 contradicted the Phase-5 commands** (`state rm` vs push). Fixed: push both pruned states; no
+   `state rm`; T5.6 rewritten to check the *pushed* state.
+5. **T5.7 was unfalsifiable** ("0 add, additions excepted"). Fixed: **0 destroys** is the gate, plus an
+   enumerated expected set (adds from `module.forgejo_oidc`; exactly one `helm_release.forgejo` update).
+
+### Lies (factual errors)
+
+6. **D-4 cited the wrong version** ("serves on 15.0.9"; deployed image is **16.0.5**). Fixed.
+7. **§1/§3 described a state that isn't on disk** (provider/robot/repos are parked; module still flat).
+   Added an explicit **"on disk vs planned"** note to §3.
+8. **§1's "no outage beyond a re-login"** understated the **Forgejo pod restart**. Fixed.
+9. **V-A3/V-A4 grepped `^module.forgejo`** — matches `module.forgejo_runner` (the exact prefix trap the
+   script guards). Fixed → escaped dot + "must return nothing".
+10. **"four core docs"; "D-1…D-9"** — now five, and D-1…D-11. Fixed.
+
+### Holes
+
+11. **Only off-box copy expires** (Velero **ttl 168h**, Longhorn down). Added **T6.0** — re-take right
+    before applying.
+12. **Rollback §8 omitted the authentik rollback** Pass 5 discovered. Added (`helm … rollback authentik 18`).
+13. **`forgejo_registry_repos` unnamed, defaults `[]`.** Added **T3.6** to decide the list.
+14. **Move script failed *quietly* on stale state** (`.last-ts`). Fixed: script now takes the timestamp as
+    an argument and echoes which files it read.
+15. **Two modules named `forgejo`.** Fixed: the CI module is named **`forgejo_setup`** (house pattern).
+16. **Pass 5 oversold "no rollout".** Corrected in the Pass 5 rewrite + R12.
+
+### Rot
+
+17. Phase 2 dead weight — resolved (it's the design now).
+18. Reviews **A2** asserted the wrong conclusion unmarked. Marked **⚠️ SUPERSEDED**.
+19. **T5.11 / D-7** stale. Marked waived.
+
+### Also: R12 corrected
+`authentik-server` mounts **no** blueprint volume → the worker roll pauses **background tasks, not login**.
+The whole "cluster-wide SSO blip" premise was wrong; R12 downgraded.
 
 

@@ -32,17 +32,16 @@ Gate marker: **⛔ GATE** = do not proceed until the stated check passes.
 - [ ] T1.4 Reproduce: `forgejo-admin`/`forgejo-user` groups; `groups` + `profile` scope mappings
       (custom expressions); signing cert/key pair (PEMs from `tls_*`); oauth2 provider (client_id = app
       slug, client_secret from `random_password`, built-in flows via `!Find`, property mappings,
-      `allowed_redirect_uris`, `grant_types`); application; policy bindings for both groups
+      `redirect_uris` *(the model field — do **not** emit `allowed_redirect_uris`, the terraform attr name)*,
+      `grant_types`); application; policy bindings for both groups
 - [ ] T1.5 **⛔ GATE:** apply the blueprint under a scratch name (`forgejo-oidc-test`); confirm the
       worker logs `applied` and the app appears in authentik; then remove the scratch blueprint + objects
-- [ ] T1.5b **⛔ GATE (D7):** verify the **no-rollout** delivery — add a scratch `.yaml` key to the
-      existing `authentik-tfdeploykey` Secret, confirm the mounted file appears at
-      `/blueprints/mounted/secret-authentik-tfdeploykey/` **without a worker restart** and that authentik
-      discovers + applies it
+- [ ] T1.5b ~~verify no-rollout delivery~~ **RETIRED** — D7 now extends `blueprints.secrets`; the worker
+      roll is harmless (login unaffected)
 - [ ] T1.6 Confirm idempotency: re-running the blueprint does not duplicate objects
-- [ ] T1.7 **Fidelity (R8):** copy `grant_types`, `access_token_validity`, `refresh_token_validity`,
-      `allowed_redirect_uris`, and all `property_mappings` **verbatim** from `oidc_provider/auth.tf`;
-      diff the resulting provider against plan §10 (adopt, don't recreate)
+- [ ] T1.7 **Fidelity (R8):** copy the **values** of `grant_types`, token validities, redirect URIs and all
+      `property_mappings` from `oidc_provider/auth.tf` — but emit the model field **`redirect_uris`**, NOT
+      `allowed_redirect_uris` (the terraform attr name). Diff the result against plan §10 (adopt, don't recreate).
 - [ ] T1.8 **Q6/Q7/Q8 answered** (plan §9): preset `client_secret` honoured; built-ins via `!Find` on
       `managed`; provider adopted by `identifiers: {name: forgejo}`
 - [ ] T1.9 **Q9 answered**: let the `tls_*` signing pair regenerate (blueprint carries the PEMs anyway)
@@ -66,6 +65,8 @@ Gate marker: **⛔ GATE** = do not proceed until the stated check passes.
       discovery_url, scopes, group_claim, admin_group, restricted_group }`
 - [ ] T3.3 Create `modules/devops/forgejo/mantle/` = `harbor_robot_account` +
       `forgejo_repository_action_secret` (+ org variant per Q3), `variables`, `outputs`, `providers`
+- [ ] T3.6 **Decide the repo list** for `forgejo_registry_repos` (owner/name) — the plan does not name
+      them. Default `[]` means **no secrets are created** and V-E4 cannot pass.
 - [ ] T3.4 `git rm` the superseded old `modules/devops/forgejo/*.tf` — do NOT leave both
 - [ ] T3.5 **⛔ GATE:** `tofu fmt` clean on every new/changed file
 
@@ -77,7 +78,9 @@ Gate marker: **⛔ GATE** = do not proceed until the stated check passes.
       `cert_issuer`, `host_network`, `oidc = module.forgejo_oidc.*`
 - [ ] T4.2 `stacks/core`: `module "forgejo_oidc"` → `../../modules/auth/authentik/oidc_blueprint`
 - [ ] T4.3 `stacks/core`: `module "authentik"` gains `extra_blueprints = [module.forgejo_oidc.blueprint_secret]`
-- [ ] T4.4 `stacks/mantle/forgejo.tf`: repoint `module "forgejo"` → `../../modules/devops/forgejo/mantle`
+- [ ] T4.4 `stacks/mantle/forgejo.tf`: repoint the CI module and **name it `forgejo_setup`** (sourcing
+      `../../modules/devops/forgejo/mantle`) — matches `harbor_setup`/`argo_setup`, and avoids two
+      different modules both called `forgejo` (whose prefixes collide with `forgejo_runner`)
 - [ ] T4.5 `stacks/mantle/admins.tf` + `users.tf`: `module.forgejo.{admin,user}_group_id` →
       `data.authentik_group.forgejo_{admin,user}.id`
 - [ ] T4.6 `stacks/mantle/forgejo.tf`: runner `instance_url`/`namespace`/`secret` → literals
@@ -110,8 +113,8 @@ echo "$TS" > "$ROOT/.tmp/backups/.last-ts"
 ( cd stacks/core   && tofu init )
 ( cd stacks/mantle && tofu init )
 
-# 2. DRY-RUN the move — writes candidates only, never pushes
-python3 "$ROOT/.tmp/forgejo-split-move.py"
+# 2. DRY-RUN the move — writes candidates only, never pushes (pass the TS explicitly)
+python3 "$ROOT/.tmp/forgejo-split-move.py" "$TS"
 
 # 3. PUSH the modified states (gated: only after T5.1-T5.4 reviewed)
 ( cd stacks/core   && tofu state push "$ROOT/.tmp/backups/core-moved-$TS.tfstate" )
@@ -128,28 +131,35 @@ python3 "$ROOT/.tmp/forgejo-split-move.py"
       `module.forgejo.module.oidc.*` is cut from mantle JSON and pasted into core JSON verbatim
 - [ ] T5.4 Move **whole `child_modules`**, not just leaf resources: `bucket`, `expose`, `ingress`,
       `egress`, `egress_gateway`, `egress_internet`, `backup`, `s3_user`
-- [ ] T5.5 `tofu state push` the modified core JSON; then `tofu state rm` the moved addresses from mantle
-- [ ] T5.6 Confirm `module.forgejo.module.oidc.*` is `state rm`'d (**forget, not destroy** — D4)
-- [ ] T5.7 **⛔ GATE:** `tofu plan` **core** → forgejo resources **matched, 0 destroy, 0 add** (blueprint
-      additions excepted)
+- [ ] T5.5 `tofu state push` **both** candidate states (`core-moved-$TS`, `mantle-moved-$TS`). The script
+      already pruned mantle (moved → core; oidc → **dropped = forgotten**), so there is **no `state rm`**
+- [ ] T5.6 Confirm the pushed **mantle** state holds **no `module.forgejo` entries at all** (moved *and*
+      oidc gone) — the oidc is **forgotten, not destroyed** (D4). Verify with
+      `tofu state list | grep '^module\.forgejo'` (note the **dot** — `module.forgejo_runner` must not match)
+- [ ] T5.7 **⛔ GATE:** `tofu plan` **core** → **0 destroys** (hard). Enumerate the expected non-destroy
+      changes and confirm each: adds from `module.forgejo_oidc` (blueprint Secret, `random_password`, tls
+      key+cert) and **exactly one update** — `helm_release.forgejo` values (the new `client_secret`).
+      **Anything else = STOP.**
 - [ ] T5.8 **⛔ GATE:** `tofu plan` **mantle** → instance gone with **0 destroy**; CI module adds robot/secrets
 - [ ] T5.9 Verify backups still intact before proceeding
 - [ ] T5.10 Confirm the `expose`/`listener_set` **`kubernetes_manifest`** resources moved with **no diff**
       (they re-read live objects on plan)
-- [ ] T5.11 Decide whether to track `forgejo-split-move.py` (currently in gitignored `.tmp/`)
+- [x] T5.11 (waived by owner — `.tmp/` will not be wiped; the script stays there)
 
 ---
 
 ## Phase 6 — Apply
 
+- [ ] T6.0 **Re-take the Velero backup** immediately before applying — `forgejo-pre-split` has **ttl 168h**
+      and is the ONLY off-box copy (Longhorn's target is down, D-1). Do not let it expire first.
 - [ ] T6.1 **⛔ GATE:** re-read both plans for ANY `destroy` on namespace / PVC / `helm_release.forgejo`; abort if found
 - [ ] T6.2 `tofu apply` **core** (creates blueprint secret, updates authentik, adopts the release)
 - [ ] T6.3 Verify authentik applied the blueprint (worker log; app appears in authentik)
 - [ ] T6.3b Confirm the **worker** (not just server) rolled out — blueprints mount on the worker only (R10)
 - [ ] T6.4 `tofu apply` **mantle** (creates robot + repo secrets; re-syncs admins/users groups)
 - [ ] T6.5 `tofu plan` both → **No changes** (idempotency)
-- [ ] T6.6 **Schedule a quiet window (R12)** — the authentik worker rollout briefly interrupts SSO for
-      *every* app; verify other apps' logins after
+- [ ] T6.6 Verify **other apps still log in** after the apply (V-C10) — the worker roll shouldn't affect
+      login, but confirm rather than assume (R12)
 
 ---
 
@@ -165,9 +175,11 @@ python3 "$ROOT/.tmp/forgejo-split-move.py"
 ## Decision gates summary (all must pass in order)
 
 1. **T1.5** blueprint applies cleanly on a scratch app
-2. **T2.3** core validates with empty `extra_blueprints`
-3. **T3.5** fmt clean
-4. **T4.8** both stacks validate
-5. **T5.7 / T5.8** both plans show 0 destroys on protected objects
-6. **T6.1** final read-through before any apply
+2. **T1.7** fidelity — `redirect_uris` (not `allowed_redirect_uris`)
+3. **T2.3** core validates with empty `extra_blueprints`
+4. **T3.5** fmt clean; **T3.6** repo list decided
+5. **T4.8** both stacks validate
+6. **T5.7 / T5.8** both plans show **0 destroys** on protected objects (T5.7 also enumerates expected adds/update)
+7. **T6.0** fresh Velero backup taken
+8. **T6.1** final read-through before any apply
 
