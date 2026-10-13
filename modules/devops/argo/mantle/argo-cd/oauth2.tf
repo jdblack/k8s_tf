@@ -1,7 +1,7 @@
 module "auth" {
   name         = var.name
   redirect_uri = "https://${local.fqdn}/auth/callback"
-  source       = "../../../auth/authentik/oidc_provider"
+  source       = "../../../../auth/authentik/oidc_provider"
 
   meta_icon       = "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/argo-cd.svg"
   open_in_new_tab = true

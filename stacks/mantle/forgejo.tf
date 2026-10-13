@@ -1,5 +1,5 @@
 module "forgejo" {
-  source = "../../modules/forgejo"
+  source = "../../modules/devops/forgejo"
 
   domain      = var.deployment.cluster.domains.private
   cert_issuer = var.deployment.cert_manager.external_issuer
@@ -31,7 +31,7 @@ data "external" "forgejo_runner_token" {
 # The Actions runner: its own namespace (it executes arbitrary repo code) and it polls the
 # instance over its public name, through the same gateway as everyone else.
 module "forgejo_runner" {
-  source = "../../modules/forgejo-runner"
+  source = "../../modules/devops/forgejo-runner"
 
   instance_url       = "https://${module.forgejo.fqdn}"
   registration_token = data.external.forgejo_runner_token.result.token

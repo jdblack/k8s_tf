@@ -1,5 +1,5 @@
 module "egress" {
-  source    = "../../network/firewalls/policy"
+  source    = "../../../network/firewalls/policy"
   direction = "egress"
 
   namespace    = var.namespace
@@ -8,7 +8,7 @@ module "egress" {
 }
 
 module "egress_trivy" {
-  source    = "../../network/firewalls/policy"
+  source    = "../../../network/firewalls/policy"
   direction = "egress"
 
   namespace      = var.namespace
@@ -18,7 +18,7 @@ module "egress_trivy" {
 }
 
 module "egress_core" {
-  source    = "../../network/firewalls/policy"
+  source    = "../../../network/firewalls/policy"
   direction = "egress"
 
   namespace    = var.namespace

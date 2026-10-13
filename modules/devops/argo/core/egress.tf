@@ -1,5 +1,5 @@
 module "egress" {
-  source    = "../../network/firewalls/policy"
+  source    = "../../../network/firewalls/policy"
   direction = "egress"
 
   namespace    = kubernetes_namespace_v1.namespace.metadata[0].name
@@ -11,7 +11,7 @@ module "egress" {
 }
 
 module "egress_gateway" {
-  source    = "../../network/firewalls/policy"
+  source    = "../../../network/firewalls/policy"
   direction = "egress"
 
   namespace    = kubernetes_namespace_v1.namespace.metadata[0].name

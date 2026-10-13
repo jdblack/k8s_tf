@@ -1,7 +1,7 @@
 # Native OIDC, not the authentik proxy outpost: the source is registered against this
 # callback and the group claim drives admin/restricted, so no outpost is involved.
 module "oidc" {
-  source = "../auth/authentik/oidc_provider"
+  source = "../../auth/authentik/oidc_provider"
 
   name         = var.name
   redirect_uri = "https://${local.fqdn}/user/oauth2/${local.oidc_source_name}/callback"

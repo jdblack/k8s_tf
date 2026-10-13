@@ -9,7 +9,7 @@ module "harbor" {
   count       = var.harbor_enabled ? 1 : 0
   namespace   = var.deployment.harbor.namespace
   auth_secret = var.deployment.harbor.auth_secret
-  source      = "../../modules/harbor/core"
+  source      = "../../modules/devops/harbor/core"
   cert_issuer = var.deployment.cert_manager.external_issuer
   domain      = var.deployment.cluster.domains.private
 
@@ -19,7 +19,7 @@ module "harbor" {
 
 module "argo" {
   count       = var.argo_enabled ? 1 : 0
-  source      = "../../modules/argo/core"
+  source      = "../../modules/devops/argo/core"
   domain      = var.deployment.cluster.domains.private
   cert_issuer = var.deployment.cert_manager.external_issuer
 

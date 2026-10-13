@@ -1,5 +1,5 @@
 module "expose" {
-  source            = "../../network/gateway/expose"
+  source            = "../../../../network/gateway/expose"
   name              = var.name
   namespace         = var.namespace
   domain            = var.domain

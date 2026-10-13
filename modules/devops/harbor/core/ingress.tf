@@ -1,5 +1,5 @@
 module "ingress" {
-  source    = "../../network/firewalls/policy"
+  source    = "../../../network/firewalls/policy"
   direction = "ingress"
 
   namespace = var.namespace
