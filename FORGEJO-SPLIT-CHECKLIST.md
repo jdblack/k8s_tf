@@ -258,6 +258,9 @@ gitignored.
 - [ ] T3.7 ⏸️ **PARKED 2026-10-13 (DEF-15).** **Declare `forgejo_registry_repos`** in `stacks/mantle/variables.tf` and thread it into the
       module (it was in the parked prototype; currently unowned).
 - [ ] T3.4 `git rm` the superseded old `modules/devops/forgejo/*.tf` — do NOT leave both
+      **Unblocked by the T4.4 decision** (drop, not repoint): do this **after** T4.4 removes the module from
+      mantle, so nothing sources the flat path any more. Until then the flat module and `forgejo/core/` must
+      coexist — the very thing this task forbids — because Phase 4's wiring is in flight.
 - [x] T3.5 **⛔ GATE:** `tofu fmt` clean on every new/changed file
 
 ---
@@ -295,9 +298,20 @@ gitignored.
       `domain` (for the two redirect URIs), and **`namespace`** (Pass 24 — it was missing here while T4.10
       already required it for the Secret's destination, `kube-auth`). Consumes the module's four outputs (§4).
 - [ ] T4.3 `stacks/core`: `module "authentik"` gains `extra_blueprints = [module.forgejo_oidc.blueprint_secret]`
-- [ ] T4.4 `stacks/mantle/forgejo.tf`: repoint the CI module and **name it `forgejo_setup`** (sourcing
-      `../../modules/devops/forgejo/mantle`) — matches `harbor_setup`/`argo_setup`, and avoids two
-      different modules both called `forgejo` (whose prefixes collide with `forgejo_runner`)
+- [ ] T4.4 **`stacks/mantle/forgejo.tf`: DROP `module "forgejo"` entirely — do NOT repoint it.** *(Owner
+      decision 2026-10-13, "use your best judgement"; this supersedes the task's original "repoint to
+      `forgejo/mantle`" wording.)*
+      **Rationale:** the Harbor→Actions half is parked (DEF-15), and after **T4.5** (`data.authentik_group`)
+      and **T4.6** (literals) **nothing in `mantle` needs a Forgejo module at all** — verified: only
+      `admins.tf`, `users.tf` and `forgejo.tf` reference `module.forgejo`, and all three are covered by
+      T4.5/T4.6. So the clean end state is that mantle simply stops declaring it.
+      **⛔ ORDER IS LOAD-BEARING (C7c):** edit the config **and move the state in the same sitting — never
+      `apply` in between.** Config-without-the-module + state *still holding* the 18 entries = a plan that
+      **destroys the namespace.** The state move (Phase 5) is what turns that plan into a no-op.
+      **If the CI half is ever unparked:** the repoint variant returns — `module "forgejo_setup"` sourcing
+      `../../modules/devops/forgejo/mantle`, named like `harbor_setup`/`argo_setup` (avoids two modules
+      called `forgejo` colliding with `forgejo_runner`). It is **purely additive**: no rework of anything
+      built above, which is why dropping now costs nothing.
 - [ ] T4.5 `stacks/mantle/admins.tf` + `users.tf`: `module.forgejo.{admin,user}_group_id` →
       `data.authentik_group.forgejo_{admin,user}.id`
 - [ ] T4.6 `stacks/mantle/forgejo.tf`: runner `instance_url`/`namespace`/`secret` → literals

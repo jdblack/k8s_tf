@@ -49,10 +49,10 @@ Parked as a user todo: see `todo-backup-policy` in memory.
   rewritten to *drop* `module.forgejo` outright (T4.5's `data.authentik_group` + T4.6's literals already
   remove every other consumer) rather than repoint it. The instance still moves to `core`; the
   *completion* of the move does not.
-  **Consequences while parked:** gate 4 cannot fully pass (T3.6 undecided); **Phase 5 is unreachable**;
-  T3.4 is blocked on T4.4 (so the flat module and `forgejo/core/` coexist — T3.4's own prohibition);
-  T6.4 (apply mantle → robot + secrets) becomes a no-op; and **validation section E (V-E1…V-E6) is
-  inapplicable.**
+  **Consequences while parked:** gate 4 cannot fully pass (T3.6 undecided); **Phase 5 is reachable** — but
+  ONLY via the T4.4 "drop, don't repoint" decision (owner, 2026-10-13), without which the parked half gates
+  the surgery; T3.4 waits on T4.4; T6.4 (apply mantle → robot + secrets) becomes a no-op; and **validation
+  section E (V-E1…V-E6) is inapplicable.**
   **NOT parked:** **T3.8** — the global flag is already cleared and applied (Pass 21); reverting it would be
   pointless churn.
   When: whenever CI pushing images to Harbor actually matters.

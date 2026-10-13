@@ -934,3 +934,23 @@ run**, because nobody re-tested the *replacement*.
 **Rule extracted:** *a fold is a change, and a change earns a verification.* When a pass rewrites a command,
 a contract or a rule, the next pass must **execute/read the rewrite**, not merely confirm the finding it came
 from. Fold-and-move-on is the recurring generator of defects in this plan.
+
+---
+
+## Pass 26 — the fork decided: mantle DROPS the module (2026-10-13)
+
+Owner: *"use your best judgement."*
+
+**Decision: `stacks/mantle` drops `module "forgejo"` outright — it is NOT repointed at a new CI module.**
+Verified first: mantle references `module.forgejo` in exactly **three** files — `admins.tf:19` and
+`users.tf:10` (both T4.5) and `forgejo.tf` (T4.6) — so after those two tasks **nothing needs it.**
+
+- **Why this, not the repoint:** the CI half is parked, and repointing would keep mantle depending on
+  `forgejo/mantle` (T3.3, parked) — which is precisely what made Phase 5 unreachable (Pass 25, F2).
+- **Why it costs nothing:** the CI half later returns as a purely **additive** `module "forgejo_setup"` (T4.4).
+  No rework of anything already built. Deferring is free, and that is what makes this the right call.
+- **Consequence:** **Phase 5 is reachable with the park intact.** T3.4 (`git rm` the flat module) unblocks
+  once T4.4 drops it.
+- **⚠️ The order that must not be broken (C7c):** edit the config **and** move the state in one sitting. An
+  `apply` between them is a plan that **destroys the namespace** — mantle's config without the module, its
+  state still holding the 18 entries.

@@ -34,17 +34,22 @@ Status: REVIEWED — Q1–Q10 answered, D1–D9 decided; full pass trail in `FOR
   the app's `meta_*` match, both custom scope expressions are **byte-identical**, both groups keep their
   pks and membership, both bindings match the §10 baseline, and the scope set is **5/5**. **No defects
   found.**
-- **Next: Phase 4** (stack wiring). ⚠️ `client_id` is **`sensitive`** — a root output referencing it must
+- **Next: Phase 4-mantle, then Phase 5.** In order: **T4.5** (`data.authentik_group` replaces
+  `module.forgejo.{admin,user}_group_id`), **T4.6** (runner literals), **T4.4** (**drop** `module "forgejo"`
+  from `stacks/mantle` — see the task; do NOT repoint), **T3.4** (`git rm` the flat module), `tofu validate`
+  both stacks — **then Phase 5's state surgery in the same sitting** (C7c: never `apply` between the T4.4
+  config edit and the state push). ⚠️ `client_id` is **`sensitive`** — a root output referencing it must
   declare `sensitive = true`, or `tofu plan` fails at the root.
 - **Phase 3:** T3.8's global half is **done** (Pass 21); add only the per-repo PATCH for the pre-existing
   repos (T3.3) — the goal's second half is otherwise unblocked.
 - **⏸️ PARKED (owner, 2026-10-13): the Harbor → Actions half** — `forgejo/mantle` (T3.3), the
   `forgejo_registry_repos` list (T3.6/T3.7), the per-repo PATCH.
-  **⚠️ Corrected in Pass 25: parking DOES block Phase 5.** T4.4–T4.7 are *Phase 4* tasks, and they rewire
-  `stacks/mantle/forgejo.tf` onto `forgejo/mantle`; C7c requires mantle to have **stopped declaring**
-  `module.forgejo` before the moved state lands. So **Phase 5 cannot start until DEF-15 is unparked** — or
-  the mantle side is instead rewritten to *drop* `module.forgejo` outright rather than repoint it. The
-  earlier claim that "Phases 1/2/4/5 are independent of the parked work" was **wrong**. See **DEF-15**.
+  **⚠️ Corrected in Pass 25, then RESOLVED by decision (Pass 26):** T4.4–T4.7 are *Phase 4* tasks and they
+  touch `stacks/mantle/forgejo.tf`, so the original "repoint" wording really did make parking gate the
+  surgery (C7c requires mantle to have stopped declaring `module.forgejo`). **Decision (owner, 2026-10-13,
+  "use your best judgement"): mantle DROPS `module.forgejo` outright instead of repointing it** — after T4.5
+  and T4.6 nothing there needs it — which **makes Phase 5 reachable with the park intact.** The CI half
+  returns later as a purely additive `module "forgejo_setup"` (see T4.4).
 - **🛑 DO NOT APPLY EITHER STACK right now.** `core` is wired but **not adopted**: its plan is **21 creates**,
   including `module.forgejo.kubernetes_namespace_v1.namespace`, the PVC and the helm release — applying it
   would try to **create the live instance.** (Saving grace: it dies loudly on `AlreadyExists` at the
