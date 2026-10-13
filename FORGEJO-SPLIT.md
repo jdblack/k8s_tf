@@ -4,21 +4,27 @@ Status: REVIEWED — Q1–Q10 answered, D1–D9 decided; full pass trail in `FOR
 
 ## RESUME HERE (handoff)
 
-- **State:** the plan is fully reviewed and **FROZEN** — **20 passes** (12 self, 2 blind cold reads, 18
-  directed subagents across six waves; the loop closed when a wave found the *fold process* itself had become
-  the leading defect source). **Nothing has been built or applied.** Every decision (D1–D9) and question
-  (Q1–Q10) is settled. Move verified sound (18/18 addresses).
-- **⚠️ BLOCKER found in Pass 18 (G18-1) + sharpened in Pass 19 (J19-1):** the live `app.ini` disables the
-  Actions repo-unit, **and** no repo has an Actions *unit row* — so T3.8 needs **both**
-  `DISABLED_REPO_UNITS = ""` **and** a per-repo `has_actions = true` **write**. Until then the goal's second
-  half is inert.
+- **State:** the plan is fully reviewed and **FROZEN** — **20 review passes** (12 self, 2 blind cold reads,
+  18 directed subagents across six waves; the loop closed when a wave found the *fold process* itself had
+  become the leading defect source). **Pass 21 (2026-10-13) is the first live change** — the T3.8 Actions
+  fix, applied and verified; nothing *else* is built. Every decision (D1–D9) and question (Q1–Q10) is
+  settled. Move verified sound (18/18 addresses).
+- **✅ T3.8 RESOLVED and verified live (Pass 21) — was the blocker (G18-1/J19-1).** The stale
+  `[repository] DISABLED_REPO_UNITS = repo.actions` is **cleared and applied** (2026-10-13, **1 changed /
+  0 destroyed**, helm rev 5→6, clean restart); the line now reads empty and **new repos default to
+  `has_actions = true`**. **Pass 21 also FALSIFIED J19-1's "PATCH is a silent no-op":** the per-repo
+  `PATCH {"has_actions":true}` works *once the global flag is cleared* (scratch repo: **404 → PATCH →
+  200**) — it was a *second symptom* of the same stale line, not an independent blocker. So the narrow
+  per-repo PATCH (the plan's *preferred* option) is viable and the over-broad `forgejo_repository` import
+  is **avoidable**. Remaining work is only a per-repo write for the pre-existing repos (T3.3).
 - **⚠️ The DR story is the open sore:** the vault is empty, DEF-1/12/13 are load-bearing, and there is **no
   restore path** (DEF-14). Reviewing the *plan* is done; the *data* side needs its own work.
 - **Next step:** freeze these docs and start **Phase 1** — copy-and-trim the live export
   (`.tmp/authentik-export.yaml`) into `modules/auth/authentik/oidc_blueprint/`, then run gate **T1.5**
   (blueprint applies on a scratch name) and **T1.6** (idempotent). **Remember `name = "forgejo"` (T1.3) and
   the `.yaml` Secret key (T1.3).**
-- **Before Phase 3:** fix the **Actions blocker (T3.8)** — the goal's second half ships inert otherwise.
+- **Phase 3:** T3.8's global half is **done** (Pass 21); add only the per-repo PATCH for the pre-existing
+  repos (T3.3) — the goal's second half is otherwise unblocked.
 - **Open:** `forgejo_registry_repos` (the repo list — **owner-gated**, T3.6/T3.7, blocks V-E4);
   `DEF-1…DEF-14` in `-DEFERRED.md`; the parked normal-backup topic (`todo-backup-policy` in memory).
 - **Where things live:** move script `.tmp/forgejo-split-move.py` and export `.tmp/authentik-export.yaml`

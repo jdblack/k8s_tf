@@ -158,24 +158,26 @@ gitignored.
       Its import id is **`owner/name`** (not the numeric id). Prefer a **narrow, explicit PATCH per target
       repo**, or import with every flag pinned to its live value first — and scope it to
       `forgejo_registry_repos` only.
-- [ ] T3.8 **⛔ PRE-FLIGHT GATE — the Actions repo-unit is GLOBALLY DISABLED (G18-1, the biggest find of 18
-      passes).** The live `app.ini` contains `[repository] DISABLED_REPO_UNITS = repo.actions`, and **no
-      `.tf` file sets it** (stale drift baked onto the PVC by a removed module version). Forgejo guards the
-      actions-secrets API behind the Actions unit (`reqOwner(unit.TypeActions)`), so **every
-      `forgejo_repository_action_secret` 404s** — verified live on all 86 repos and on a scratch repo, and
-      `PATCH {"has_actions":true}` is a silent no-op.
-      **Without this fix the entire Harbor→Actions push path — the goal's second half — is INERT.**
-      Fix: set `gitea.config.repository.DISABLED_REPO_UNITS = ""` in `forgejo/core` helm values (and enable
-      the Actions unit per target repo), then verify `GET /api/v1/repos/<owner>/<repo>/actions/secrets`
-      returns **200**, not 404. **Note the plan's other gates only diff rendered helm values — they would
-      NEVER have caught `app.ini` drift.**
-      **⚠️ Pass 19 (J19-1): this fix is NECESSARY BUT NOT SUFFICIENT.** The empty value genuinely clears the
-      line — verified live on the pod: **present-but-empty → the key is cleared**; **absent → the stale line
-      survives** (so the value must be an explicit `""`, not omitted); non-empty → overwrite. It also has no
-      side effects (`[]` is Forgejo's default, and Issues/Pulls/Wiki are untouched). **But no repo has an
-      Actions *unit row*** — `select count(*) from repo_unit where type = 10` → **0** (`TypeActions = 10`) —
-      and Forgejo gates the route on `UnitEnabled(Actions)`. So after clearing the global flag the
-      secrets route **still 404s**. A **second, per-repo write** is required: see T3.3.
+- [x] T3.8 **✅ DONE 2026-10-13 (Pass 21) — was the showstopper (G18-1).** The live `app.ini` had
+      `[repository] DISABLED_REPO_UNITS = repo.actions`, set by **no `.tf` file** (stale PVC drift from a
+      removed module version). Forgejo hides the actions-secrets API behind the Actions unit
+      (`reqOwner(unit.TypeActions)`), so **every `forgejo_repository_action_secret` 404'd** — making the
+      **goal's whole second half inert.**
+      **Applied:** `gitea.config.repository.DISABLED_REPO_UNITS = ""` in `locals.tf` (carries to
+      `forgejo/core` at T2/T3) → `tofu apply` **1 changed / 0 destroyed**, helm rev 5→6, clean restart.
+      The line now reads `DISABLED_REPO_UNITS = ` (empty) — **present-but-empty clears it; omitting the
+      key does not** (so the explicit `""` is load-bearing, not cosmetic). **`app.ini` drift is invisible
+      to value-only gates — it had to be read off the pod.**
+      **✅ Pass 21 (live, empirical): J19-1's "`PATCH {"has_actions":true}` is a silent no-op" is FALSIFIED.**
+      The no-op holds **only while the global flag is set** — it was a *second symptom* of the same stale
+      line. With the flag cleared:
+      - **new** repo → `has_actions = true` **by default**, secrets route **200** (no write needed);
+      - **pre-existing** repo → `has_actions = false`, **404** (no unit row — J19-1's count was right);
+      - `PATCH {"has_actions":true}` → `has_actions = true`, **200** ✅
+      So the fix **is** sufficient given a **per-repo write for the pre-existing repos** (T3.3) — the
+      plan's *preferred* narrow-PATCH route works, so the over-broad `forgejo_repository` **import is
+      avoidable** (G18-3/O20-2). Gate: `GET /api/v1/repos/<owner>/<repo>/actions/secrets` → **200**.
+      Probe repo left in place: `breakglass/actions-probe` (private, disposable).
 - [ ] T3.6 **Decide the repo list** for `forgejo_registry_repos` (owner/name) — the plan does not name
       them. Default `[]` means **no secrets are created** and V-E4 cannot pass.
 - [ ] T3.7 **Declare `forgejo_registry_repos`** in `stacks/mantle/variables.tf` and thread it into the
@@ -360,9 +362,9 @@ python3 "$ROOT/.tmp/forgejo-split-move.py" "$TS"
 1. **T1.5** blueprint applies cleanly on a scratch app
 2. **T1.7** fidelity — `redirect_uris` (not `allowed_redirect_uris`)
 3. **T2.3** core validates with empty `extra_blueprints`
-4. **T3.5** fmt clean; **T3.6** repo list decided; **T3.8** ⛔ the Actions repo-unit is enabled — **both**
-   `DISABLED_REPO_UNITS = ""` **and** a per-repo write — without which the goal's second half ships **inert**
-   (G18-1 / J19-1, the showstopper)
+4. **T3.5** fmt clean; **T3.6** repo list decided; **T3.8** ✅ the Actions repo-unit is enabled —
+   `DISABLED_REPO_UNITS = ""` **applied & verified live** (Pass 21) plus a per-repo PATCH on the
+   pre-existing repos (T3.3); without the per-repo write the goal's second half ships **inert** (G18-1)
 5. **T4.8** both stacks validate
 6. **T5.7 / T5.8** both plans show **0 destroys** on protected objects (T5.7 also enumerates expected adds/update)
 7. **T6.0** fresh **DR set** taken — `forgejo dump` + `aws s3 sync` + state pulls + Velero

@@ -576,6 +576,8 @@ Waves 1-3 attacked the **move** half three times. This wave went at the **other 
   `PATCH {"has_actions":true}` is a silent no-op. **The entire Harbor→Actions push path — the goal's second
   half — is inert, and 17 passes never looked**, because the plan's gates only diff *rendered helm values*
   and could never see `app.ini` drift. → **R13** + pre-flight gate **T3.8**.
+  *(✅ **Pass 21 (below) RESOLVED this — the flag is cleared and live-verified — and FALSIFIED the "silent
+  no-op" line above:** the `PATCH` no-ops *only while the global flag is set*. Read Pass 21 before T3.3.)*
 - **G18-2 — `forgejo_repository_action_secret` needs a NUMERIC `repository_id`**, not `owner`/`name`
   (v1.6.1 docs + source call `getRepositoryByID` on every path). The plan never created the lookup. →
   `data.forgejo_repository` added to T3.3.
@@ -728,5 +730,38 @@ fire. What actually fired is better: the last wave found that **the review proce
 source of defects.** Continuing to review the plan would now mostly generate work about our own paperwork.
 **The loop closes here** — the next real verification is `tofu plan` against `forgejo/core` actually
 existing, which is Phase 1-4.
+
+---
+
+## Pass 21 — empirical resolution of the showstopper (2026-10-13)
+
+Not a reading pass: the **first live change**. Scope: unblock T3.8 before any build, on the *existing*
+`modules/devops/forgejo` (the value carries to `forgejo/core` at T2/T3).
+
+**What was run**
+- `stacks/mantle` baseline plan = **"No changes"** (drift-free — so the frozen state snapshot still stands).
+- Added `repository = { DISABLED_REPO_UNITS = "" }` → plan **0 add / 1 change / 0 destroy**, and the one
+  change is only `module.forgejo.helm_release.forgejo`. Applied: helm rev **5 → 6**, pod Recreate,
+  **0 restarts**, init logs `Existing oauth configuration with name 'authentik' … sync settings done`
+  (the OIDC source re-synced on boot — confirms §2), **no errors**, login page serves the SSO button.
+- `app.ini` line 70: `DISABLED_REPO_UNITS = repo.actions` → **`DISABLED_REPO_UNITS = `** (empty).
+  Confirms J19-1's mechanism: **present-but-empty clears it.**
+
+**The correction — J19-1's second half is WRONG**
+J19-1 concluded *"necessary but not sufficient … `PATCH {"has_actions":true}` is a silent no-op … the
+secrets route still 404s."* The no-op was observed **while the global flag was still set.** Re-tested
+after the fix, on a disposable repo (unit disabled → 404 → PATCH → 200): **the PATCH works.** It was
+never an independent blocker — it was the *same* stale line seen from the other end. Two facts fall out:
+- **new** repos now get the Actions unit **by default** (`has_actions = true`, secrets **200**, no write);
+- only **pre-existing** repos lack the unit row, and **one PATCH each** fixes them.
+
+→ The goal's second half is **achievable**, and the over-broad `forgejo_repository` import
+(G18-3/O20-2 — a delete handle on the crown jewels) is **avoidable**: a narrow per-repo PATCH suffices.
+**T3.3 is de-risked, not merely unblocked.**
+
+**Why this matters beyond the fix:** all 20 reading passes — two blind cold reads and six agent waves
+included — could only ever *hypothesise* about the PATCH, because the defect lived in a **live
+condition** (a flag's interaction with an API route), which no amount of reading the plan can settle.
+The loop closed at the right time; this is the class of thing that only `apply` finds.
 
 

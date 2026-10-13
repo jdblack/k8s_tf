@@ -130,6 +130,11 @@ locals {
           DEFAULT_ACTIONS_URL = "https://data.forgejo.org"
         }
 
+        # A removed module version left DISABLED_REPO_UNITS=repo.actions on the data claim and no
+        # .tf sets it (G18-1/T3.8), so the stale line survives every apply and Forgejo 404s the
+        # actions-secrets API on the unit. An explicit "" clears it; omitting the key does not.
+        repository = { DISABLED_REPO_UNITS = "" }
+
         # Every [storage] subsystem -- LFS, attachments, avatars, repo-avatars, repo-archive,
         # packages, actions logs/artifacts -- is a blob store, so it goes to SeaweedFS over S3.
         # The credentials come from the s3_user Secret via additionalConfigFromEnvs.
