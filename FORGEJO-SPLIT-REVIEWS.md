@@ -8,9 +8,9 @@ and the reasoning, including things we deliberately rejected.
 5 failure simulation · 6 unknowns resolved · 8 hostile findings · 9 priority re-rank (owner) ·
 10 backup strategy (owner) · 11 second hostile run · 12 third hostile run · 13 cold read · 14 second cold
 read · 15 directed subagents · 16 directed subagents (round 2) · 17 directed subagents (round 3) · 18
-directed subagents (round 4) · 19 directed subagents (round 5). *(6 ran before 5; sections are labelled,
-order on disk is as-completed.)* **Pass 7 (minimality) was dropped** — Q10 settled it: Option A, the only
-"smaller" option, is off the table.
+directed subagents (round 4) · 19 directed subagents (round 5) · 20 directed subagents (round 6, **loop
+closed**). *(6 ran before 5; sections are labelled, order on disk is as-completed.)* **Pass 7 (minimality) was
+dropped** — Q10 settled it: Option A, the only "smaller" option, is off the table.
 
 **Naming, so the letters don't confuse you:** plan decisions are **`D1`–`D9`**; deferred items are
 **`DEF-1`–`DEF-13`** (renamed in Pass 14 — they used to be `D-1…`, which collided). The **"D7"** in the
@@ -656,5 +656,75 @@ filters**) → Service → pod. **FALSIFIED** — but not where the plan feared:
 
 **Net: 8 findings folded, 2 severe — the Actions fix is insufficient as written, and the plan's own new data
 source would leave mantle greenfield-racy.** Still not decaying.
+
+---
+
+## Pass 20 — sixth wave: auditing ourselves ✅ (all folded) — **LOOP CLOSED**
+
+The last wave turned the reviews on the review process: **are the proposed fixes any good**, **will the
+transplant actually line up**, and **did folding introduce errors**. All three found something — and the
+meta-audit produced the most uncomfortable result of the whole effort.
+
+### M — verify every proposed fix — hypothesis: *"every proposed fix, implemented literally, would work"*
+**Zero outright-wrong fixes.** The "nonexistent symbol / wrong scope" class is empty: the two known-bad folds
+(E17-1, I18-1) were properly remediated and every survivor is evidence-backed (checked against
+`tofu providers schema`, a live chart render, the provider source, and a real regex run).
+- **M20-2 — but one fix is OVER-BROAD, a different kind of wrong.** The Pass-19
+  `forgejo_repository { has_actions = true }` resource *works*, but the provider's `Update` builds a **full**
+  `EditRepoOption` from **defaults**: importing live repos and applying would force every unit
+  (wiki/issues/PRs/releases/packages) to `true`, set `archived = false` (**un-archiving archived repos**), and
+  hand `mantle` a **delete/archive handle on the crown jewels** — on a plan whose thesis is "data is sacred".
+  → T3.3 now demands a narrow PATCH or a fully-pinned import.
+- **Also verified**: `validation` blocks CAN cross-reference attributes (not the classic trap); `!Find` is
+  fail-open / `!KeyOf` fail-closed, exactly as claimed; the worker globs `**/*.yaml` only (so `.yml` would
+  mount and silently never apply); the corrected `grep -E` selects precisely the right address set.
+
+### N — will the transplant line up? — hypothesis: *"the addresses the move produces are exactly what the new module will produce"*
+**VERIFIED — 18/18 addresses match, indices included.** The script was re-run against **copies** of the real
+state: `move=18, forget=15, stay=444, collision=clean`, set-equal both ways, mantle fully cleared, no
+pre-existing overlap, and every moved resource's provider is declared in `stacks/core`. Every index trigger
+was reproduced from the config (the `[0]`s come from `direction="egress"`, `direction="ingress"` +
+`host_identity`, `gateway_namespace != namespace`, and the module-level `count = backend_name != ""`).
+- **The only object at risk** is `…module.expose.module.http_route[0]` — safe **iff** the three invariants
+  hold (submodule label `expose`, `backend_name = local.http_service_name`, no `count` on `module.forgejo`).
+- N20-2: the script's dependency audit is confirmed **vacuous** (v4 stores deps on `instances[]`, not the
+  resource) — already annotated in Phase 5.
+
+### O — audit the folds — hypothesis: *"the findings folded into these documents are faithfully recorded and correctly applied"*
+**FALSIFIED — the uncomfortable one.** Nineteen passes of folding had quietly introduced defects nobody was
+looking for, because everyone reviews the *plan* and **nobody reviewed the *paperwork***.
+- **O20-1 — a fold-introduced build-breaker.** §4 said `oidc_blueprint` "outputs exactly three things" while
+  three other places consumed a **fourth** (`blueprint_secret`). Implement §4, wire T4.3 → **`tofu validate`
+  fails in Phase 4.** → corrected to four.
+- **O20-3 — a finding LOST before folding.** The `harbor_setup` `depends_on`-scope problem — the *exact*
+  E17-1 class — reached the raw Pass-18 report and **never made it into the log or any document.** → T3.3.
+- **O20-2/O20-4/O20-6/O20-7 — half-applied corrections.** The Velero schedule "never fired" (it fired at
+  `03:00:42Z`); the backup ttl given as **168h** (it is **720h** — 168h is the *schedule's*); the
+  `harbor_setup`/`library` rationale still wrong in §4; and the "baked into `app.ini`" framing still in §2 —
+  each corrected in one place and left standing in its twin.
+- **O20-5 — severity deflation.** G18-1 is called "THE SHOWSTOPPER" and a "BLOCKER" — yet **T3.8 was absent
+  from the gates summary.** → added.
+
+**Net: 11 findings folded.** M found no bad fixes (and one dangerous one); N confirmed the surgery is sound;
+O found that **the paperwork had begun failing its own review.**
+
+### Loop verdict — why this is the stopping signal
+
+| Wave | Findings | Severe |
+|---|---|---|
+| Self (passes 1-12) | ~43 | several |
+| Cold reads (13-14) | 22 | 3 |
+| 15 · subagents | 15 | 4 |
+| 16 · second wave | 11 | 3 |
+| 17 · third wave | 9 | 3 |
+| 18 · fourth wave | 12 | 5 |
+| 19 · fifth wave | 8 | 2 |
+| 20 · sixth wave | 11 | **4 — all self-inflicted** |
+
+Severity stayed roughly **flat** across four agent waves, so "wait for a quiet round" was never going to
+fire. What actually fired is better: the last wave found that **the review process had become the leading
+source of defects.** Continuing to review the plan would now mostly generate work about our own paperwork.
+**The loop closes here** — the next real verification is `tofu plan` against `forgejo/core` actually
+existing, which is Phase 1-4.
 
 

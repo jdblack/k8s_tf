@@ -144,6 +144,20 @@ gitignored.
       live: `GET /api/v2.0/projects`). Keep the edge if the robot needs it, but **fix the comment**.
       *(Verified good: `harbor_robot_account` exists in `goharbor/harbor` 3.12.5, and its `secret` is
       `Optional+Computed` — filled from the POST response — so `HARBOR_TOKEN` sources in the same apply.)*
+      **⛔ Pass 20 (O20-3): `module.harbor_setup` does NOT exist at this module's scope.** It is a
+      `stacks/mantle`-scope module (`stacks/mantle/devops.tf:1`), so declaring
+      `depends_on = [module.harbor_setup]` **inside `forgejo/mantle/`** is the exact **E17-1 class** — a hard
+      `tofu validate` error (*"reference to undeclared module"*). Either drop the edge or pass it in from the
+      **stack**. (This finding was raised in the Pass-18 run, reached the raw report, and was **lost before
+      folding** — hence its own callout here.)
+      **⛔ Pass 20 (M20-2): the `forgejo_repository { has_actions = true }` resource is OVER-BROAD — gate it
+      hard.** It "works", but the provider's `Update` builds a **full** `EditRepoOption` from **defaults**, so
+      importing live repos and applying would silently force every unit (wiki/issues/PRs/releases/packages) to
+      `true`, set `archived = false` (**un-archiving archived repos**), and hand `mantle` a
+      **delete/archive handle on the crown jewels** — on a plan whose whole thesis is "data is sacred" (D8).
+      Its import id is **`owner/name`** (not the numeric id). Prefer a **narrow, explicit PATCH per target
+      repo**, or import with every flag pinned to its live value first — and scope it to
+      `forgejo_registry_repos` only.
 - [ ] T3.8 **⛔ PRE-FLIGHT GATE — the Actions repo-unit is GLOBALLY DISABLED (G18-1, the biggest find of 18
       passes).** The live `app.ini` contains `[repository] DISABLED_REPO_UNITS = repo.actions`, and **no
       `.tf` file sets it** (stale drift baked onto the PVC by a removed module version). Forgejo guards the
@@ -306,7 +320,8 @@ python3 "$ROOT/.tmp/forgejo-split-move.py" "$TS"
 ## Phase 6 — Apply
 
 - [ ] T6.0 **Take fresh OFF-CLUSTER backups immediately before applying** (D8/D9). The Velero backup has
-      a **168h ttl** and is not the only copy any more — but take all of these, in this order:
+      a **720h ttl** (Pass 20, O20-4 — the docs previously said "168h", which is the *schedule's* ttl) and is
+      not the only copy any more — but take all of these, in this order:
       - `forgejo dump` → `/Users/jblack/backups/forgejo/dump/` (git + SQLite DB + config)
       - `aws s3 sync s3://forgejo/` → `/Users/jblack/backups/forgejo/s3/` (LFS/attachments/avatars/artifacts)
       - `tofu state pull` (both stacks) → `/Users/jblack/backups/forgejo/tfstate/`
@@ -345,7 +360,9 @@ python3 "$ROOT/.tmp/forgejo-split-move.py" "$TS"
 1. **T1.5** blueprint applies cleanly on a scratch app
 2. **T1.7** fidelity — `redirect_uris` (not `allowed_redirect_uris`)
 3. **T2.3** core validates with empty `extra_blueprints`
-4. **T3.5** fmt clean; **T3.6** repo list decided
+4. **T3.5** fmt clean; **T3.6** repo list decided; **T3.8** ⛔ the Actions repo-unit is enabled — **both**
+   `DISABLED_REPO_UNITS = ""` **and** a per-repo write — without which the goal's second half ships **inert**
+   (G18-1 / J19-1, the showstopper)
 5. **T4.8** both stacks validate
 6. **T5.7 / T5.8** both plans show **0 destroys** on protected objects (T5.7 also enumerates expected adds/update)
 7. **T6.0** fresh **DR set** taken — `forgejo dump` + `aws s3 sync` + state pulls + Velero

@@ -4,9 +4,10 @@ Status: REVIEWED — Q1–Q10 answered, D1–D9 decided; full pass trail in `FOR
 
 ## RESUME HERE (handoff)
 
-- **State:** the plan is fully reviewed — **19 passes** (12 self, 2 blind cold reads, 15 directed subagents
-  across five waves). **Nothing has been built or applied.** Every decision (D1–D9) and question (Q1–Q10) is
-  settled.
+- **State:** the plan is fully reviewed and **FROZEN** — **20 passes** (12 self, 2 blind cold reads, 18
+  directed subagents across six waves; the loop closed when a wave found the *fold process* itself had become
+  the leading defect source). **Nothing has been built or applied.** Every decision (D1–D9) and question
+  (Q1–Q10) is settled. Move verified sound (18/18 addresses).
 - **⚠️ BLOCKER found in Pass 18 (G18-1) + sharpened in Pass 19 (J19-1):** the live `app.ini` disables the
   Actions repo-unit, **and** no repo has an Actions *unit row* — so T3.8 needs **both**
   `DISABLED_REPO_UNITS = ""` **and** a per-repo `has_actions = true` **write**. Until then the goal's second
@@ -15,7 +16,9 @@ Status: REVIEWED — Q1–Q10 answered, D1–D9 decided; full pass trail in `FOR
   restore path** (DEF-14). Reviewing the *plan* is done; the *data* side needs its own work.
 - **Next step:** freeze these docs and start **Phase 1** — copy-and-trim the live export
   (`.tmp/authentik-export.yaml`) into `modules/auth/authentik/oidc_blueprint/`, then run gate **T1.5**
-  (blueprint applies on a scratch name) and **T1.6** (idempotent).
+  (blueprint applies on a scratch name) and **T1.6** (idempotent). **Remember `name = "forgejo"` (T1.3) and
+  the `.yaml` Secret key (T1.3).**
+- **Before Phase 3:** fix the **Actions blocker (T3.8)** — the goal's second half ships inert otherwise.
 - **Open:** `forgejo_registry_repos` (the repo list — **owner-gated**, T3.6/T3.7, blocks V-E4);
   **⚠️ the Actions repo-unit is globally DISABLED in the live `app.ini` (G18-1 / T3.8) — the goal's second
   half is inert until that is fixed**; `DEF-1…DEF-14` in `-DEFERRED.md`; the parked normal-backup topic
@@ -43,9 +46,10 @@ worker rolls, the OIDC window, downtime during a restore) is a **non-issue**, an
 1. **Provider bootstrap.** A terraform provider used by a stack must target something that already
    exists. Harbor and Argo follow the house pattern — *instance in `core`, provider + setup in
    `mantle`*. Forgejo is the lone exception: its instance is in `mantle`.
-2. **OIDC must co-reside with the helm release.** Forgejo's OIDC client is baked into `app.ini` at
-   install time via helm values, so the client_id/secret must be known when `helm_release` applies.
-   Whatever creates those creds must live with the helm release.
+2. **OIDC must co-reside with the helm release.** Forgejo's OIDC client must be known when
+   `helm_release` applies — the chart feeds it to the init container, which re-syncs the DB `login_source`
+   row on **every pod start** (it is **not** "baked into `app.ini`"; Pass 20, O20-7). Whatever creates those
+   creds must live with the helm release.
 3. **The authentik terraform provider cannot run in `core`.** Its token is
    `random_password.terraform_key.result`, created *by core itself* and **unknown at plan time**.
    Providers must be configured at plan time, so a greenfield `apply` of core would fail. That is
@@ -89,7 +93,8 @@ worker rolls, the OIDC window, downtime during a restore) is a **non-issue**, an
 - **Safety net (Phase 0, DONE).** `.tmp/backups/{core,mantle}-20261013-093015.tfstate` +
   `*-secret-*.yaml`; Velero backup `forgejo-pre-split` **Completed 54/54**, PVB **8.33 GB** (kopia).
 - **Known gaps.** Longhorn backup target DOWN (`backup target default is not available`); the
-  `forgejo-data` Velero schedule has never fired (first 03:00Z run not yet reached).
+  `forgejo-data` Velero schedule **has now fired** (`status.lastBackup: 2026-10-13T03:00:42Z` — Pass 20,
+  O20-2; DEF-2 was corrected earlier, this twin was missed).
 
 ## 4. Target state
 
@@ -102,9 +107,12 @@ worker rolls, the OIDC window, downtime during a restore) is a **non-issue**, an
   (**note the slash after `forgejo`** — the old module built it from `${oidc_issuer_base}/application/o/${name}/`).
 - `modules/devops/forgejo/mantle/` — CI integration: `harbor_robot_account` + `forgejo_*_action_secret`.
 - `modules/auth/authentik/oidc_blueprint/` — **NEW**: emits an authentik **blueprint Secret**
-  (cert/key + client secret templated in). **Outputs exactly three things: `client_id`, `client_secret`,
-  `discovery_url`** — the rest of the `oidc` input (`scopes`, `group_claim`, the group names) are stack
-  literals (N3). The provider-based `oidc_provider` stays for every other app.
+  (cert/key + client secret templated in). **Outputs four things: `client_id`, `client_secret`,
+  `discovery_url`, and `blueprint_secret`** (the Secret name `module.authentik` consumes below).
+  *(Pass 20, O20-1: this said "exactly three" while the stack wiring below, §6 and T4.3 all consumed the
+  fourth — implementing §4 literally and then wiring T4.3 would have failed `tofu validate` in Phase 4.)*
+  The rest of the `oidc` input (`scopes`, `group_claim`, the group names) are stack literals (N3). The
+  provider-based `oidc_provider` stays for every other app.
 - `modules/auth/authentik/core/` — new input `extra_blueprints` (names appended to `blueprints.secrets`).
 
 ### Stack wiring
@@ -113,7 +121,9 @@ worker rolls, the OIDC window, downtime during a restore) is a **non-issue**, an
   `extra_blueprints = [module.forgejo_oidc.blueprint_secret]`. **`core` must also gain the `tls` provider**
   (the blueprint module mints the signing cert).
 - `mantle`: `module "forgejo_setup"` (forgejo/mantle) = the CI integration — `harbor_robot_account`
-  (**`depends_on = [module.harbor_setup]`** — it targets project `library`, same stack) + repo-level Action
+  (**`depends_on = [module.harbor_setup]` only at STACK scope** — see T3.3/P20; the old "targets project
+  `library`" rationale was **wrong**: `harbor_setup` owns `linuxguru`, and `library` is Harbor's default
+  public project) + repo-level Action
   secrets **`HARBOR_USER`** (= `robot$library+forgejo`) and **`HARBOR_TOKEN`**; `data "authentik_group"` for
   `forgejo-admin`/`forgejo-user`; the `forgejo` provider — **pinned to `svalabs/forgejo` 1.6.1**, authed the
   house way via a new `data "kubernetes_secret_v1"` on the chart-minted `forgejo-admin` Secret (`host =
@@ -178,7 +188,8 @@ worker rolls, the OIDC window, downtime during a restore) is a **non-issue**, an
   the SeaweedFS bucket **`forgejo`** (`lfs/`, `avatars/`, `repo-avatars/`, attachments, artifacts — all
   `[storage]` blobs); `tfstate/` = state pulls. Velero keeps its own in-cluster BSL. Rationale: data loss
   is the only unacceptable outcome (D8), and before this the whole story was **one perishable Velero copy**
-  (ttl 168h) — a `forgejo dump` alone is *incomplete*, because the blob data lives in S3, not `/data`.
+  (**ttl 720h** — Pass 20, O20-4; the earlier "168h" was the *schedule's* ttl, not the backup's) — a
+  `forgejo dump` alone is *incomplete*, because the blob data lives in S3, not `/data`.
 
 Rejected: **A** (no split — leaves `mantle` **greenfield-broken**, violating the DR tenet, §2.5);
 **C** (operator-provided authentik token in tfvars — violates the "tfvars is a symlink, don't touch" rule).
