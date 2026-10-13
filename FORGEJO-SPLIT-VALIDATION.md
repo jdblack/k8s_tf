@@ -52,7 +52,12 @@ Run **after** Phase 6 applies, in order. Any FAIL = investigate before declaring
 - [ ] V-C5 **Log in to Forgejo via SSO** end to end (fresh incognito), land authenticated
 - [ ] V-C6 An admin still gets admin (group claim maps `forgejo-admin` → admin)
 - [ ] V-C7 **Break-glass local admin** still works (password from `forgejo-admin` Secret)
-- [ ] V-C8 Redirect URI matches: `https://git.<domain>/user/oauth2/authentik/callback`
+- [ ] V-C8 **both** redirect URIs present: the callback
+      `https://git.<domain>/user/oauth2/authentik/callback` **and** the site root `https://git.<domain>`
+      (the old `extra_redirect_uris`). Dropping the second breaks post-logout return.
+- [ ] V-B10 **Restore drill (M6).** Restore `dump/` **and** `s3/` into a scratch namespace and confirm a
+      repo clones and the DB loads. Under "data is sacred" (D8), an **untested** backup is a wish — this is
+      the single highest-value check in the file.
 - [ ] V-C9 **Provider fidelity (R8):** the adopted provider's `grant_types`, `access_token_validity`,
       `refresh_token_validity`, **`redirect_uris`** (the model field — *not* `allowed_redirect_uris`), and
       `property_mappings` match the pre-change values in `oidc_provider/auth.tf` (a missing scope = broken

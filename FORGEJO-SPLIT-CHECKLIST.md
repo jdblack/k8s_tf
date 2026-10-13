@@ -16,6 +16,10 @@ gitignored.
 > **Backup home (D9).** Durable, off-cluster backups now live in **`/Users/jblack/backups/forgejo/`**
 > (`dump/`, `s3/`, `tfstate/`). `.tmp/backups/` remains the *transient* working area. Before this, the only
 > off-box copy was a single Velero backup.
+>
+> **Which is authoritative?** For **the surgery**, `.tmp/backups/` — the Phase-5 commands pull there and
+> the move script reads there, and only those files are ever `state push`ed. **D9** is the *durable DR
+> vault* (longer retention, off-cluster). T6.0 takes both; they are not interchangeable.
 
 ---
 
@@ -34,13 +38,19 @@ gitignored.
       (custom expressions); signing cert/key pair (PEMs from `tls_*`); oauth2 provider (client_id = app
       slug, client_secret from `random_password`, built-in flows via `!Find`, property mappings,
       `redirect_uris` *(the model field — do **not** emit `allowed_redirect_uris`, the terraform attr name)*,
-      `grant_types`); application; policy bindings for both groups
+      `grant_types`); application; policy bindings for both groups.
+      **Two** redirect URIs, not one: the callback **and** the site root `https://git.<domain>`
+      (the old `extra_redirect_uris`). Do **not** carry an `email_verified` scope mapping — Forgejo uses
+      the built-in `email` mapping.
 - [ ] T1.5 **⛔ GATE:** apply the blueprint under a scratch name (`forgejo-oidc-test`); confirm the
       worker logs `applied` and the app appears in authentik; then remove the scratch blueprint + objects
 - [ ] T1.6 Confirm idempotency: re-running the blueprint does not duplicate objects
 - [ ] T1.7 **Fidelity (R8):** copy the **values** of `grant_types`, token validities, redirect URIs and all
       `property_mappings` from `oidc_provider/auth.tf` — but emit the model field **`redirect_uris`**, NOT
-      `allowed_redirect_uris` (the terraform attr name). Diff the result against plan §10 (adopt, don't recreate).
+      `allowed_redirect_uris` (the terraform attr name). **`auth.tf` is NOT the source for ~6 fields** —
+      `sub_mode`, `issuer_mode`, `include_claims_in_id_token`, `logout_method`, `access_code_validity`,
+      `refresh_token_threshold` are provider *defaults*, visible only in the live
+      `.tmp/authentik-export.yaml` (§9). Diff the result against plan §10 (adopt, don't recreate).
 - [ ] T1.8 **Q6/Q7/Q8 answered** (plan §9): preset `client_secret` honoured; built-ins via `!Find` on
       `managed`; provider adopted by `identifiers: {name: forgejo}`
 - [ ] T1.9 **Q9 answered**: let the `tls_*` signing pair regenerate (blueprint carries the PEMs anyway)
@@ -61,7 +71,8 @@ gitignored.
       `ingress`, `egress`, `backup`, `locals` (minus oidc_*), `outputs` (fqdn/name/namespace/ssh_fqdn),
       `providers` (helm/kubernetes/kubectl), `variables`
 - [ ] T3.2 `forgejo/core`: replace `module "oidc"` with an **input** `oidc = { client_id, client_secret,
-      discovery_url, scopes, group_claim, admin_group, restricted_group }`
+      discovery_url, scopes, group_claim, admin_group, restricted_group }` — **exact values in §4**
+      (a wrong `scopes`/`group_claim` = silent role-mapping break, the R8 class)
 - [ ] T3.3 Create `modules/devops/forgejo/mantle/` = `harbor_robot_account` (**with
       `depends_on = [module.harbor_setup]`** — it targets project `library`, same stack) +
       `forgejo_repository_action_secret` (names `HARBOR_USER` / `HARBOR_TOKEN`), `variables`, `outputs`,
@@ -88,7 +99,10 @@ gitignored.
       `data.authentik_group.forgejo_{admin,user}.id`
 - [ ] T4.6 `stacks/mantle/forgejo.tf`: runner `instance_url`/`namespace`/`secret` → literals
       (`https://git.<domain>`, `devops-forgejo`, `forgejo-admin`)
-- [ ] T4.7 `stacks/mantle`: add `svalabs/forgejo` to `required_providers` + `provider "forgejo"`
+- [ ] T4.7 `stacks/mantle`: add **`svalabs/forgejo` 1.6.1** (pinned) to `required_providers`, plus a
+      `provider "forgejo"` block — `host = https://git.<domain>` and `username`/`password` from a new
+      **`data.kubernetes_secret_v1`** on the chart-minted `forgejo-admin` Secret (house pattern; no new
+      credential). **← M1: this wiring was previously missing.**
 - [ ] T4.8 **⛔ GATE:** `tofu validate` both stacks
 - [ ] T4.9 `stacks/core/providers.tf`: add **`tls`** to `required_providers` (the `oidc_blueprint` needs it)
 - [ ] T4.10 `oidc_blueprint` writes its Secret into **`kube-auth`**; add `namespace` input +
@@ -97,6 +111,13 @@ gitignored.
 ---
 
 ## Phase 5 — State surgery  ⛔ HIGH-RISK
+
+- [ ] T5.0 **Helm-values pre-gate (M3).** *Before any config edit*, capture the current rendered values:
+      `helm -n devops-forgejo get values forgejo -o yaml > /tmp/forgejo-values-before.yaml`. After the
+      split, confirm the plan's `helm_release.forgejo` update touches **only** the OAuth `client_secret` —
+      **not** `domain`, `ROOT_URL`, `autoDiscoverUrl`, redirects, scopes, or `groupClaimName`. The OIDC
+      block is being re-plumbed (`local.oidc_issuer` → an `oidc` input); a stray value change restarts
+      Forgejo with a broken `app.ini`. **T5.7 cannot be trusted without this.**
 
 Exact commands (single operator; `TOFU` = `tofu` from each stack dir):
 

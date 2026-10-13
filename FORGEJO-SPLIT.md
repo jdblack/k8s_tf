@@ -1,6 +1,6 @@
 # Forgejo core/mantle split — PLAN
 
-Status: REVIEWED — passes 1–11 complete, Q1–Q10 answered, D1–D9 decided · Owner: jblack · Scope: `stacks/core`, `stacks/mantle`, `modules/devops/forgejo*`, `modules/auth/authentik*`
+Status: REVIEWED — passes 1–12 complete, Q1–Q10 answered, D1–D9 decided · Owner: jblack · Scope: `stacks/core`, `stacks/mantle`, `modules/devops/forgejo*`, `modules/auth/authentik*`
 
 ## 1. Goal
 
@@ -71,7 +71,11 @@ worker rolls, the OIDC window, downtime during a restore) is a **non-issue**, an
 
 ### Module layout
 - `modules/devops/forgejo/core/` — instance: namespace, helm, storage (bucket + s3_user),
-  listener/expose, ingress, egress, backup. Takes the OIDC client as an **input** variable.
+  listener/expose, ingress, egress, backup. Takes the OIDC client as an **input** variable `oidc`. The
+  stack must supply **exact** values or the rendered `app.ini` changes: `scopes = "openid,email,profile,groups"`,
+  `group_claim = "groups"`, `admin_group = "forgejo-admin"`, `restricted_group = "forgejo-user"`, and
+  `discovery_url = https://auth.<domain>/application/o/forgejo/.well-known/openid-configuration`
+  (**note the slash after `forgejo`** — the old module built it from `${oidc_issuer_base}/application/o/${name}/`).
 - `modules/devops/forgejo/mantle/` — CI integration: `harbor_robot_account` + `forgejo_*_action_secret`.
 - `modules/auth/authentik/oidc_blueprint/` — **NEW**: emits an authentik **blueprint Secret**
   (cert/key + client secret templated in); outputs `client_id`, `client_secret`, **`discovery_url`**
@@ -87,14 +91,22 @@ worker rolls, the OIDC window, downtime during a restore) is a **non-issue**, an
 - `mantle`: `module "forgejo_setup"` (forgejo/mantle) = the CI integration — `harbor_robot_account`
   (**`depends_on = [module.harbor_setup]`** — it targets project `library`, same stack) + repo-level Action
   secrets **`HARBOR_USER`** (= `robot$library+forgejo`) and **`HARBOR_TOKEN`**; `data "authentik_group"` for
-  `forgejo-admin`/`forgejo-user`; the `forgejo` provider (`svalabs/forgejo`); the runner uses literals
+  `forgejo-admin`/`forgejo-user`; the `forgejo` provider — **pinned to `svalabs/forgejo` 1.6.1**, authed the
+  house way via a new `data "kubernetes_secret_v1"` on the chart-minted `forgejo-admin` Secret (`host =
+  https://git.<domain>`, `username`/`password` from it — no new credential); the runner uses literals
   (`devops-forgejo`, `git.<domain>`).
 
 ## 5. Design decisions
 
 - **D1 — OIDC via blueprint, not provider.** Solves (3) and (2). The blueprint runs in core with the helm.
-- **D2 — Blueprint delivery = extend `blueprints.secrets`.** Auto-discovery unverified; use the proven
-  mechanism. Cost: an authentik helm update (worker restart) when the list changes.
+- **D2 — Blueprint delivery: extend `blueprints.secrets` with the plan's own Secret.** The `oidc_blueprint`
+  module creates a Secret (in `kube-auth`); `modules/auth/authentik/core` gains an `extra_blueprints`
+  input taking **names** (never *content* — the IdP module must not import app YAML) and appends them to
+  `blueprints.secrets`. The chart mounts blueprints on the **worker only**, so the resulting roll pauses
+  background tasks/outpost sync but **does not interrupt login** (verified: `authentik-server` mounts no
+  blueprint volume). Auto-discovery is unverified, so we use the explicit list. *This supersedes an earlier
+  "inject the blueprint as a key into the bootstrap Secret" idea (historically tagged D7) — rejected,
+  because it forces core's IdP module to import app-generated YAML and the rollout it dodged is harmless.*
 - **D3 — Groups created by the blueprint** (`forgejo-admin`, `forgejo-user`); `mantle` looks them up
   with `data "authentik_group"`. Avoids cross-stack outputs (no `terraform_remote_state`).
 - **D4 — Preserve authentik object identity.** Convert by **dropping** the `oidc` entries from the pushed
@@ -104,17 +116,10 @@ worker rolls, the OIDC window, downtime during a restore) is a **non-issue**, an
 - **D5 — Address-preserving state move.** Both stacks name the module `module.forgejo` with identical
   submodule paths, so state entries transplant **verbatim**. Required because `terraform_data.bucket`
   / `terraform_data.user` **cannot be imported**.
-- **D6 — Keep `client_id` (= app slug `forgejo`) stable.** The `client_secret` may **rotate** (the helm
-  values update and the pod reconfigures once) **or be preserved** — the live value round-trips in
-  `ak export_blueprint`, so it can be carried into the blueprint for zero churn (§9 Q2).
-- **D7 — Blueprint delivery: extend `blueprints.secrets` with the plan's own Secret.** The `oidc_blueprint`
-  module creates a Secret (in `kube-auth`); `modules/auth/authentik/core` gains an `extra_blueprints`
-  input taking **names** (never *content* — the IdP module must not import app YAML) and appends them to
-  `blueprints.secrets`. The chart mounts blueprints on the **worker only**, so the resulting roll pauses
-  background tasks/outpost sync but **does not interrupt login** (verified: `authentik-server` mounts no
-  blueprint volume). A previous idea — injecting the blueprint as an extra *key* into the bootstrap
-  Secret to dodge the rollout — is **rejected**: it forces core's IdP module to import app-generated
-  YAML, and the rollout it avoids is harmless.
+- **D6 — Keep `client_id` = app slug `forgejo`; ROTATE the `client_secret`.** A new `random_password` feeds
+  both the blueprint and the helm values in the same apply. Expect **one `update` to
+  `helm_release.forgejo`** plus a brief window where the two disagree — accepted (D8). *Preservation is
+  possible (the live secret round-trips in the export) but buys nothing here.*
 - **D8 — PRIORITY: availability is cheap, data is sacred** (owner, explicit). Service disruption is
   acceptable; data loss is not. Consequences: availability risks (**R3, R7, R9, R12**) are downgraded to
   footnotes; the gates narrow to **exactly two objects** — `kubernetes_namespace_v1.namespace` and
@@ -201,7 +206,7 @@ That export is a **ready-made blueprint template** for every object, incl. the F
 
 | # | Question | **Answer** |
 |---|----------|-----------|
-| Q1 | Blueprint delivery | **Extend `blueprints.secrets`** with the plan's Secret (**D7**): the chart mounts it on the **worker only**; authentik discovers `*.yaml` on worker start or the periodic scan (default **60 min**). **No login impact.** |
+| Q1 | Blueprint delivery | **Extend `blueprints.secrets`** with the plan's Secret (**D2**): the chart mounts it on the **worker only**; authentik discovers `*.yaml` on worker start or the periodic scan (default **60 min**). **No login impact.** |
 | Q2 | `client_secret` rotation | **Preservable** — the export prints the current secret in clear (`client_secret: ElCZ…`), so the blueprint can carry the exact value. Otherwise a new `random_password` rotates it. |
 | Q3 | Robot secret target | **Repo-level** (`forgejo_repository_action_secret`). The provider has no user-secret resource, and the publishing repos live under user `jblack/*`. |
 | Q4 | `policybinding` refs | `identifiers: {target: !Find [authentik_core.application,[slug,forgejo]], order: N}` + **exactly one** of `policy`/`group`/`user` in `attrs`. |
@@ -250,7 +255,7 @@ flows (`fbfe9f96-7fcf-450e-b067-a9328f109730`) and the built-in scope mappings `
 ## 11. Execution notes
 
 Findings from **all** passes are folded in: risks **R8–R12** live in §7, questions **Q6–Q10** in §9,
-decisions **D1–D9** in §5. The narrative for every pass — **passes 1–11** — is in
+decisions **D1–D9** in §5. The narrative for every pass — **passes 1–12** — is in
 `FORGEJO-SPLIT-REVIEWS.md`.
 
 ### Gaps found and closed as tasks

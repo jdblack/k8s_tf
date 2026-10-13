@@ -6,9 +6,11 @@ and the reasoning, including things we deliberately rejected.
 
 **Pass index:** 1 correctness · 2 completeness & risk · 3 executability · 4 adversarial premise-check ·
 5 failure simulation · 6 unknowns resolved · 8 hostile findings · 9 priority re-rank (owner) ·
-10 backup strategy (owner) · 11 second hostile run. *(6 ran before 5; sections are labelled, order on disk
-is as-completed.)* **Pass 7 (minimality) was dropped** — Q10 (greenfield is a DR tenet) settled it: Option A,
-the only "smaller" option, is off the table.
+10 backup strategy (owner) · 11 second hostile run · 12 third hostile run · 13 cold read (no-context
+reviewer). *(6 ran before 5; sections are labelled, order on disk is as-completed.)* **Pass 7 (minimality)
+was dropped** — Q10 (greenfield is a DR tenet) settled it: Option A, the only "smaller" option, is off the
+table. *(Naming note: the "D7" in the Pass 5/8 text is the **retired** "blueprint as a Secret key" idea;
+the surviving delivery decision is **D2**.)*
 
 ---
 
@@ -302,5 +304,54 @@ Third adversarial read. **9 defects**, all fixed. Two were *self-inflicted by Pa
 8. **§6 S4 didn't name the mantle module** `forgejo_setup`. Fixed.
 9. **`discovery_url` had no producer.** T3.2 requires it in the `oidc` input, but nothing emitted it —
    now `oidc_blueprint` outputs it (§4).
+
+---
+
+## Pass 13 — cold read (a no-context reviewer) ✅ (all folded)
+
+An independent agent with **zero prior context** read all five docs plus the move script, the live module
+code, and the provider cache. It was positive on the mechanics (DAG acyclic, greenfield bug real, `tls`
+missing, `forgejo_repository_action_secret` exists) and found **14 things**. Every one was valid — the
+best external pass so far.
+
+### Missing (the plan had holes)
+- **M1/D-β — nobody said how `provider "forgejo"` authenticates.** A whole build step with no design.
+  → T4.7 now specifies the house pattern: a `data.kubernetes_secret_v1` on the chart-minted
+  `forgejo-admin` Secret (`host` + `username`/`password`); no new credential.
+- **M2 — provider version unpinned** (every neighbour is pin-exact) → **`svalabs/forgejo` 1.6.1**.
+- **M3 — no rendered-helm-values diff.** T5.7 assumed "exactly one update", i.e. that the re-plumbed OIDC
+  block renders byte-identically. Unproven. → new **T5.0** pre-gate: capture `helm get values` before, and
+  confirm after that only the OAuth `client_secret` moves.
+- **M4 — the exact `discovery_url` string was never stated** (trailing slash included) → spelled out in §4.
+- **M5 — TWO redirect URIs, not one.** `auth.tf` sets the callback **and** `extra_redirect_uris = [site
+  root]`. §9/§10/T1.7 spoke generically; V-C8 named only the callback. → T1.4 + V-C8 now require both.
+- **M6 — no restore drill.** "Data is sacred" (D8) with an untested backup is a wish. → **V-B10**.
+- **M7 — `forgejo_registry_repos` still undecided** → already T3.6/T3.7; confirmed open (it's an owner call).
+
+### Confusing
+- **C1 — pass counter stale by one** (1–11 while Pass 12 existed). Ironic: Pass 12's own fix #2 was the
+   same off-by-one. → **1–12**, index updated.
+- **C2 — D2 and D7 were the same decision**, and "D7" had meant two different things across the log.
+  → merged into **D2**; the log carries a naming note.
+- **C3 — T1.7 said "copy every field verbatim from `auth.tf`"**, but ~6 fields are provider *defaults*
+  absent from that file. → T1.7 now points at `.tmp/authentik-export.yaml` for them.
+- **C4 — the move script's dependency audit was opaque** (and its `".oidc" == d[-5:]` clause was dead
+  code). Reviewer was *half* right: the "outside `module.forgejo`" test already caught the real case, but
+  the message didn't say so. → rewritten: flag only deps that **stay behind**, with the sibling-module
+  reasoning in a comment.
+- **C5 — two backup homes, no statement of precedence** → checklist now says which is authoritative for
+  the surgery vs retention.
+- **C6 — the `oidc` input's values were unstated** (a wrong `scopes`/`group_claim` is a silent R8 break)
+  → §4 gives the exact values.
+
+### Decisions
+- **D-α — preserve vs rotate `client_secret`.** T5.7/R5 hard-assumed rotation while D6 hedged. → **D6 now
+  commits to ROTATE** (a brief mismatch window is accepted under D8).
+- **D-δ — don't carry `email_verified`** into the blueprint (Forgejo uses the built-in `email` mapping)
+  → stated in T1.4.
+
+**Verdict from the cold reader:** *"unusually rigorous… the mechanics, DAG and state-move are sound"*; the
+soft spots were provider auth/version, the unproven byte-identical assumption behind T5.7, the missing
+restore drill, and doc hygiene. All now closed.
 
 
