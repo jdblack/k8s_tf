@@ -100,11 +100,10 @@ Run **after** Phase 6 applies, in order. Any FAIL = investigate before declaring
 
 ## G. Rollback readiness check (do NOT delete yet)
 
-- [ ] V-G1 **⚠️ Pass 18 (H18-3): this check was FALSE as written** — it asserted the D9 vault was
-      *populated*. It is **EMPTY** (`/Users/jblack/backups/forgejo/` holds only `README.md`; `dump/`, `s3/`
-      and `tfstate/` are all 0 bytes), directly contradicting `FORGEJO-SPLIT-CHECKLIST.md`. Corrected check:
-      verify `/Users/jblack/backups/forgejo/{dump,s3,tfstate}` **are populated** — run T6.0 first — and that
-      the `.tmp/backups/*` state files still parse. **An unpopulated vault must FAIL this gate, not pass it.**
+- [ ] V-G1 **D9 vault populated** — ✅ as of Pass 22 it is (`dump/` 8.34 GB gzip-verified, `s3/`, `tfstate/`),
+      but still verify the **fresh T6.0 set**, not this pre-split one. *(History: Pass 18/H18-3 caught that
+      this check was **false as written** — it asserted a populated vault that was in fact empty, directly
+      contradicting the checklist. **An unpopulated vault must FAIL this gate, not pass it.**)*
 - [ ] V-G2 Velero backup `forgejo-pre-split` still `Completed` and within TTL
 - [ ] V-G3 The pre-change state backups are retrievable for at least a few days after cutover
 

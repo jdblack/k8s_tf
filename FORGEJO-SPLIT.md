@@ -17,8 +17,12 @@ Status: REVIEWED — Q1–Q10 answered, D1–D9 decided; full pass trail in `FOR
   200**) — it was a *second symptom* of the same stale line, not an independent blocker. So the narrow
   per-repo PATCH (the plan's *preferred* option) is viable and the over-broad `forgejo_repository` import
   is **avoidable**. Remaining work is only a per-repo write for the pre-existing repos (T3.3).
-- **⚠️ The DR story is the open sore:** the vault is empty, DEF-1/12/13 are load-bearing, and there is **no
-  restore path** (DEF-14). Reviewing the *plan* is done; the *data* side needs its own work.
+- **⚠️ The DR story: the vault is now POPULATED (2026-10-13, Pass 22), but there is still no *tested*
+  restore (DEF-14).** The pre-surgery DR set exists and is verified — `dump/` (**8.34 GB**,
+  `gzip -t` OK, **87/87 repos** + `app.ini` + `forgejo.db`), `s3/` (owner's hand-sync, 1.1 GB),
+  `tfstate/` (fresh; mantle serial 1170 = live) — plus two `Completed` Velero backups, and the daily
+  schedule **does fire** (**DEF-2 resolved**). What is still missing is a **rehearsed restore**;
+  DEF-1/12/13 remain load-bearing. Reviewing the *plan* is done; the *data* side needs the restore drill.
 - **Next step:** freeze these docs and start **Phase 1** — copy-and-trim the live export
   (`.tmp/authentik-export.yaml`) into `modules/auth/authentik/oidc_blueprint/`, then run gate **T1.5**
   (blueprint applies on a scratch name) and **T1.6** (idempotent). **Remember `name = "forgejo"` (T1.3) and

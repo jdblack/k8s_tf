@@ -478,6 +478,7 @@ quietly accepted. Every headline finding was then **re-verified by me by hand** 
 - **R16-3 — the D9 vault is EMPTY.** Only `README.md`; `dump/`, `s3/`, `tfstate/` all **0 bytes** (verified
   myself). The checklist claimed backups "now live" there — a **false** claim of DR cover. The only real
   copy is an in-cluster Velero backup. → Phase 0 corrected; T6.0 is now load-bearing.
+  *(✅ **Pass 22 (below) SUPERSEDES this** — the vault is now populated and independently verified.)*
 - **R16-8 — the rollback push order was undocumented**, and it is the **reverse** of the forward order
   (core first, then mantle); then never apply between pushes.
 - VERIFIED (good news): the Velero backup is real (54/54), the forget-list cannot touch a PVC, the script
@@ -763,5 +764,40 @@ never an independent blocker — it was the *same* stale line seen from the othe
 included — could only ever *hypothesise* about the PATCH, because the defect lived in a **live
 condition** (a flag's interaction with an API route), which no amount of reading the plan can settle.
 The loop closed at the right time; this is the class of thing that only `apply` finds.
+
+---
+
+## Pass 22 — the DR set actually taken + verified (2026-10-13)
+
+Same session as Pass 21, after the owner asked *"did you do backups yet?"* The honest answer was **no**, so
+the missing halves were taken and the existing ones independently verified. (The owner had already hand-synced
+the S3 half — worth stating plainly: **that half was their doing, not this pass's.**)
+
+**What now exists — verified, not assumed**
+
+| Piece | Where | State |
+|---|---|---|
+| `dump/forgejo-20261013-115216.tar.gz` | vault | **8.34 GB**, `gzip -t` = **OK**, full TOC = **10,062 members**, **87/87 repos** + `app.ini` + `data/forgejo.db` |
+| `jblack-foregejo-s3-backup/` (blobs: lfs/avatars/repo-avatars) | vault | **1.1 GB**, owner's hand `aws s3 sync` |
+| `tfstate/` | vault | core **783**, mantle **1170** (= live) |
+| `forgejo-pre-split` | Velero (in-cluster BSL) | **Completed**, 54 items, 0 errors, PVB `…-bzrdf` Completed, expires 2026-11-12 |
+| `forgejo-data-20261013030042` | Velero (in-cluster BSL) | **Completed**, 23 items, 0 errors, PVB `…-7dpvq` Completed, expires **2026-10-20** |
+
+**Findings**
+- **DEF-2 RESOLVED.** The daily `0 3 * * *` schedule **does fire**, and the PVC is genuinely in the backup (a
+  Completed `PodVolumeBackup`, kopia — not just metadata). Caveat: **7-day** expiry, so it is not an archive.
+- **The reconciliation that mattered:** the tar's repo count (**87**) was checked against the live API — which
+  reports a misleadingly round **50** because that *is* its page cap. Paged properly: **87**
+  (`breakglass` 1, `forgejo` 1, `jblack` 26, `storytold` 59). **87 = 87.** *(A "50" taken at face value would
+  have looked like a 37-repo shortfall.)*
+- **`dump` size sanity:** 8.34 GB for a 7.8 GB `/data` — expected. Git packfiles are already compressed, so
+  gzip buys nothing; the archive is *not* bloated with LFS (that lives in S3 and is deliberately skipped).
+- **Vault nit:** the owner's sync landed in `jblack-foregejo-s3-backup/`, so the README's `s3/` is still empty.
+  Harmless, but the naming now disagrees with the README.
+- **Pass 21 bumped the mantle state** (1169 → 1170), so `.tmp/backups/` is one revision stale — T0.7 already
+  mandates re-taking it before Phase 5, and the vault now carries a fresh **1170**.
+
+**Still open:** a **rehearsed restore** (DEF-14). This pass *took* the backups; nothing has *put them back*.
+"Backup" was never the goal — "restore that works" is. That remains the last unproven thing in the picture.
 
 

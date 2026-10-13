@@ -13,11 +13,14 @@ gitignored.
 
 - [ ] **T0.7 — still open: re-take the state backups right before Phase 5** (they will have drifted).
 
-> **Backup home (D9).** ⚠️ **Pass 16 correction: this vault is EMPTY.** `/Users/jblack/backups/forgejo/`
-> contains only `README.md`; `dump/`, `s3/` and `tfstate/` are all **0 bytes** (verified). The earlier claim
-> that durable backups "now live" there was **false** (R16-3). The only real off-cluster copy is the Velero
-> backup `forgejo-pre-split` — and its BSL is **in-cluster** (DEF-13). **T6.0 must therefore run before
-> anyone touches an apply.** `.tmp/backups/` remains the *transient* working area.
+> **Backup home (D9).** ✅ **Pass 22: the vault is POPULATED** (it was empty as of Pass 16/R16-3 — that is
+> now superseded). `/Users/jblack/backups/forgejo/` holds `dump/forgejo-20261013-115216.tar.gz`
+> (**8.34 GB, `gzip -t` OK, 87/87 repos + `app.ini` + `forgejo.db`**), `s3/` (owner's hand-sync, 1.1 GB;
+> ⚠️ landed in `jblack-foregejo-s3-backup/`, not `s3/`), and `tfstate/` (core 783, mantle 1170 = live). Two
+> Velero backups are `Completed` (`forgejo-pre-split`, `forgejo-data-20261013030042`) but their BSL is
+> **in-cluster** (DEF-13), so the off-cluster vault is still the copy that matters. **T6.0 must still
+> RE-TAKE the set immediately before the apply** (this set predates the split) — and the open DR gap is now
+> the **restore drill** (DEF-14), not the backups. `.tmp/backups/` remains the *transient* working area.
 >
 > **Which is authoritative?** For **the surgery**, `.tmp/backups/` — the Phase-5 commands pull there and
 > the move script reads there, and only those files are ever `state push`ed. **D9** is the *durable DR

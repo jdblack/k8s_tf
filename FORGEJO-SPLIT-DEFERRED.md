@@ -14,12 +14,12 @@ Parked as a user todo: see `todo-backup-policy` in memory.
   When: before trusting Longhorn for anything; independent of this split.
   **⚠️ Pass 17 (E17-3): this is LOAD-BEARING for a greenfield rebuild, not cosmetic** — see DEF-14.
 
-- **DEF-2 · `forgejo-data` Velero schedule first run.**
-  Schedule created 2026-10-12T07:38Z; the first `0 3 * * *` tick was **2026-10-13T03:00Z**.
-  **⚠️ Pass 18 (H18-5): the doc's "not yet reached" is STALE — that tick is now in the past.**
-  Action: **confirm the tick actually produced a backup** (and alert if it did not); a schedule that exists
-  but never fires is the failure this item was meant to catch.
-  When: now.
+- **✅ DEF-2 · `forgejo-data` Velero schedule — RESOLVED 2026-10-13 (Pass 22).** The first `0 3 * * *` tick
+  (`03:00Z`) **fired and produced a backup**: `forgejo-data-20261013030042`, **Completed**, 23 items,
+  **0 errors**, and its `PodVolumeBackup …-7dpvq` is **Completed** — so the PVC is genuinely in it, not just
+  metadata. *("A schedule that exists but never fires" is the failure this item existed to catch; it fires.)*
+  ⚠️ Its **7-day** expiry (vs `forgejo-pre-split`'s 30) means the daily schedule is **not** an archive
+  (DEF-13).
 
 - **DEF-3 · `forgejo-data` PVC is only ~18h old.**
   Worth understanding *why* it was recreated (a prior redeploy?). Not blocking.
@@ -89,8 +89,9 @@ Parked as a user todo: see `todo-backup-policy` in memory.
     exists has no `login_source` row and no admin user.
   - **Rotation vs restore:** a restored *old* DB carries the *old* `client_secret` row; the blueprint carries
     the *new* one. That mismatch is **silent** (E17-4) — the login page renders and SSO just fails.
-  - **The vault is empty (R16-3), DEF-1/12/13 are load-bearing, and the only backup shares a failure domain
-    with the cluster being rebuilt.**
+  - **The vault is no longer empty (R16-3 superseded, Pass 22), but DEF-1/12/13 are load-bearing and the
+    only backup shares a failure domain with the cluster being rebuilt.** What is missing is the *restore
+    drill*, not the backup set.
   Action: write + **rehearse** a restore runbook (dump → PVC → pod → OIDC check) and make DEF-1/12/13
   prerequisites, not follow-ups.
   When: **before** this migration is relied upon as DR cover.
