@@ -7,8 +7,9 @@ and the reasoning, including things we deliberately rejected.
 **Pass index:** 1 correctness · 2 completeness & risk · 3 executability · 4 adversarial premise-check ·
 5 failure simulation · 6 unknowns resolved · 8 hostile findings · 9 priority re-rank (owner) ·
 10 backup strategy (owner) · 11 second hostile run · 12 third hostile run · 13 cold read · 14 second cold
-read · 15 directed subagents. *(6 ran before 5; sections are labelled, order on disk is as-completed.)*
-**Pass 7 (minimality) was dropped** — Q10 settled it: Option A, the only "smaller" option, is off the table.
+read · 15 directed subagents · 16 directed subagents (round 2). *(6 ran before 5; sections are labelled,
+order on disk is as-completed.)* **Pass 7 (minimality) was dropped** — Q10 settled it: Option A, the only
+"smaller" option, is off the table.
 
 **Naming, so the letters don't confuse you:** plan decisions are **`D1`–`D9`**; deferred items are
 **`DEF-1`–`DEF-13`** (renamed in Pass 14 — they used to be `D-1…`, which collided). The **"D7"** in the
@@ -438,5 +439,68 @@ All folded into T3.1's DELETE / REWRITE / KEEP / STRUCTURE triage.
   window where both states own the objects. → **Push mantle first, verify it is clean, then core.**
 - **C7c — Phase 3/4 must land before Phase 5**, or core's plan destroys the namespace. Now a Phase-5
   prerequisite gate.
+
+---
+
+## Pass 16 — second directed-agent wave ✅ (all folded)
+
+Three agents, three *different* perspectives, each handed one claim to **falsify** and told that a clean
+"VERIFIED" is a good result. Two of them falsified things; the third falsified a claim we had already
+quietly accepted. Every headline finding was then **re-verified by me by hand** before folding.
+
+### Agent A — Helm value fidelity (hypothesis: *"same values, different sourcing ⇒ byte-identical render"*)
+- **A16-1 — FALSIFIED, by design.** `D6` *rotates* the `client_secret`, so the render is **not** identical:
+  the rendered init flags and the `checksum/oauth_0` annotation change ⇒ the pod rolls (accepted, D8/R9).
+  The word "byte-identical" was doing dishonest work; only **3** keys ever touched the dead symbols
+  (`key`, `secret`, `autoDiscoverUrl`) and the chart emits those flags in **Go-template sorted-key order**,
+  a pure function of the value set. So the *real* claim — "nothing else silently moves" — is **VERIFIED**.
+- **A16-4 — THE SILENT BOMB.** Group names derive as `"${var.name}-admin"`/`"-user"`
+  (`oidc_provider/auth.tf:157-163`). The plan pinned the **consumer** (`forgejo-admin`) but never the
+  **producer**. If the new module's `name != "forgejo"`, authentik creates `forgejo-oidc-admin` while
+  Forgejo is told to read `forgejo-admin` — **login works, nobody is admin, zero errors.** Exactly the
+  silent class R8 exists to catch. → pinned in T1.3 + D3.
+- **A16-6 — doc drift with teeth.** The plan says the OAuth config is "baked into `app.ini`". **It isn't** —
+  it's a DB `login_source` row re-synced by the init container every pod start. Nobody was guarding the
+  wrong thing, but R8's *framing* was. Corrected in T1.7.
+- A16-3: `discovery_url` value verified; construction now pinned (no trailing slash).
+
+### Agent B — rollback realism (hypothesis: *"the documented rollback restores service and loses no data"*)
+- **R16-1 — the rollback command DOESN'T RUN.** §8 said `state push <backup>` with **no `-force`**; after
+  surgery the remote serials are *ahead* (mantle 1170 vs 1169, core 784 vs 783), and terraform **refuses**
+  to write an older serial. The rollback would fail at 3am, mid-incident. → `-force` added.
+- **R16-2 — the rollback could CAUSE the data loss it exists to prevent.** "Restore state, then `apply` to
+  converge back" is a trap: state-without-code renders `destroy namespace` + `destroy bucket` plans, and one
+  careless apply **creates a fresh empty PVC.** → §8 replaced with a **state-only, never-apply drill**.
+- **R16-3 — the D9 vault is EMPTY.** Only `README.md`; `dump/`, `s3/`, `tfstate/` all **0 bytes** (verified
+  myself). The checklist claimed backups "now live" there — a **false** claim of DR cover. The only real
+  copy is an in-cluster Velero backup. → Phase 0 corrected; T6.0 is now load-bearing.
+- **R16-8 — the rollback push order was undocumented**, and it is the **reverse** of the forward order
+  (core first, then mantle); then never apply between pushes.
+- VERIFIED (good news): the Velero backup is real (54/54), the forget-list cannot touch a PVC, the script
+  preserves pre-move bytes, and the **forward** order is destroy-free.
+
+### Agent C — cross-stack coupling (hypothesis: *"nothing silently depends on the other stack being applied first"*)
+- **C16-9 — the big one, and it contradicts a Pass-15 conclusion.** Moving the instance into `core`
+  converts four orderings that were **satisfied for free by cross-stack sequencing** into **unguarded
+  same-stack** ones, because the module reaches its producers through *defaulted string literals*, not
+  module refs: `bucket`/`s3_user` `kubectl exec` into SeaweedFS; `module.backup` needs core's Velero CRDs
+  (core's own analogue has an explicit `depends_on = [module.backup]` — `modules/storage/backup.tf:31`);
+  `expose`/`egress` default to the `private` gateway. **No edge, so a from-scratch `core` apply races.**
+  Invisible during the migration only because the state surgery preserves the live objects — it goes red on
+  rebuild (DEF-11). → T4.1 now demands explicit `depends_on`.
+- **C16-6 — D3's `data.authentik_group` reads an ASYNC producer.** The groups appear when the authentik
+  **worker** ingests the blueprint (start-up or the 60-min scan), not at apply time — so a `mantle plan`
+  that beats the worker fails. → T6.3c gate.
+- **C16-7 — the DAG is a FORK, not a chain.** `forgejo_oidc → {authentik, forgejo}`; D8 retired the only
+  `authentik→forgejo` edge. Still acyclic, but the drawing lied.
+- **C16-8 — T5.7's "exactly one update" was wrong**: `extra_blueprints` mutates the `blueprints.secrets`
+  helm value, so `module.authentik.helm_release.helm` updates **too**. The gate would have STOPPED the
+  operator on an expected change. → corrected to two.
+- Also falsified again: `mantle` was **never** standalone — it already plan-time-reads core's authentik/
+  harbor/argocd Secrets (the acknowledged N8). The split re-labels that dependency; it does not remove it.
+
+**A16-2/A16-5/C16-1..C16-5 all VERIFIED** (three keys touch OIDC; `depends_on` removal harmless; the
+same-stack bug is real; no TF cycle; blueprint-without-provider mechanism sound; `svalabs/forgejo` 1.6.1
+exists). **Net: 11 findings folded, 3 of them capable of causing silent data loss or silent zero-admin.**
 
 

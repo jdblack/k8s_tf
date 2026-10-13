@@ -4,8 +4,9 @@ Status: REVIEWED — Q1–Q10 answered, D1–D9 decided; full pass trail in `FOR
 
 ## RESUME HERE (handoff)
 
-- **State:** the plan is fully reviewed — **15 passes** (12 self, 2 blind cold reads, 3 directed subagents).
-  **Nothing has been built or applied.** Every decision (D1–D9) and question (Q1–Q10) is settled.
+- **State:** the plan is fully reviewed — **16 passes** (12 self, 2 blind cold reads, 6 directed subagents
+  across two waves). **Nothing has been built or applied.** Every decision (D1–D9) and question (Q1–Q10) is
+  settled.
 - **Next step:** freeze these docs and start **Phase 1** — copy-and-trim the live export
   (`.tmp/authentik-export.yaml`) into `modules/auth/authentik/oidc_blueprint/`, then run gate **T1.5**
   (blueprint applies on a scratch name) and **T1.6** (idempotent).
@@ -127,6 +128,14 @@ worker rolls, the OIDC window, downtime during a restore) is a **non-issue**, an
   because it forces core's IdP module to import app-generated YAML and the rollout it dodged is harmless.*
 - **D3 — Groups created by the blueprint** (`forgejo-admin`, `forgejo-user`); `mantle` looks them up
   with `data "authentik_group"`. Avoids cross-stack outputs (no `terraform_remote_state`).
+  **⚠️ Pass 16 (C16-6): this is a NEW cross-stack read of an ASYNC producer.** The groups are created by
+  the authentik **worker** when it ingests the blueprint (start-up or the 60-min scan, R9) — not at
+  terraform-apply time. A `mantle plan` that beats the worker **fails**. Gate: after `core apply`, confirm
+  both groups exist **before** planning mantle (T6.3c).
+  Also (A16-4): the group names derive as `"${var.name}-admin"`/`"-user"` (`oidc_provider/auth.tf:157-163`),
+  so the blueprint module's `name` **must be exactly `forgejo`** — otherwise authentik makes
+  `forgejo-oidc-admin` while Forgejo is told to read `forgejo-admin`: login works, **nobody is admin, zero
+  errors.** Pinned in T1.3.
 - **D4 — Preserve authentik object identity.** Convert by **dropping** the `oidc` entries from the pushed
   mantle state (**forget**), NOT destroying them, so the blueprint **adopts** the existing
   app/provider/groups by identifier → UUIDs (and memberships) survive. Destroy+recreate would break the
@@ -208,14 +217,35 @@ terraform-managed). Everything else below is *availability*, which is **accepted
 
 ## 8. Rollback
 
-- **Before any apply:** `git checkout` the changes; restore state with
-  `tofu state push .tmp/backups/<stack>-<ts>.tfstate` (or re-import from the `.yaml` Secret dumps).
-- **After a bad apply:** restore both states from backups, then `tofu apply` to converge back; worst
-  case, restore the Forgejo PVC contents from the Velero backup `forgejo-pre-split`.
-- **authentik mis-applied:** roll the release back — `helm -n kube-auth rollback authentik 18` (last
-  known-good rev) — **before** re-applying core. A bad blueprint is inert on its own (atomic apply).
-- **Rollback gate:** if `plan` (either stack) shows a `destroy` on `kubernetes_namespace_v1.namespace` or
-  `module.bucket.*`, STOP and restore. (Per D8 a `helm_release.forgejo` destroy is survivable, and a
+> **Pass 16 rewrote this section** — as originally written it **did not work**. The push command omitted
+> `-force`, and after surgery the backups carry *older* serials (mantle 1169 vs 1170, core 783 vs 784), so
+> terraform **refuses** the push exactly when you need it (R16-1). Worse, "restore both states, then
+> `tofu apply` to converge back" is a **data-loss trap** (R16-2).
+
+**Golden rule: Phase 5 is STATE-ONLY — never run `apply` until both plans are clean.** After a botched move
+a stack's state and config disagree, so its plan renders a `destroy` on `kubernetes_namespace_v1.namespace`
+(cascading to the PVC) or `module.bucket.*`. One careless `apply` acts on it and **creates a fresh, empty
+PVC** — silent data loss, the one outcome D8 forbids.
+
+### Rollback drill (exact, in order)
+
+1. **STOP. Apply nothing.** Freeze both stacks.
+2. Revert code: `git checkout -- . && git clean -fd modules/ stacks/` — note the new module dirs are
+   **untracked**, so `checkout` alone will not remove them.
+3. **Push CORE first, then MANTLE (reverse of the forward order)** — never apply between them:
+   - `cd stacks/core   && tofu state push -force .tmp/backups/core-$TS.tfstate   && tofu plan`  → *No changes*
+   - `cd stacks/mantle && tofu state push -force .tmp/backups/mantle-$TS.tfstate && tofu plan`  → *No changes*
+   `-force` is **required** (older serial); it also clobbers post-botch state changes, which is what we want.
+4. Only when **both** plans say *No changes* may anything be applied — and nothing should need it.
+5. Verify PVC identity survived:
+   `kubectl -n devops-forgejo get pvc forgejo-data -o jsonpath='{.spec.volumeName}'` (must be unchanged).
+6. **If a destroy already applied:** `velero restore create --from-backup forgejo-pre-split`. That is now the
+   *only* recovery path — see the D9 note: the off-cluster vault is **empty** (R16-3).
+
+- **authentik mis-applied:** `helm -n kube-auth rollback authentik 18` (last known-good rev) **before**
+  re-applying core. A bad blueprint is inert alone (atomic apply).
+- **Rollback gate:** if either plan shows a `destroy` on `kubernetes_namespace_v1.namespace` or
+  `module.bucket.*`, STOP and run the drill. (Per D8 a `helm_release.forgejo` destroy is survivable, and a
   service gap during any restore is acceptable.)
 
 ## 9. Questions — answered (research pass 6)
@@ -316,9 +346,12 @@ module.forgejo_oidc  (secret in kube-auth, random_password, tls)   -- no deps
         |
         +--> module.forgejo (core)   (input oidc = forgejo_oidc.{client_id,client_secret,discovery_url} + literals)
 ```
-`forgejo_oidc → authentik → forgejo` — acyclic. It only stays acyclic because `forgejo_oidc` derives its
-redirect URI, group names and launch URL from **vars**, never from `module.forgejo`. **No `depends_on` is
-needed** (D8 retired it).
+**Pass 16 correction: this is a FORK, not a chain** — `forgejo_oidc → {authentik, forgejo}`, with **no**
+`forgejo_oidc → authentik → forgejo` edge (D8 retired the only `authentik→forgejo` edge). Acyclic either
+way, so the conclusion holds; the drawn chain was wrong. It stays acyclic only because `forgejo_oidc`
+derives its redirect URI, group names and launch URL from **vars**, never from `module.forgejo`.
+**No `depends_on` is needed *here*** — but see T4.1: the moved module DOES need `depends_on` on the
+**producers it inherited for free** from cross-stack sequencing.
 
 
 

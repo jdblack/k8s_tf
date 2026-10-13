@@ -13,9 +13,11 @@ gitignored.
 
 - [ ] **T0.7 — still open: re-take the state backups right before Phase 5** (they will have drifted).
 
-> **Backup home (D9).** Durable, off-cluster backups now live in **`/Users/jblack/backups/forgejo/`**
-> (`dump/`, `s3/`, `tfstate/`). `.tmp/backups/` remains the *transient* working area. Before this, the only
-> off-box copy was a single Velero backup.
+> **Backup home (D9).** ⚠️ **Pass 16 correction: this vault is EMPTY.** `/Users/jblack/backups/forgejo/`
+> contains only `README.md`; `dump/`, `s3/` and `tfstate/` are all **0 bytes** (verified). The earlier claim
+> that durable backups "now live" there was **false** (R16-3). The only real off-cluster copy is the Velero
+> backup `forgejo-pre-split` — and its BSL is **in-cluster** (DEF-13). **T6.0 must therefore run before
+> anyone touches an apply.** `.tmp/backups/` remains the *transient* working area.
 >
 > **Which is authoritative?** For **the surgery**, `.tmp/backups/` — the Phase-5 commands pull there and
 > the move script reads there, and only those files are ever `state push`ed. **D9** is the *durable DR
@@ -33,7 +35,11 @@ gitignored.
       then copy-and-trim the Forgejo provider/application/mappings/bindings (already saved at
       `.tmp/authentik-export.yaml`)
 - [ ] T1.3 Create `modules/auth/authentik/oidc_blueprint/` (variables, providers, locals,
-      `blueprint.tftpl`, main, outputs)
+      `blueprint.tftpl`, main, outputs).
+      **⛔ `name` MUST be exactly `"forgejo"`** (**A16-4**). The groups derive as `"${var.name}-admin"` /
+      `"-user"` (`oidc_provider/auth.tf:157-163`), and the app/provider adopt by `name` too — any other
+      value makes authentik create `forgejo-oidc-admin` while Forgejo is told to read `forgejo-admin`:
+      **login works, nobody is admin, zero errors.**
 - [ ] T1.4 Reproduce: `forgejo-admin`/`forgejo-user` groups; `groups` + `profile` scope mappings
       (custom expressions); signing cert/key pair (PEMs from `tls_*`); oauth2 provider (client_id = app
       slug, client_secret from `random_password`, built-in flows via `!Find`, property mappings,
@@ -42,6 +48,10 @@ gitignored.
       **Two** redirect URIs, not one: the callback **and** the site root `https://git.<domain>`
       (the old `extra_redirect_uris`). Do **not** carry an `email_verified` scope mapping — Forgejo uses
       the built-in `email` mapping.
+      **Pin the exact `discovery_url`** (**A16-3**):
+      `https://auth.<domain>/application/o/forgejo/.well-known/openid-configuration` — note the
+      `application/o/` prefix and **no trailing slash**. A wrong path is a loud 500 (caught by V-C5), so
+      this is a verification, not a silent risk.
 - [ ] T1.5 **⛔ GATE:** apply the blueprint under a scratch name (`forgejo-oidc-test`); confirm the
       worker logs `applied` and the app appears in authentik; then remove the scratch blueprint + objects
 - [ ] T1.6 Confirm idempotency: re-running the blueprint does not duplicate objects
@@ -51,6 +61,10 @@ gitignored.
       `sub_mode`, `issuer_mode`, `include_claims_in_id_token`, `logout_method`, `access_code_validity`,
       `refresh_token_threshold` are provider *defaults*, visible only in the live
       `.tmp/authentik-export.yaml` (§9). Diff the result against plan §10 (adopt, don't recreate).
+      **Framing correction (A16-6):** the OIDC config is **NOT** in `app.ini` — it is a DB `login_source`
+      row, re-synced by the chart's init container on every pod start. R8's byte-match guards *that row*
+      (and the chart emits its flags in Go-template sorted-key order, so the row is a pure function of the
+      value set) — guard the row, not `app.ini`.
 - [ ] T1.8 **Q6/Q7/Q8 answered** (plan §9): preset `client_secret` honoured; built-ins via `!Find` on
       `managed`; provider adopted by `identifiers: {name: forgejo}`
 - [ ] T1.9 **Q9 answered**: let the `tls_*` signing pair regenerate (blueprint carries the PEMs anyway)
@@ -113,6 +127,13 @@ gitignored.
       outputs):
       **⛔ NO `count` / `for_each` on this module** (**C1** — `harbor`/`argo` use `count`, but doing it here
       shifts every address to `module.forgejo[0]…` and terraform **destroys the namespace**).
+      **⛔ ADD `depends_on` for the producers it used to inherit for free (C16-9).** In `mantle` these were
+      ordered by cross-stack sequencing; inside `core` they are same-stack and **unguarded**, because the
+      module reaches them through *defaulted string literals*, not module references:
+      `depends_on = [module.seaweedfs, module.backup, module.network]` — the `bucket`/`s3_user` submodules
+      `kubectl exec` into SeaweedFS (`stacks/core/storage.tf`); `module.backup` creates the Velero CRDs
+      the `Schedule` needs (core's own analogue does exactly this: `modules/storage/backup.tf:31`); and
+      `expose`/`egress` default to the `private` gateway, which `module.network` creates.
       `oidc = { client_id = module.forgejo_oidc.client_id, client_secret = module.forgejo_oidc.client_secret,`
       `discovery_url = module.forgejo_oidc.discovery_url, scopes = "openid,email,profile,groups",`
       `group_claim = "groups", admin_group = "forgejo-admin", restricted_group = "forgejo-user" }`
@@ -197,8 +218,10 @@ python3 "$ROOT/.tmp/forgejo-split-move.py" "$TS"
       `tofu state list | grep '^module\.forgejo'` (note the **dot** — `module.forgejo_runner` must not match)
 - [ ] T5.7 **⛔ GATE:** `tofu plan` **core** → **0 destroys** (hard). Enumerate the expected non-destroy
       changes and confirm each: adds from `module.forgejo_oidc` (blueprint Secret, `random_password`, tls
-      key+cert) and **exactly one update** — `helm_release.forgejo` values (the new `client_secret`).
-      **Anything else = STOP.**
+      key+cert) and **exactly TWO updates** (**C16-8**): `helm_release.forgejo` (the new `client_secret`)
+      **and** `module.authentik.helm_release.helm` — `extra_blueprints` mutates the `blueprints.secrets`
+      helm value, so the authentik release *will* re-render. That second update is **expected; do NOT STOP
+      on it.** **Anything else = STOP.**
 - [ ] T5.8 **⛔ GATE:** `tofu plan` **mantle** → instance gone with **0 destroys** (**especially none on the
       namespace or the bucket** — D8); CI module adds robot/secrets
 - [ ] T5.9 Verify backups still intact before proceeding
@@ -222,6 +245,12 @@ python3 "$ROOT/.tmp/forgejo-split-move.py" "$TS"
 - [ ] T6.2 `tofu apply` **core** (creates blueprint secret, updates authentik, adopts the release)
 - [ ] T6.3 Verify authentik applied the blueprint (worker log; app appears in authentik)
 - [ ] T6.3b Confirm the **worker** (not just server) rolled out — blueprints mount on the worker only (R10)
+- [ ] T6.3c **⛔ GATE (C16-6):** confirm BOTH `forgejo-admin` and `forgejo-user` exist in authentik **before
+      planning `mantle`** — they are created by the async worker (start-up or the 60-min scan), and
+      `mantle`'s `data.authentik_group` (D3) fails if it beats the worker. Verify:
+      `kubectl -n kube-auth exec deploy/authentik-worker -- ak shell -c 'from authentik.core.models import Group; print([g.name for g in Group.objects.all()])'`
+      Check membership too: the `admin`/`user` umbrella groups in `mantle` nest these, so a missing/renamed
+      group silently drops everyone's rights.
 - [ ] T6.4 `tofu apply` **mantle** (creates robot + repo secrets; re-syncs admins/users groups)
 - [ ] T6.5 `tofu plan` both → **No changes** (idempotency)
 - [ ] T6.6 Verify **other apps still log in** after the apply (V-C10) — the worker roll shouldn't affect
