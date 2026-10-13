@@ -1,1 +1,0 @@
-/Users/jblack/.tfenvs/k8s.tfenv
