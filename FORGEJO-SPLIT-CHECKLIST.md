@@ -313,7 +313,16 @@ gitignored.
       called `forgejo` colliding with `forgejo_runner`). It is **purely additive**: no rework of anything
       built above, which is why dropping now costs nothing.
 - [ ] T4.5 `stacks/mantle/admins.tf` + `users.tf`: `module.forgejo.{admin,user}_group_id` →
-      `data.authentik_group.forgejo_{admin,user}.id`
+      `data.authentik_group.forgejo_{admin,user}.id` (new `data "authentik_group"` blocks in
+      `stacks/mantle/forgejo.tf` — the repo's first use of that data source). Comment carries C16-6 (the
+      groups are created by the **async** worker, so a plan that beats it fails).
+      **⛔ Pass 27 — GATE (silent-failure risk): after this swap, `authentik_group.admin` and
+      `authentik_group.user` must plan NO-OP. Any update = STOP.** Reason, verified: those umbrella groups'
+      `parents` **hardcode the forgejo pks** — `admin` carries `e99a0ce2…` (= `forgejo-admin`), `user`
+      carries `0e04476d…` (= `forgejo-user`). The swap changes the *provenance* of that id from a managed
+      resource's output to a **read of the live group**; if the data source returned anything but the pk,
+      the umbrella groups would **re-nest and everyone would lose admin — silently.** This is the A16-4
+      failure shape, one layer over.
 - [ ] T4.6 `stacks/mantle/forgejo.tf`: runner `instance_url`/`namespace`/`secret` → literals
       (`https://git.<domain>`, `devops-forgejo`, `forgejo-admin`)
 - [ ] T4.7 `stacks/mantle`: add **`svalabs/forgejo` 1.6.1** (pinned) to `required_providers`, plus a
@@ -341,6 +350,22 @@ gitignored.
 > `module.forgejo` before its new state lands.
 > **Also (C4):** the move script's dependency audit reads a `dependencies` field that is **empty in these
 > states** — treat its "(none)" as informational, not as verification of anything.
+> **✅ Pass 27 — PROVE the hazard, don't just warn about it (Flag C).** The runbook jumped from the config
+> edit straight to the push, so the dangerous window is never *seen*. Demonstrate it, in order:
+> 1. **(post-T4.4, pre-push)** `tofu plan` mantle → expect **18 destroys, including
+>    `kubernetes_namespace_v1.namespace`.** ← that *is* the hazard, on screen.
+> 2. `state push mantle-moved-<TS>` → then `tofu state list | grep -E '^module\.forgejo(\.|$)'` must be
+>    **empty** (and `module.forgejo_runner` must still be there).
+> 3. `state push core-moved-<TS>`.
+> 4. `tofu plan` mantle → **0 destroys**. `tofu plan` core → **4 adds** (`forgejo_oidc`) + **2 updates**
+>    (`module.forgejo.helm_release.forgejo` for the client_secret, `module.authentik.helm_release.helm` for
+>    the blueprint Secret) + **0 destroys**.
+> **Push order: mantle first, then core** — the mirror of the rollback order. Removing from mantle first
+> kills the destroy path before core gains the objects.
+> **⚠️ Cross-check the candidates against the plan (Pass 27):** assert `mantle-moved-<TS>`'s `module.forgejo*`
+> set is **address-identical** to core's plan's `module.forgejo.*` set — 17/17, 0 orphans, 0 fresh creates.
+> That makes T0.7's re-verification mechanical. **And note the 18 = 17 managed + 1 `data` cache**
+> (`…module.ingress.data.kubernetes_nodes.all`).
 
 - [ ] T5.0 **Helm-values pre-gate (M3).** *Before any config edit*, capture the current rendered values:
       `helm -n devops-forgejo get values forgejo -o yaml > /tmp/forgejo-values-before.yaml`. After the

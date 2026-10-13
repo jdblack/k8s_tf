@@ -9,7 +9,8 @@ Status: REVIEWED — Q1–Q10 answered, D1–D9 decided; full pass trail in `FOR
   become the leading defect source), **then Passes 21-24**: the first live change (**T3.8**, applied and
   verified), the **DR set taken + proven restorable**, and **two rounds of fresh-context cold reads — 17/17
   real findings, four of which were defects Pass 23's own fold introduced.** Every decision (D1–D9) and
-  question (Q1–Q10) is settled. Move verified sound (18/18 addresses, **re-verified after the apply**).
+  question (Q1–Q10) is settled. Move verified sound (**17 managed resources + 1 `data` cache** transplant
+  verbatim — the frozen "18/18" counts both; re-verified after the apply, and again in Pass 27).
 - **✅ T3.8 RESOLVED and verified live (Pass 21) — was the blocker (G18-1/J19-1).** The stale
   `[repository] DISABLED_REPO_UNITS = repo.actions` is **cleared and applied** (2026-10-13, **1 changed /
   0 destroyed**, helm rev 5→6, clean restart); the line now reads empty and **new repos default to

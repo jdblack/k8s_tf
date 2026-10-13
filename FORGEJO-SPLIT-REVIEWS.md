@@ -685,7 +685,11 @@ meta-audit produced the most uncomfortable result of the whole effort.
   mount and silently never apply); the corrected `grep -E` selects precisely the right address set.
 
 ### N — will the transplant line up? — hypothesis: *"the addresses the move produces are exactly what the new module will produce"*
-**VERIFIED — 18/18 addresses match, indices included.** The script was re-run against **copies** of the real
+**VERIFIED — 18/18 addresses match, indices included.** *(⚠️ **Pass 27 — composition corrected:** the 18 is
+**17 managed resources + 1 `data` cache** — `module.forgejo.module.ingress.data.kubernetes_nodes.all[0]`.
+Both transplant (the script matches by module **prefix**), and a data source in state is only a cache, so it
+cannot destroy anything. But a script that walked `child_modules` instead would **miss** it — T5.4's
+child-module list enumerates no data source. Quote it as "17 + 1", not "18 resources".)* The script was re-run against **copies** of the real
 state: `move=18, forget=15, stay=444, collision=clean`, set-equal both ways, mantle fully cleared, no
 pre-existing overlap, and every moved resource's provider is declared in `stacks/core`. Every index trigger
 was reproduced from the config (the `[0]`s come from `direction="egress"`, `direction="ingress"` +
