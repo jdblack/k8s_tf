@@ -1,6 +1,6 @@
 # Forgejo core/mantle split — PLAN
 
-Status: REVIEWED — passes 1–10 complete, Q1–Q10 answered, D1–D9 decided · Owner: jblack · Scope: `stacks/core`, `stacks/mantle`, `modules/devops/forgejo*`, `modules/auth/authentik*`
+Status: REVIEWED — passes 1–11 complete, Q1–Q10 answered, D1–D9 decided · Owner: jblack · Scope: `stacks/core`, `stacks/mantle`, `modules/devops/forgejo*`, `modules/auth/authentik*`
 
 ## 1. Goal
 
@@ -75,7 +75,8 @@ worker rolls, the OIDC window, downtime during a restore) is a **non-issue**, an
   listener/expose, ingress, egress, backup. Takes the OIDC client as an **input** variable.
 - `modules/devops/forgejo/mantle/` — CI integration: `harbor_robot_account` + `forgejo_*_action_secret`.
 - `modules/auth/authentik/oidc_blueprint/` — **NEW**: emits an authentik **blueprint Secret**
-  (cert/key + client secret templated in); outputs client_id/secret + group names. The provider-based
+  (cert/key + client secret templated in); outputs `client_id`, `client_secret`, **`discovery_url`**
+  (so the stack doesn't have to hand-build it) and the group names. The provider-based
   `oidc_provider` stays for every other app.
 - `modules/auth/authentik/core/` — new input `extra_blueprints` (names appended to `blueprints.secrets`).
 
@@ -137,7 +138,8 @@ Rejected: **A** (no split — leaves `mantle` **greenfield-broken**, violating t
 
 ## 6. Major steps (high level)
 
-1. **S0 — Safety** *(DONE)*: state backups, git commit, off-box Velero backup.
+1. **S0 — Safety** *(DONE)*: state backups, git commit, a Velero backup (note: its BSL is **in-cluster**,
+   so it is not a second failure domain — D-13).
 2. **S1 — Blueprint module.** Build `modules/auth/authentik/oidc_blueprint`; reproduce everything
    `oidc_provider` creates for Forgejo as blueprint entries (groups, scope mappings, signing cert,
    oauth2 provider, application, policy bindings). Verify on a scratch name before touching Forgejo.
@@ -146,12 +148,13 @@ Rejected: **A** (no split — leaves `mantle` **greenfield-broken**, violating t
 4. **S3 — Module split.** Create `forgejo/core` (accept OIDC as input) and `forgejo/mantle`; retire the
    old module files.
 5. **S4 — Stack wiring.** `core` instantiates `forgejo/core` + `oidc_blueprint` + `extra_blueprints`;
-   `mantle` instantiates `forgejo/mantle`; swap `module.forgejo.*` refs (admins/users → data lookups;
-   runner → literals).
+   `mantle` instantiates `forgejo/mantle` as **`module.forgejo_setup`**; swap `module.forgejo.*` refs
+   (admins/users → data lookups; runner → literals).
 6. **S5 — State surgery.** `tofu init` both stacks. Move `module.forgejo.*` **minus `module.oidc`** from
    mantle state to core state (**JSON pull/append/push**). The pushed mantle state already excludes *both*
    the moved entries **and** the `oidc` entries (forgotten, D4) — nothing is `state rm`'d.
-7. **S6 — Apply core**, then **apply mantle**. Both plans must show **zero destroys** before any apply.
+7. **S6 — Apply core**, then **apply mantle**. Both plans must show **zero destroys on the namespace or the
+   bucket** before any apply (D8).
 8. **S7 — Verify & commit** (see VALIDATION).
 
 ## 7. Risks & mitigations
@@ -164,9 +167,9 @@ terraform-managed). Everything else below is *availability*, which is **accepted
 |---|------|--------|------------|
 | R1 | Move botched → terraform plans to **destroy the namespace** | Namespace delete cascades to the PVC → **data loss** | Never apply unless `plan` shows 0 destroys; backups in place; PVC is `keep`-annotated |
 | R2 | authentik objects churn (destroy/recreate) | Group UUIDs change → umbrella `admin`/`user` nesting breaks | D4: **forget** (drop from the pushed state) so the blueprint adopts by identifier |
-| R3 | Brief OIDC/login outage | Users can't SSO during cutover | Break-glass local admin stays; do it in a quiet window |
+| R3 | Brief OIDC/login outage | Users can't SSO during cutover | **Accepted (D8)** — break-glass local admin stays available |
 | R4 | State JSON surgery error | Corrupt state | Backups; validate JSON; `plan` dry-run gates each step |
-| R5 | helm release recreated | Forgejo restarts, possible PVC re-bind | Plan must show no change to `helm_release.forgejo`; PVC `keep` |
+| R5 | helm release **destroyed + recreated** | Forgejo restarts — **survivable** (PVC carries `keep`) → a disruption, not data loss (D8) | Expect exactly **one `update`** to `helm_release.forgejo` (new `client_secret`); a **`destroy` must not appear** (T5.7) |
 | R6 | Blueprint syntax error | authentik worker logs error, OIDC app absent | Build+verify blueprint standalone first (S1) |
 | R7 | client_secret rotation | Forgejo OAuth breaks until helm updates | Accept rotation; ensure helm update lands in the same apply |
 | R8 | Blueprint **fidelity** — `grant_types`, token validities, redirect URIs, `property_mappings` must byte-match today's provider | SSO **silently** breaks (role mapping / all flows rejected) | Copy every field from `oidc_provider/auth.tf` verbatim; diff against §10 |
@@ -175,9 +178,9 @@ terraform-managed). Everything else below is *availability*, which is **accepted
 | R11 | `client_secret` rotation desyncs authentik vs helm | OIDC breaks until both converge | Preserve the secret (Q2) or land both in one apply |
 | R12 | The authentik **worker** rolls (blueprint list changes) | Background tasks / outpost sync pause briefly — **login is NOT affected** (`authentik-server` mounts no blueprints) | Low impact; verify other apps after (V-C10) |
 
-> **R3, R7, R9, R12 are *availability* concerns — ACCEPTED (D8).** No mitigation required; they cost a
-> brief service gap at most. The only rows that matter are the data-loss ones (R1, and R2/R5 insofar as
-> they could cascade).
+> **Under D8, everything except R1 is non-data-loss.** R3/R5/R7/R9/R11/R12 are *availability* — accepted, no
+> mitigation. R2/R6/R8 are *config* risks (fix forward). **R1 is the only data-loss row**, and
+> `module.bucket.*` is the other untouchable object.
 
 ## 8. Rollback
 
@@ -248,7 +251,7 @@ flows (`fbfe9f96-7fcf-450e-b067-a9328f109730`) and the built-in scope mappings `
 ## 11. Execution notes
 
 Findings from **all** passes are folded in: risks **R8–R12** live in §7, questions **Q6–Q10** in §9,
-decisions **D1–D9** in §5. The narrative for every pass — **passes 1–10** — is in
+decisions **D1–D9** in §5. The narrative for every pass — **passes 1–11** — is in
 `FORGEJO-SPLIT-REVIEWS.md`.
 
 ### Gaps found and closed as tasks

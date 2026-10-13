@@ -6,9 +6,9 @@ and the reasoning, including things we deliberately rejected.
 
 **Pass index:** 1 correctness · 2 completeness & risk · 3 executability · 4 adversarial premise-check ·
 5 failure simulation · 6 unknowns resolved · 8 hostile findings · 9 priority re-rank (owner) ·
-10 backup strategy (owner). *(6 ran before 5; sections are labelled, order on disk is as-completed.)*
-**Pass 7 (minimality) was dropped** — Q10 (greenfield is a DR tenet) settled it: Option A, the only
-"smaller" option, is off the table.
+10 backup strategy (owner) · 11 second hostile run. *(6 ran before 5; sections are labelled, order on disk
+is as-completed.)* **Pass 7 (minimality) was dropped** — Q10 (greenfield is a DR tenet) settled it: Option A,
+the only "smaller" option, is off the table.
 
 ---
 
@@ -316,5 +316,35 @@ real gaps.
 14. **§4 never mentioned the `tls` provider** — a required core addition, previously only in T4.9. Added.
 15. **V-C4 was circular** (it leaned on V-A2's "no changes"). Rewritten to check **authentik directly** —
     a changed group UUID would re-read silently and still plan clean.
+
+---
+
+## Pass 12 — third hostile run ✅ (all folded)
+
+Third adversarial read. **9 defects**, all fixed. Two were *self-inflicted by Pass 11's own fixes*.
+
+### Contradiction (the one that mattered)
+1. **§7 R5 outright contradicted T5.7.** R5's mitigation read *"Plan must show **no change** to
+   `helm_release.forgejo`"*, while T5.7 explicitly expects **exactly one update** to it (the new
+   `client_secret`). Two gates, opposite instructions. R5 rewritten: expect exactly one `update`; a
+   **`destroy`** must not appear. (R5 also re-labelled: a helm recreate is *survivable*, D8.)
+
+### Stale (two of them self-inflicted)
+2. **Header + §11 said "passes 1–10"** — because Pass 11's fix set them to 1–10, and then Pass 11 existed.
+   Now **1–11**.
+3. **REVIEWS pass index omitted Pass 11** — it listed 8/9/10 but not the pass that had just happened.
+4. **§7 R3's mitigation still said "do it in a quiet window"** — stale under D8/T6.6 (availability is
+   free). Reworded to "Accepted (D8)".
+5. **§6 S0 called the Velero backup "off-box"** — its BSL is **in-cluster** (D-13), so it shares the
+   failure domain. Corrected.
+6. **§6 S6 said "zero destroys"** — the pre-D8 gate; now "zero destroys on the namespace or the bucket".
+
+### Muddle / small gaps
+7. **§7's closing note mis-grouped the risks** ("R1, and R2/R5 insofar as they could cascade"). R2 is
+   *config*, R5 is *survivable*. Rewritten: **R1 is the only data-loss row**; R2/R6/R8 are config;
+   R3/R5/R7/R9/R11/R12 are availability.
+8. **§6 S4 didn't name the mantle module** `forgejo_setup`. Fixed.
+9. **`discovery_url` had no producer.** T3.2 requires it in the `oidc` input, but nothing emitted it —
+   now `oidc_blueprint` outputs it (§4).
 
 
