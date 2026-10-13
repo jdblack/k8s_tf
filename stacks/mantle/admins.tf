@@ -16,7 +16,7 @@ resource "authentik_group" "admin" {
       module.harbor_setup.admin_group_id,
       module.documents.owncloud_admin_group_id,
       module.pastebin.admin_group_id,
-      module.forgejo.admin_group_id,
+      data.authentik_group.forgejo_admin.id,
       module.vaultwarden.admin_group_id,
     ],
   )

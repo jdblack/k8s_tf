@@ -7,7 +7,7 @@ resource "authentik_group" "user" {
     local.media_user_groups,
     [
       module.pastebin.user_group_id,
-      module.forgejo.user_group_id,
+      data.authentik_group.forgejo_user.id,
       module.documents.owncloud_user_group_id,
       module.vaultwarden.user_group_id,
     ],

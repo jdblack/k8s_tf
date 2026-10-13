@@ -1,12 +1,16 @@
-module "forgejo" {
-  source = "../../modules/devops/forgejo"
+# The Forgejo instance is built by `stacks/core` now; this stack keeps only what reaches *into* the
+# running service. Two things do: the OIDC groups, which the umbrella `admin`/`user` groups nest
+# (admins.tf / users.tf), and the runner's registration token.
+#
+# The groups are created by the authentik blueprint `core` applies, so they are read by name rather
+# than produced by a module. The worker applies that blueprint asynchronously (start-up, or the
+# 60-min scan), so a plan that beats it fails loudly -- the wanted failure mode.
+data "authentik_group" "forgejo_admin" {
+  name = "forgejo-admin"
+}
 
-  domain      = var.deployment.cluster.domains.private
-  cert_issuer = var.deployment.cert_manager.external_issuer
-
-  # authentik stays on the private gateway; OIDC discovery and the token exchange go there.
-  oidc_issuer_base = var.deployment.auth.server
-  host_network     = var.deployment.network.host_cidr
+data "authentik_group" "forgejo_user" {
+  name = "forgejo-user"
 }
 
 # The runner registers with the instance-wide registration token (Admin -> Actions -> Runners),
@@ -17,12 +21,12 @@ module "forgejo" {
 data "external" "forgejo_runner_token" {
   program = ["bash", "-c", <<-EOT
     set -eu
-    ns="${module.forgejo.namespace}"
-    secret="${module.forgejo.name}-admin"
+    ns="devops-forgejo"
+    secret="forgejo-admin"
     user=$(kubectl -n "$ns" get secret "$secret" -o jsonpath='{.data.username}' | base64 -d)
     pass=$(kubectl -n "$ns" get secret "$secret" -o jsonpath='{.data.password}' | base64 -d)
     curl -fsS -u "$user:$pass" \
-      "https://${module.forgejo.fqdn}/api/v1/admin/actions/runners/registration-token" \
+      "https://git.${var.deployment.cluster.domains.private}/api/v1/admin/actions/runners/registration-token" \
       | jq -c '{token}'
   EOT
   ]
@@ -33,6 +37,6 @@ data "external" "forgejo_runner_token" {
 module "forgejo_runner" {
   source = "../../modules/devops/forgejo-runner"
 
-  instance_url       = "https://${module.forgejo.fqdn}"
+  instance_url       = "https://git.${var.deployment.cluster.domains.private}"
   registration_token = data.external.forgejo_runner_token.result.token
 }
