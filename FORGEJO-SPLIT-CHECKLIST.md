@@ -201,7 +201,7 @@ gitignored.
       comma-separated, non-empty, contains `openid` **and** `groups`. Validate `admin_group`/
       `restricted_group` are non-empty **and equal the names the blueprint creates** — that link is
       currently two independent hand-written strings (F17-2/F17-3), so make it structural or validate it.
-- [ ] T3.3 ⏸️ **PARKED 2026-10-13 (DEF-15).** Create `modules/devops/forgejo/mantle/` = `harbor_robot_account` +
+- [x] T3.3 **✅ DONE 2026-10-13.** Created `modules/devops/forgejo/mantle/` = `harbor_robot_account` +
       `forgejo_repository_action_secret` (names `HARBOR_USER` / `HARBOR_TOKEN`), `variables`, `outputs`,
       `providers`.
       **⛔ Pass 18 (G18-2): `forgejo_repository_action_secret` takes a NUMERIC `repository_id`, not
@@ -253,9 +253,10 @@ gitignored.
       plan's *preferred* narrow-PATCH route works, so the over-broad `forgejo_repository` **import is
       avoidable** (G18-3/O20-2). Gate: `GET /api/v1/repos/<owner>/<repo>/actions/secrets` → **200**.
       Probe repo left in place: `breakglass/actions-probe` (private, disposable).
-- [ ] T3.6 ⏸️ **PARKED 2026-10-13 (DEF-15).** **Decide the repo list** for `forgejo_registry_repos` (owner/name) — the plan does not name
+- [x] T3.6 **✅ DONE 2026-10-13.** The repo list is DECIDED: **`["jblack/ellmephant"]`** (owner's call). The plan does not name
       them. Default `[]` means **no secrets are created** and V-E4 cannot pass.
-- [ ] T3.7 ⏸️ **PARKED 2026-10-13 (DEF-15).** **Declare `forgejo_registry_repos`** in `stacks/mantle/variables.tf` and thread it into the
+- [x] T3.7 **✅ DONE 2026-10-13.** `forgejo_registry_repos` declared in `stacks/mantle/variables.tf`
+      (default `["jblack/ellmephant"]`) and threaded into the
       module (it was in the parked prototype; currently unowned).
 - [ ] T3.4 `git rm` the superseded old `modules/devops/forgejo/*.tf` — do NOT leave both
       **Unblocked by the T4.4 decision** (drop, not repoint): do this **after** T4.4 removes the module from
@@ -325,7 +326,7 @@ gitignored.
       failure shape, one layer over.
 - [ ] T4.6 `stacks/mantle/forgejo.tf`: runner `instance_url`/`namespace`/`secret` → literals
       (`https://git.<domain>`, `devops-forgejo`, `forgejo-admin`)
-- [ ] T4.7 `stacks/mantle`: add **`svalabs/forgejo` 1.6.1** (pinned) to `required_providers`, plus a
+- [x] T4.7 **✅ DONE 2026-10-13.** `stacks/mantle`: **`svalabs/forgejo` 1.6.1** (pinned) added to `required_providers`, plus a
       `provider "forgejo"` block — `host = https://git.<domain>` and `username`/`password` from a new
       **`data.kubernetes_secret_v1`** on the chart-minted `forgejo-admin` Secret (house pattern; no new
       credential). **← M1: this wiring was previously missing.**

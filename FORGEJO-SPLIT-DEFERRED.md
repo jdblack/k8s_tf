@@ -32,12 +32,21 @@ Parked as a user todo: see `todo-backup-policy` in memory.
   **⚠️ Pass 17 (E17-3): LOAD-BEARING** — the only backup shares a failure domain with the cluster it would
   have to rebuild.
 
-## PARKED — the Harbor → Actions half (owner decision, 2026-10-13)
+## DELIVERED 2026-10-13 — the Harbor → Actions half (was PARKED by owner decision)
 
-- **DEF-15 · The `forgejo/mantle` module is PARKED.** Owner: *"I don't care about actions right now. Can we
-  work on that later?"* Parked: **T3.3** (`forgejo/mantle` = `harbor_robot_account` +
-  `forgejo_repository_action_secret`), **T3.6** (the `forgejo_registry_repos` list), **T3.7** (declare the
-  variable), and the per-repo PATCH.
+**✅ DELIVERED for one repository.** Unparked later the same day: *"I just want to do an action on ellmephant
+for now. A forgejo runner that builds the image and pushes it to harbor whenever a commit goes to dev."*
+Built and applied: `modules/devops/forgejo/mantle/` (the robot + the two secrets), the
+`forgejo_registry_repos` allow-list (`["jblack/ellmephant"]`), `svalabs/forgejo` 1.6.1 in `stacks/mantle`, and
+`.forgejo/workflows/publish-dev.yml` in ellmephant. **Verified live end to end: a push to `dev` builds with
+Docker on the cluster and pushes `edge` + `sha-<short>` to `harbor.vn.linuxguru.net/library/ellmephant`
+(V-E1…V-E6 all green).** The parked plan below is kept as the record of what was intended.
+
+- **DEF-15 · (was PARKED, now delivered) The `forgejo/mantle` module.** Owner: *"I don't care about actions
+  right now. Can we work on that later?"*, then later *"I just want to do an action on ellmephant for now."*
+  Parked, then delivered: **T3.3** (`forgejo/mantle` = `harbor_robot_account` +
+  `forgejo_repository_action_secret`), **T3.6** (the `forgejo_registry_repos` list — resolved to exactly one
+  repo), **T3.7** (the variable), and the per-repo PATCH (done by hand on `jblack/ellmephant`).
   **Data for when it unparks** — I scanned all 26 `jblack/*` repos: **12 have a `Dockerfile`**, **6 have a
   CI workflow**, and **3 have both** (`jblack/billmebabe-api`, `jblack/ellmephant`, `jblack/newsapi`) —
   those three are the obvious first entries. Zero repos have `.forgejo/workflows`, i.e. nobody has ever used
@@ -55,7 +64,9 @@ Parked as a user todo: see `todo-backup-policy` in memory.
   section E (V-E1…V-E6) is inapplicable.**
   **NOT parked:** **T3.8** — the global flag is already cleared and applied (Pass 21); reverting it would be
   pointless churn.
-  When: whenever CI pushing images to Harbor actually matters.
+  When: was *"whenever CI pushing images to Harbor actually matters"* — it mattered on 2026-10-13, and was
+  delivered the same day. **To widen it: add `owner/name` entries to `forgejo_registry_repos` (and enable
+  each repo's Actions unit first — see the checklist's T3.3).**
 
 ## Follow-ups on this change
 

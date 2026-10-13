@@ -81,16 +81,25 @@ Run **after** Phase 6 applies, in order. Any FAIL = investigate before declaring
 - [ ] V-D3 Runner pod mounts **no** `kube-api-access-*` volume (hardening intact)
 - [ ] V-D4 Submit a trivial workflow and confirm it runs green (real end-to-end)
 
-## E. The actual goal — Harbor push path
+## E. The actual goal — Harbor push path  ✅ ALL GREEN 2026-10-13
 
-- [ ] V-E1 `harbor_robot_account.forgejo` exists in Harbor: `robot$library+forgejo` (project `library`)
-- [ ] V-E2 It has **no expiry** (`duration` unset → `expires_at = -1`) — verify via Harbor API
-- [ ] V-E3 Permissions exactly: `repository: pull+push`, `tag: create+list`, **no delete**
-- [ ] V-E4 Forgejo Actions secrets present on the intended repos: `HARBOR_USER` (= `robot$library+forgejo`)
-      and `HARBOR_TOKEN` — via `GET /api/v1/repos/<owner>/<repo>/actions/secrets`
-- [ ] V-E5 **End-to-end:** a workflow does `docker login` + `docker push` to
-      `harbor.vn.linuxguru.net/library/<test>` and succeeds; image visible in Harbor
-- [ ] V-E6 Anonymous pull still works for `library` (public) from a scratch pod
+Delivered and verified live: `.forgejo/workflows/publish-dev.yml` in ellmephant, run 5 (`publish`, event
+`push` to `dev`), **status `success`**.
+
+- [x] V-E1 `harbor_robot_account.forgejo` exists in Harbor: **`robot$library+forgejo`** (project `library`).
+      Read from state (the robot-list API does not surface project robots — a Harbor quirk):
+      `full_name = "robot$library+forgejo"`, `robot_id = "2"`, `level = "project"`.
+- [x] V-E2 **No expiry** — state `duration = -1`.
+- [x] V-E3 Permissions exactly: `repository: pull`, `repository: push`, `tag: create`, `tag: list` — and
+      **no delete**, verified as the full permission set in state.
+- [x] V-E4 Both secrets present on `jblack/ellmephant` — `HARBOR_USER` + `HARBOR_TOKEN`
+      (`GET .../actions/secrets`, both `created_at 2026-10-13T08:04:42Z`).
+- [x] V-E5 **End-to-end:** run 5 logged in (`Login Succeeded`), built, and pushed
+      `harbor.vn.linuxguru.net/library/ellmephant:sha-ec9f28b` **and** `:edge`
+      (digest `sha256:1c0c6114…`). Confirmed in Harbor: one artifact, tags `["edge","sha-ec9f28b"]`,
+      `push_time 2026-10-13T08:10:53Z`.
+- [x] V-E6 Anonymous pull works for `library` (public): got a token from `/service/token` with **no
+      credentials** and listed the tags successfully.
 
 ## F. Provider plumbing
 
