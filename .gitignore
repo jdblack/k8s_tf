@@ -2,4 +2,5 @@
 .terraform
 terraform.tfvars
 .DS_Store
+.tmp/
 

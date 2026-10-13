@@ -9,8 +9,10 @@ module "egress_baseline" {
   allow_k8s_api = true
 }
 
-# The Forgejo instance, its git repos, and the upload of job logs/artifacts all ride the private
-# gateway, so a single peer to the gateway pod covers them.
+# The private gateway carries Forgejo (the instance, git repos, job log/artifact upload) AND
+# Harbor, which both resolve to the same VIP -> the same gateway pod, so this one peer covers
+# them. Reach them by their gateway names (git.<domain>, harbor.<domain>); an in-cluster Service
+# name is a different namespace peer and is NOT admitted.
 module "egress_gateway" {
   source    = "../../network/firewalls/policy"
   direction = "egress"

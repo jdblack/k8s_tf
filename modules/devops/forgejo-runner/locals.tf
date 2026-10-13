@@ -13,6 +13,32 @@ locals {
     # The chart renders the DinD sidecar unconditionally, and dockerd needs a privileged pod.
     securityContext = { privileged = true }
 
+    # The pod executes arbitrary repo code and has no business holding an API token. The chart's
+    # register hook carries its own ServiceAccount, so this only strips the runtime pod.
+    serviceAccount = { automount = false }
+
+    # Bound the pod so a runaway job cannot starve its node. The runner just polls and drives the
+    # daemon; the daemon runs the actual job containers, so it carries the weight.
+    resources = var.resources
+    dind      = { resources = var.dind_resources }
+
+    # k8smaster carries no control-plane label or taint, so the controller node is excluded by
+    # hostname -- same device as modules/media/plex.tf. Untrusted code stays off the node that
+    # hosts the API server, etcd and most of the cluster.
+    affinity = {
+      nodeAffinity = {
+        requiredDuringSchedulingIgnoredDuringExecution = {
+          nodeSelectorTerms = [{
+            matchExpressions = [{
+              key      = "kubernetes.io/hostname"
+              operator = "NotIn"
+              values   = var.excluded_nodes
+            }]
+          }]
+        }
+      }
+    }
+
     runner = {
       config = {
         # Registration is the chart's pre-install Job: it exchanges the token below for the

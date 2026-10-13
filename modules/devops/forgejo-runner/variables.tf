@@ -50,3 +50,29 @@ variable "image_tag" { default = "12.7.3" }
 # actions it clones through the same gateway address.
 variable "gateway_name" { default = "private" }
 variable "gateway_namespace" { default = "kube-network" }
+
+variable "resources" {
+  type = object({
+    requests = map(string)
+    limits   = map(string)
+  })
+  default = {
+    requests = { cpu = "250m", memory = "256Mi" }
+    limits   = { cpu = "1", memory = "1Gi" }
+  }
+}
+
+variable "dind_resources" {
+  type = object({
+    requests = map(string)
+    limits   = map(string)
+  })
+  default = {
+    requests = { cpu = "500m", memory = "1Gi" }
+    limits   = { cpu = "4", memory = "8Gi" }
+  }
+}
+
+# Nodes the runner must never land on. k8smaster has no control-plane label or taint, so it is
+# named by hostname: untrusted repo code stays off the node running the API server and etcd.
+variable "excluded_nodes" { default = ["k8smaster"] }
