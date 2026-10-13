@@ -11,12 +11,15 @@ Done 2026-10-13: state pulls + backend-Secret dumps (`.tmp/backups/`), pre-chang
 (plan §10), Velero backup `forgejo-pre-split` (Completed 54/54), git committed (`4513f9c`), `.tmp/`
 gitignored.
 
-- [ ] **T0.7 — still open: re-take the state backups right before Phase 5** (they will have drifted).
+- [x] **T0.7 — RE-TAKEN 2026-10-13 (`TS=20261013-120046`), after the Pass-21 apply bumped the mantle serial.**
+  The move dry-run was re-run on the fresh set and reproduced the frozen audit **exactly** (477 → 18/15/444,
+  collision clean, no dep escapes). **Still re-take immediately before Phase 5** — any further apply drifts
+  them again.
 
 > **Backup home (D9).** ✅ **Pass 22: the vault is POPULATED** (it was empty as of Pass 16/R16-3 — that is
 > now superseded). `/Users/jblack/backups/forgejo/` holds `dump/forgejo-20261013-115216.tar.gz`
-> (**8.34 GB, `gzip -t` OK, 87/87 repos + `app.ini` + `forgejo.db`**), `s3/` (owner's hand-sync, 1.1 GB;
-> ⚠️ landed in `jblack-foregejo-s3-backup/`, not `s3/`), and `tfstate/` (core 783, mantle 1170 = live). Two
+> (**8.34 GB, `gzip -t` OK, 87/87 repos + `app.ini` + `forgejo.db`**), `s3/` (owner's hand-sync, 1.1 GB),
+> and `tfstate/` (core 783, mantle 1170 = live). Two
 > Velero backups are `Completed` (`forgejo-pre-split`, `forgejo-data-20261013030042`) but their BSL is
 > **in-cluster** (DEF-13), so the off-cluster vault is still the copy that matters. **T6.0 must still
 > RE-TAKE the set immediately before the apply** (this set predates the split) — and the open DR gap is now

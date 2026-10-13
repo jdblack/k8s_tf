@@ -792,10 +792,15 @@ the S3 half — worth stating plainly: **that half was their doing, not this pas
   have looked like a 37-repo shortfall.)*
 - **`dump` size sanity:** 8.34 GB for a 7.8 GB `/data` — expected. Git packfiles are already compressed, so
   gzip buys nothing; the archive is *not* bloated with LFS (that lives in S3 and is deliberately skipped).
-- **Vault nit:** the owner's sync landed in `jblack-foregejo-s3-backup/`, so the README's `s3/` is still empty.
-  Harmless, but the naming now disagrees with the README.
-- **Pass 21 bumped the mantle state** (1169 → 1170), so `.tmp/backups/` is one revision stale — T0.7 already
-  mandates re-taking it before Phase 5, and the vault now carries a fresh **1170**.
+- ✅ **Vault nit fixed:** the owner's sync had landed in `jblack-foregejo-s3-backup/`; it is now moved to the
+  README's `s3/` (1.1 GB) and the alias dir is gone.
+- ✅ **The frozen transplant RE-VERIFIED against current state.** Fresh pulls (`TS=20261013-120046`) re-run
+  through the move script give the **identical** audit: total **477 → move 18 / forget 15 / stay 444**,
+  collision **clean**, **no** dependency escapes, the same 10 module paths, all 5 providers present.
+  **Pass 21's apply did not disturb the surgery.** (`.last-ts` now points at the fresh set; new `-moved-`
+  candidates were regenerated.)
+- **Pass 21 bumped the mantle state** (1169 → 1170), so `.tmp/backups/` went one revision stale — **T0.7
+  re-took it** (see the re-verification above) and the vault carries a fresh **1170**.
 
 **Restore test — the part DEF-14 says nobody ever does.** The archive was **opened**, not just weighed:
 - `gzip -t` → OK; the full TOC parsed with no truncation (10,062 members).
