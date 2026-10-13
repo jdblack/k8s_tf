@@ -14,3 +14,12 @@ variable "shared_size" { default = "10Gi" }
 
 variable "hello_image" { default = "docker.io/library/nginx:1.27-alpine" }
 variable "heartbeat_image" { default = "docker.io/library/busybox:1.36" }
+
+# The resident Cline is OFF until a model credential exists as a Secret in the namespace. Creating
+# that Secret is HUMAN-GATED: never copy James's key without his ok. See `todo-cline-pod`.
+variable "enable_resident" {
+  type    = bool
+  default = false
+}
+
+variable "resident_image" { default = "harbor.vn.linuxguru.net/library/cline:3.0.71" }

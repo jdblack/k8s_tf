@@ -5,10 +5,15 @@ locals {
     "cline-home/owner"             = "cline"
   }
 
-  # The hello deployment's own selector: distinct from the namespace-wide labels so the Service
-  # and Deployment agree on exactly one workload.
+  # The hello deployment's selector.
   hello_labels = {
     "app.kubernetes.io/name"    = "cline-hello"
+    "app.kubernetes.io/part-of" = "cline-home"
+  }
+
+  # The resident Cline's selector.
+  resident_labels = {
+    "app.kubernetes.io/name"    = "resident-cline"
     "app.kubernetes.io/part-of" = "cline-home"
   }
 }
