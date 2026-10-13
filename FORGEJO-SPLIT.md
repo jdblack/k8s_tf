@@ -117,8 +117,10 @@ worker rolls, the OIDC window, downtime during a restore) is a **non-issue**, an
   app/provider/groups by identifier → UUIDs (and memberships) survive. Destroy+recreate would break the
   umbrella `admin`/`user` nesting in `mantle`.
 - **D5 — Address-preserving state move.** Both stacks name the module `module.forgejo` with identical
-  submodule paths, so state entries transplant **verbatim**. Required because `terraform_data.bucket`
-  / `terraform_data.user` **cannot be imported**.
+  submodule paths, so state entries transplant **verbatim**. *(Correction, Pass 15: the earlier "because
+  `terraform_data` cannot be imported" rationale is **wrong** — verified on OpenTofu 1.13.1 that
+  `terraform_data` imports cleanly. JSON surgery is still the right method: it preserves object identity
+  and cannot re-create anything.)*
 - **D6 — Keep `client_id` = app slug `forgejo`; ROTATE the `client_secret`.** A new `random_password` feeds
   both the blueprint and the helm values in the same apply. Expect **one `update` to
   `helm_release.forgejo`** plus a brief window where the two disagree — accepted (D8). *Preservation is
@@ -212,7 +214,7 @@ That export is a **ready-made blueprint template** for every object, incl. the F
 | Q1 | Blueprint delivery | **Extend `blueprints.secrets`** with the plan's Secret (**D2**): the chart mounts it on the **worker only**; authentik discovers `*.yaml` on worker start or the periodic scan (default **60 min**). **No login impact.** |
 | Q2 | `client_secret` rotation | **Preservable** — the export prints the current secret in clear (`client_secret: ElCZ…`), so the blueprint can carry the exact value. Otherwise a new `random_password` rotates it. |
 | Q3 | Robot secret target | **Repo-level** (`forgejo_repository_action_secret`). The provider has no user-secret resource, and the publishing repos live under user `jblack/*`. |
-| Q4 | `policybinding` refs | `identifiers: {target: !Find [authentik_core.application,[slug,forgejo]], order: N}` + **exactly one** of `policy`/`group`/`user` in `attrs`. |
+| Q4 | `policybinding` refs | **Both Forgejo bindings sit at `order: 0` on the same target**, so `{target, order}` cannot tell them apart (`.first()` returns one row for both). Identify by **`{target, group}`**: `identifiers: {target: !Find [authentik_core.application,[slug,forgejo]], group: !Find [authentik_core.group,[name,forgejo-admin]]}`, plus exactly one of `policy`/`group`/`user` in `attrs`. |
 | Q5 | `certificatekeypair` | `attrs: {name, certificate_data, key_data}` (PEMs from `tls_*`); identify by `name`. Note the export **omits** cert/key (write-only) → we must supply them. |
 | Q6 | Preset `client_secret` honoured? | **Yes** — it's a model field on the provider and it round-trips in the export. |
 | Q7 | Built-in scope mappings | `!Find [authentik_providers_oauth2.scopemapping, [managed, "goauthentik.io/providers/oauth2/scope-openid"]]` (also `scope-email`, `scope-offline_access`). Custom `groups`/`profile` mappings: **identify by `name`** (unique per app) — `scope_name` repeats across apps (immich has its own `profile`). |
@@ -231,6 +233,14 @@ That export is a **ready-made blueprint template** for every object, incl. the F
 - `property_mappings` = 5: custom `groups`+`profile`, built-in `openid`+`email`+`offline_access`.
 - Application: `slug`/`name` = `forgejo`, `provider`, `meta_icon`, `meta_launch_url`, `open_in_new_tab: true`,
   `policy_engine_mode: any`.
+- **`signing_key`** — the live provider points at cert pk `4f322590…`. Adoption-by-`name` preserves that
+  pk, but **set it explicitly** (`signing_key: !Find [authentik_crypto.certificatekeypair, [name,
+  forgejo-signing]]`) so it can never silently resolve to a new cert; losing the signing key invalidates
+  every issued token.
+- **`client_secret` must be ASCII** — authentik's `validate_client_secret` rejects non-ASCII, so the
+  `random_password` needs `special = false` (or an ASCII-safe `override_special`).
+- `client_secret` in `attrs` is re-applied on **every** apply — keep the value stable (a terraform
+  `random_password` is) or you rotate the OAuth client on each run and break Forgejo's baked `app.ini`.
 - **Blueprints are atomic** — one bad entry rolls back the whole blueprint (good: no partial state).
 - `metadata.labels.blueprints.goauthentik.io/instantiate: "false"` disables auto-instantiation (escape hatch).
 

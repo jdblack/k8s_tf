@@ -7,8 +7,8 @@ and the reasoning, including things we deliberately rejected.
 **Pass index:** 1 correctness · 2 completeness & risk · 3 executability · 4 adversarial premise-check ·
 5 failure simulation · 6 unknowns resolved · 8 hostile findings · 9 priority re-rank (owner) ·
 10 backup strategy (owner) · 11 second hostile run · 12 third hostile run · 13 cold read · 14 second cold
-read. *(6 ran before 5; sections are labelled, order on disk is as-completed.)* **Pass 7 (minimality) was
-dropped** — Q10 settled it: Option A, the only "smaller" option, is off the table.
+read · 15 directed subagents. *(6 ran before 5; sections are labelled, order on disk is as-completed.)*
+**Pass 7 (minimality) was dropped** — Q10 settled it: Option A, the only "smaller" option, is off the table.
 
 **Naming, so the letters don't confuse you:** plan decisions are **`D1`–`D9`**; deferred items are
 **`DEF-1`–`DEF-13`** (renamed in Pass 14 — they used to be `D-1…`, which collided). The **"D7"** in the
@@ -393,5 +393,50 @@ It found **8 more**, and the important ones were real **Phase-3 traps**:
 **Reader's bottom line:** *"the risks/gates are solid… the soft spots are all in Phase 3's 'trim the oidc
 bits' step — it's described by pattern (`minus oidc_*`, `.*`) where it needs an exact symbol list."*
 Agreed, and now it has one.
+
+---
+
+## Pass 15 — three directed subagents ✅ (all folded)
+
+Rather than another blind read, three subagents were spawned with **specific hypotheses to falsify**, each
+told to be adversarial and cite evidence. They found **more than either cold read**, and one of them
+disproved a claim I had asserted for twelve passes.
+
+### A — authentik blueprint feasibility: *verified*, with two hard catches
+All eight claimed mechanics **VERIFIED** (against authentik's own source, the live export, and upstream
+blueprints): identifier-based adoption, `client_secret` writable, `!Find` on `managed`, custom scope
+mappings by `name`, cert PEMs, atomicity, and `redirect_uris` (not `allowed_redirect_uris`).
+- **A1 — the two policy bindings are BOTH `order: 0` on the same target.** `identifiers: {target, order}`
+  therefore **cannot distinguish them** — `.first()` returns one row for both, leaving an orphan binding or
+  spawning a third, thrashing every apply. → **Q4 corrected to identify by `{target, group}`.**
+- **A2 — `signing_key` was never in the fidelity list.** Adoption-by-`name` preserves the pk, but it must be
+  set explicitly or it could silently resolve to a new cert → invalid tokens. Added.
+- **A3 — `client_secret` must be ASCII** (`validate_client_secret`), and it is re-applied every apply.
+  Both added to §9.
+
+### B — symbol completeness: 5 real MISSES
+- **B1 — `variable "auth_gateway_name"`.** Its comment claims *"Only the OIDC egress peer uses this"*, so a
+  literal "delete the OIDC bits" deletes it — but `egress.tf:22` uses it for the gateway peer that also
+  carries **S3**. Deleting it → dangling var → validate fails. **KEEP**, and fix the lying comment.
+- **B2/B3/B4 — the kept `gitea.oauth` block** (`locals.tf:86-92`): `key`/`secret` still read the dead
+  module, `autoDiscoverUrl` eats the **deleted** `local.oidc_issuer`, and `adminGroup`/`restrictedGroup`
+  had **no named consumer** for the new input keys.
+- **B5 — `authentik` in `providers.tf`** was only implied, not named.
+All folded into T3.1's DELETE / REWRITE / KEEP / STRUCTURE triage.
+
+### C — state-move verification: *the audit was worthless, and I was wrong about imports*
+- **C3 — `terraform_data` CAN be imported.** I asserted the opposite for twelve passes as D5's whole
+  justification. **Verified myself on OpenTofu 1.13.1: `Import successful!`** → D5's rationale corrected
+  (JSON surgery is still right, but for identity-preservation, not importability).
+- **C4 — the script's dependency audit is vacuous.** It reads a `dependencies` field that is **empty in
+  these states**, so `"stale deps: none"` verified nothing. Annotated; the check itself is now advisory.
+- **C1 — the count-index trap.** `…expose.module.http_route[0]` exists only because `backend_name != ""`;
+  drop it and terraform **destroys the git HTTPRoute**. And declaring `module "forgejo"` with `count`
+  (as `harbor`/`argo` do) would shift every address to `[0]` and **destroy the namespace**. Both now
+  hard-flagged.
+- **C7b — the double push is not transactional.** Two backends, no transaction: pushing core first leaves a
+  window where both states own the objects. → **Push mantle first, verify it is clean, then core.**
+- **C7c — Phase 3/4 must land before Phase 5**, or core's plan destroys the namespace. Now a Phase-5
+  prerequisite gate.
 
 

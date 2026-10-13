@@ -68,15 +68,27 @@ gitignored.
 ## Phase 3 — Module split
 
 - [ ] T3.1 Create `modules/devops/forgejo/core/`: `namespace`, `helm`, `storage`, `listener`, `ingress`,
-      `egress`, `backup`, `locals`, `outputs`, `providers` (helm/kubernetes/kubectl), `variables`.
-      **Exact triage of the OIDC bits — do NOT hand-wave "minus `oidc_*`" (N2):**
+      `egress`, `backup`, `locals`, `outputs`, `providers`, `variables`.
+      **Exact symbol triage — do NOT hand-wave "minus `oidc_*`" (N2/B). Every line below is a real
+      reference; a literal reading of "delete the OIDC bits" breaks the build or silently changes
+      `app.ini`:**
       - **DELETE:** `auth.tf` (whole file); `local.oidc_issuer`; `variable "oidc_issuer_base"`;
-        `outputs.{client_id,admin_group_id,user_group_id}`; **and the `module.oidc` entry in `helm.tf`'s
-        `depends_on`** (N1 — it is `[module.bucket, module.s3_user, module.oidc]`; leave it and
-        `tofu validate` dies with *reference to undeclared module*).
-      - **KEEP:** `local.oidc_source_name = "authentik"` (it names the OAuth source at `locals.tf:84`);
-        delete it and the source is silently renamed → `app.ini` changes → an R8 break. Also keep the
-        `gitea.oauth` block (now fed from the input).
+        `outputs.{client_id,admin_group_id,user_group_id}`; the `module.oidc` entry in `helm.tf`'s
+        `depends_on` (N1 — `[module.bucket, module.s3_user, module.oidc]`); and **`authentik` from
+        `providers.tf`'s `required_providers`** (B5 — otherwise a dead provider lingers).
+      - **REWRITE (the kept `gitea.oauth` block, `locals.tf:83-93`):** `key`/`secret` (B3) and
+        `autoDiscoverUrl` (**B4** — it reads the *deleted* `local.oidc_issuer`) come from the `oidc`
+        input; `adminGroup`/`restrictedGroup` (B2) take the input's `admin_group`/`restricted_group`
+        **or** keep deriving `${var.name}-admin`/`-user` — **decide, or the new input keys have no
+        consumer.**
+      - **KEEP (do NOT touch):** `local.oidc_source_name = "authentik"` (names the OAuth source; N2);
+        **`variable "auth_gateway_name"`** (**B1** — its comment lies: it feeds the `egress_gateway` peer
+        at `egress.tf:22`, which carries **S3 as well as authentik**; delete it and validate dies) —
+        **and fix that stale comment while you are there.**
+      - **STRUCTURE (C1, load-bearing):** copy the submodule **labels** verbatim (`bucket`, `s3_user`,
+        `expose`→`listener_set`/`http_route`, `ingress`, `egress*`, `backup`); keep
+        `backend_name = local.http_service_name` (empty ⇒ `http_route[0]` vanishes ⇒ terraform **destroys
+        the git HTTPRoute**); and keep `namespace`/`name` defaults identical.
 - [ ] T3.2 `forgejo/core`: replace the module's OIDC references with an **input** `oidc`, keys exactly
       `{client_id, client_secret, discovery_url, scopes, group_claim, admin_group, restricted_group}` —
       **values in §4** (a wrong `scopes`/`group_claim` = silent R8 break)
@@ -99,6 +111,8 @@ gitignored.
       `cert_issuer`, `host_network`, and an **explicit** `oidc` object (N3 — `module.forgejo_oidc.*` can't
       satisfy the input, since `scopes`/`group_claim`/the group names are stack literals, not module
       outputs):
+      **⛔ NO `count` / `for_each` on this module** (**C1** — `harbor`/`argo` use `count`, but doing it here
+      shifts every address to `module.forgejo[0]…` and terraform **destroys the namespace**).
       `oidc = { client_id = module.forgejo_oidc.client_id, client_secret = module.forgejo_oidc.client_secret,`
       `discovery_url = module.forgejo_oidc.discovery_url, scopes = "openid,email,profile,groups",`
       `group_claim = "groups", admin_group = "forgejo-admin", restricted_group = "forgejo-user" }`
@@ -124,6 +138,13 @@ gitignored.
 ---
 
 ## Phase 5 — State surgery  ⛔ HIGH-RISK
+
+> **⛔ PREREQUISITE (C7c).** Phases 3 **and** 4 must be fully landed and `tofu validate` must pass in both
+> stacks **before** any state push. Push the moved state into `core` before `module "forgejo"` exists
+> there and `tofu plan` will **destroy the namespace**. Equally, `mantle` must have stopped declaring
+> `module.forgejo` before its new state lands.
+> **Also (C4):** the move script's dependency audit reads a `dependencies` field that is **empty in these
+> states** — treat its "(none)" as informational, not as verification of anything.
 
 - [ ] T5.0 **Helm-values pre-gate (M3).** *Before any config edit*, capture the current rendered values:
       `helm -n devops-forgejo get values forgejo -o yaml > /tmp/forgejo-values-before.yaml`. After the
@@ -151,9 +172,12 @@ echo "$TS" > "$ROOT/.tmp/backups/.last-ts"
 # 2. DRY-RUN the move — writes candidates only, never pushes (pass the TS explicitly)
 python3 "$ROOT/.tmp/forgejo-split-move.py" "$TS"
 
-# 3. PUSH the modified states (gated: only after T5.1-T5.4 reviewed)
-( cd stacks/core   && tofu state push "$ROOT/.tmp/backups/core-moved-$TS.tfstate" )
+# 3. PUSH — mantle FIRST (drops its module.forgejo), verify it is gone, THEN core (adopts them).
+#    The two backends have NO transaction: between pushes both states could claim the same objects,
+#    so this order leaves an authz-gap at worst, not a double-ownership window.
 ( cd stacks/mantle && tofu state push "$ROOT/.tmp/backups/mantle-moved-$TS.tfstate" )
+( cd stacks/mantle && tofu state list | grep '^module\.forgejo' && echo 'ABORT: mantle still owns forgejo' || echo 'ok: mantle clean' )
+( cd stacks/core   && tofu state push "$ROOT/.tmp/backups/core-moved-$TS.tfstate" )
 
 # 4. GATES
 ( cd stacks/core   && tofu plan )    # expect 0 destroy
