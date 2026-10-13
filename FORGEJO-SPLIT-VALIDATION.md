@@ -69,6 +69,11 @@ Run **after** Phase 6 applies, in order. Any FAIL = investigate before declaring
       **another** app (harbor / argo / grafana) still logs in — the blueprint change touched the shared
       authentik worker
 
+- [ ] V-C11 **Non-OIDC auth surfaces still work (K19-1).** OIDC is **NOT** the only auth surface: `git clone`
+      over **SSH** on the LoadBalancer VIP (SSH keys — no OIDC, TLS or gateway involved) and the
+      **`breakglass` basic-auth/API** credential (`curl -u breakglass:<pw>`) must both still work after the
+      split. The gateway is a dumb TLS terminator, so there is no forward-auth layer to test.
+
 ## D. Runner still fine
 
 - [ ] V-D1 `kubectl -n devops-forgejo-runner get pod` → `2/2 Running`, on a `k8sn*` node (not master)

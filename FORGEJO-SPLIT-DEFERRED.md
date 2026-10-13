@@ -65,6 +65,19 @@ Parked as a user todo: see `todo-backup-policy` in memory.
   whole repo for **same-stack create-then-read** patterns (a `data` source or provider config reading an
   object a module in the *same* stack creates) — the only one found so far is
   `data.external.forgejo_runner_token`, which this change fixes. Anything else found becomes its own task.
+  **⚠️ Pass 19 (L19-1): DONE — and the "only one" claim is FALSE, though harmless.** The sweep (21 `data`
+  blocks, 6 provider blocks; `terraform_remote_state` = **zero**) confirmed `forgejo_runner_token` is the
+  only *plan-time, same-stack, greenfield-fatal* case, and the split **does** fix it (the creator moves to
+  `core`). But **three more same-stack create→reads exist**:
+  `modules/auth/authentik/ldap_outpost/outpost.tf:1` and `proxy_outpost/main.tf:25` (a `data.authentik_user`
+  reading the SA the same module creates — deferred because it keys off the unknown `outpost.id`), and
+  `modules/devops/argo/core/argo-cd/outputs.tf:1` (reads a Secret the same module writes — deferred by an
+  explicit `depends_on`). All **HARMLESS** (the read is deferred to apply), so DEF-10's *spirit* holds.
+  **The genuinely missed danger is the PLANNED one:** D3's `data.authentik_group` in `mantle` is a
+  cross-stack create→read of an **asynchronous** producer (the authentik worker applies the blueprint on
+  start-up or the 60-min scan), so a cold `plan mantle` can beat the worker and fail. T6.3c is a *human*
+  gate; a greenfield rebuild needs a real convergence/retry story before Q10's tenet is honest. **NOT
+  fixed — racy.**
 - **DEF-11 · Prove greenfield afterwards.** Once the split lands, validate DR by a from-scratch
   `plan` (or a scratch cluster) of `core` then `mantle` with no staging/retries required.
 

@@ -134,6 +134,11 @@ gitignored.
       created the lookup. Add **`data.forgejo_repository { owner, name }`** per entry in
       `forgejo_registry_repos` and pass `.id`; a missing repo then fails at **plan** time, which is what we
       want.
+      **⛔ Pass 19 (J19-1): `data.forgejo_repository` is READ-ONLY — it cannot ENABLE Actions.** Enabling the
+      unit requires the **resource** `forgejo_repository { has_actions = true }`, which means **importing the
+      existing repos** into state (or running a PATCH loop). Decide which: importing is declarative and gives
+      drift detection; a PATCH loop is not state-tracked. Either way, gate on
+      `GET /api/v1/repos/<owner>/<repo>/actions/secrets == 200`.
       **Pass 18 (G18-3): the old `depends_on = [module.harbor_setup]` rationale was wrong** — `harbor_setup`
       owns the `linuxguru` project, not `library`. `library` is Harbor's *default public* project (verified
       live: `GET /api/v2.0/projects`). Keep the edge if the robot needs it, but **fix the comment**.
@@ -150,6 +155,13 @@ gitignored.
       the Actions unit per target repo), then verify `GET /api/v1/repos/<owner>/<repo>/actions/secrets`
       returns **200**, not 404. **Note the plan's other gates only diff rendered helm values — they would
       NEVER have caught `app.ini` drift.**
+      **⚠️ Pass 19 (J19-1): this fix is NECESSARY BUT NOT SUFFICIENT.** The empty value genuinely clears the
+      line — verified live on the pod: **present-but-empty → the key is cleared**; **absent → the stale line
+      survives** (so the value must be an explicit `""`, not omitted); non-empty → overwrite. It also has no
+      side effects (`[]` is Forgejo's default, and Issues/Pulls/Wiki are untouched). **But no repo has an
+      Actions *unit row*** — `select count(*) from repo_unit where type = 10` → **0** (`TypeActions = 10`) —
+      and Forgejo gates the route on `UnitEnabled(Actions)`. So after clearing the global flag the
+      secrets route **still 404s**. A **second, per-repo write** is required: see T3.3.
 - [ ] T3.6 **Decide the repo list** for `forgejo_registry_repos` (owner/name) — the plan does not name
       them. Default `[]` means **no secrets are created** and V-E4 cannot pass.
 - [ ] T3.7 **Declare `forgejo_registry_repos`** in `stacks/mantle/variables.tf` and thread it into the
@@ -175,6 +187,9 @@ gitignored.
       `module "backup"` lives at `modules/storage/backup.tf:1`, and core's own analogue does exactly this
       at `modules/storage/backup.tf:31`); and `expose`/`egress` default to the `private` gateway, which
       `module.network` creates.
+      **Also (K19-2):** prefer **sourcing** the gateway name (`expose`/`egress` currently use a hardcoded
+      `default = "private"` literal) from `module.network.gateway_name`/`gateway_namespace` — that restores
+      a real dependency edge instead of papering over it with `depends_on`.
       **⚠️ Pass 17 correction (E17-1): `module.backup` does NOT exist at stack scope.** `core` declares
       only `network`, `storage`, `cert_man`, `authentik`, `harbor`, `argo`, `seaweedfs`, … The Pass-16 edit
       copied `depends_on = [module.backup]` from a *module-internal* file into *stack* scope, where it is a

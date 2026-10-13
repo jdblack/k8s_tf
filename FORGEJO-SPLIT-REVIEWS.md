@@ -8,8 +8,9 @@ and the reasoning, including things we deliberately rejected.
 5 failure simulation · 6 unknowns resolved · 8 hostile findings · 9 priority re-rank (owner) ·
 10 backup strategy (owner) · 11 second hostile run · 12 third hostile run · 13 cold read · 14 second cold
 read · 15 directed subagents · 16 directed subagents (round 2) · 17 directed subagents (round 3) · 18
-directed subagents (round 4). *(6 ran before 5; sections are labelled, order on disk is as-completed.)*
-**Pass 7 (minimality) was dropped** — Q10 settled it: Option A, the only "smaller" option, is off the table.
+directed subagents (round 4) · 19 directed subagents (round 5). *(6 ran before 5; sections are labelled,
+order on disk is as-completed.)* **Pass 7 (minimality) was dropped** — Q10 settled it: Option A, the only
+"smaller" option, is off the table.
 
 **Naming, so the letters don't confuse you:** plan decisions are **`D1`–`D9`**; deferred items are
 **`DEF-1`–`DEF-13`** (renamed in Pass 14 — they used to be `D-1…`, which collided). The **"D7"** in the
@@ -611,5 +612,49 @@ resolved; every version pin real; every count reproduced** (477/18/15/444; 43/19
 
 **Net: 12 findings folded, 5 severe.** The worst defect of the entire effort — *the second half of the goal
 does not work* — was hiding in a file nobody had been asked to read.
+
+---
+
+## Pass 19 — fifth wave ✅ (all folded)
+
+New angles again: **does the proposed fix actually work**, **is OIDC really the only auth surface**, and
+**finish the same-stack audit that DEF-10 only started**. All three falsified something.
+
+### J — verify the Actions fix — hypothesis: *"setting `DISABLED_REPO_UNITS = ""` clears the stale line and Actions becomes usable"*
+- **J19-1 — SPLIT VERDICT: half right, and the wrong half matters.** The *mechanism* is **VERIFIED** on the
+  live pod: **present-but-empty clears the key**, **absent leaves the stale line** (so the value must be an
+  explicit `""`, not omitted), and there are **no side effects** (`[]` is Forgejo's default; Issues/Pulls/Wiki
+  untouched). **But "Actions becomes usable" is FALSIFIED:** `select count(*) from repo_unit where type = 10`
+  → **0** (`TypeActions = 10`), and Forgejo's `reqOwner` gates the route on `UnitEnabled(Actions)`. Clearing
+  the global flag alone leaves the secrets route at **404**. It needs a **second, per-repo WRITE** — and the
+  plan's `data.forgejo_repository` is **read-only**, so it must be the **resource**
+  `forgejo_repository { has_actions = true }` (importing the existing repos) or a PATCH loop.
+- K19-2 — the gateway name should be **sourced** from `module.network.*` rather than a hardcoded `"private"`
+  literal, which restores a real dependency edge.
+
+### K — is OIDC the only auth surface? — hypothesis: *"OIDC is the only auth surface, and the split disturbs nothing else"*
+Traced the live path: DNS → Gateway `private` (**NGINX Gateway Fabric**) → ListenerSet → HTTPRoute (**no
+filters**) → Service → pod. **FALSIFIED** — but not where the plan feared:
+- **No forward-auth exists**: no `SecurityPolicy`/`AuthenticationFilter`/middleware anywhere, and **no
+  authentik proxy outpost** for `git.` (all 9 proxy providers serve other apps). So there was never a wall to
+  break — and **`auth_gateway_name` is not auth**: it is a NetworkPolicy **egress peer** carrying authentik
+  **and** S3. The plan's gateway-auth worry was a **red herring**.
+- **But two uncovered auth surfaces are live:** **git-over-SSH** on a raw `LoadBalancer` VIP (`:22`, open —
+  SSH keys, no OIDC/TLS/gateway) and the **`breakglass` basic-auth/API** credential (the password *form* is
+  hidden, but `curl -u breakglass:<pw>` still works — the runner's token fetch proves it).
+- The runner's `.runner` token **survives** the split (neither pod nor DB row moves). **→ §6b + V-C11.**
+
+### L — finish the same-stack audit — hypothesis: *"`data.external.forgejo_runner_token` is the only same-stack create-then-read"*
+- **L19-1 — the completeness claim is FALSE (but harmlessly so).** The sweep (21 `data` blocks, 6 provider
+  blocks, zero `terraform_remote_state`) confirms the known instance is the only *plan-time, same-stack,
+  greenfield-fatal* one, and the split genuinely fixes it. **But three more exist** — the ldap/proxy
+  outposts' `data.authentik_user` reads, and argo-cd's initial-admin-password read — all **harmless**
+  (deferred to apply by an unknown ID or an explicit `depends_on`).
+- **The danger DEF-10 missed is the one the plan is *about to create*:** D3's `data.authentik_group` is a
+  cross-stack read of an **asynchronous** producer. T6.3c is a human gate; a greenfield rebuild needs a real
+  convergence story.
+
+**Net: 8 findings folded, 2 severe — the Actions fix is insufficient as written, and the plan's own new data
+source would leave mantle greenfield-racy.** Still not decaying.
 
 

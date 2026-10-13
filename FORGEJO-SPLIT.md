@@ -4,11 +4,13 @@ Status: REVIEWED — Q1–Q10 answered, D1–D9 decided; full pass trail in `FOR
 
 ## RESUME HERE (handoff)
 
-- **State:** the plan is fully reviewed — **18 passes** (12 self, 2 blind cold reads, 12 directed subagents
-  across four waves). **Nothing has been built or applied.** Every decision (D1–D9) and question (Q1–Q10) is
+- **State:** the plan is fully reviewed — **19 passes** (12 self, 2 blind cold reads, 15 directed subagents
+  across five waves). **Nothing has been built or applied.** Every decision (D1–D9) and question (Q1–Q10) is
   settled.
-- **⚠️ BLOCKER found in Pass 18 (G18-1):** the live `app.ini` disables the Actions repo-unit
-  (`DISABLED_REPO_UNITS = repo.actions`), so the goal's second half is **inert** until T3.8 fixes it.
+- **⚠️ BLOCKER found in Pass 18 (G18-1) + sharpened in Pass 19 (J19-1):** the live `app.ini` disables the
+  Actions repo-unit, **and** no repo has an Actions *unit row* — so T3.8 needs **both**
+  `DISABLED_REPO_UNITS = ""` **and** a per-repo `has_actions = true` **write**. Until then the goal's second
+  half is inert.
 - **⚠️ The DR story is the open sore:** the vault is empty, DEF-1/12/13 are load-bearing, and there is **no
   restore path** (DEF-14). Reviewing the *plan* is done; the *data* side needs its own work.
 - **Next step:** freeze these docs and start **Phase 1** — copy-and-trim the live export
@@ -201,6 +203,28 @@ Rejected: **A** (no split — leaves `mantle` **greenfield-broken**, violating t
 7. **S6 — Apply core**, then **apply mantle**. Both plans must show **zero destroys on the namespace or the
    bucket** before any apply (D8).
 8. **S7 — Verify & commit** (see VALIDATION).
+
+## 6b. Auth surfaces — what is (and is NOT) OIDC
+
+**Pass 19 (K19-1) traced the live request path and found that OIDC is NOT the only authentication surface in
+front of Forgejo.** The OIDC work covers the *web login*; other surfaces exist:
+
+- **The `private` gateway is a dumb TLS terminator** — NGINX Gateway Fabric, **no `filters`**, and no
+  `SecurityPolicy` / `AuthenticationFilter` / middleware anywhere in the cluster, plus **no authentik proxy
+  outpost** for `git.` (all 9 proxy providers serve other apps). So there is **no forward-auth wall** to
+  migrate. And **`variable "auth_gateway_name"` is NOT auth** — it feeds a NetworkPolicy **egress peer**
+  (`egress.tf:22`) carrying authentik **and** S3.
+- **git-over-SSH is a separate, raw authN path** — `service/forgejo-ssh` is a `LoadBalancer` on a bare VIP
+  (`:22`, open) with `START_SSH_SERVER=true`; it authenticates with **SSH keys**, bypassing OIDC, the gateway
+  and TLS entirely.
+- **`breakglass` basic-auth / API** — `ENABLE_PASSWORD_SIGNIN_FORM=false` hides the *form*, but basic auth
+  still works (the runner's registration-token fetch proves it: `curl -u breakglass:<pw>`).
+- **The runner's token** (`.runner` row `id:3`) rides on that and **survives the split** (neither pod nor DB
+  row moves).
+
+**None of these is disturbed by the split** — there is no forward-auth layer to disturb. The only hazards are
+the already-known ones (the runner's cross-stack read, and losing the Gateway **ordering edge** because
+`expose`/`egress` use the **literal** `"private"` instead of `module.network.gateway_name` — see C16-9).
 
 ## 7. Risks & mitigations
 
