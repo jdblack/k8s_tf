@@ -30,8 +30,10 @@ Status: REVIEWED — Q1–Q10 answered, D1–D9 decided; full pass trail in `FOR
   the `.yaml` Secret key (T1.3).**
 - **Phase 3:** T3.8's global half is **done** (Pass 21); add only the per-repo PATCH for the pre-existing
   repos (T3.3) — the goal's second half is otherwise unblocked.
-- **Open:** `forgejo_registry_repos` (the repo list — **owner-gated**, T3.6/T3.7, blocks V-E4);
-  `DEF-1…DEF-14` in `-DEFERRED.md`; the parked normal-backup topic (`todo-backup-policy` in memory).
+- **⏸️ PARKED (owner, 2026-10-13): the entire Harbor → Actions half** — `forgejo/mantle` (T3.3), the
+  `forgejo_registry_repos` list (T3.6/T3.7), the per-repo PATCH. **It does not block the split** (Phases
+  1/2/4/5 are independent of it); it defers only the goal's second half. See **DEF-15**.
+- **Open:** `DEF-1…DEF-14` in `-DEFERRED.md`; the parked normal-backup topic (`todo-backup-policy` in memory).
 - **Where things live:** move script `.tmp/forgejo-split-move.py` and export `.tmp/authentik-export.yaml`
   are **gitignored but kept**; surgery `state` scratch in `.tmp/backups/`; DR vault
   `/Users/jblack/backups/forgejo/`.

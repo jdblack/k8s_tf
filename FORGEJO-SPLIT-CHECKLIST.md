@@ -100,6 +100,10 @@ gitignored.
 
 ## Phase 3 — Module split
 
+> **⏸️ Partly PARKED 2026-10-13 (DEF-15).** **T3.3 / T3.6 / T3.7 are deferred** (the whole `forgejo/mantle`
+> half + the repo list) per the owner. **The split tasks — T3.1, T3.2, T3.4, T3.5 — are NOT parked** and are
+> still required for Phase 5. Nothing in Phases 1/2/4/5 depends on the parked work.
+
 - [ ] T3.1 Create `modules/devops/forgejo/core/`: `namespace`, `helm`, `storage`, `listener`, `ingress`,
       `egress`, `backup`, `locals`, `outputs`, `providers`, `variables`.
       **Exact symbol triage — do NOT hand-wave "minus `oidc_*`" (N2/B). Every line below is a real
@@ -132,7 +136,7 @@ gitignored.
       comma-separated, non-empty, contains `openid` **and** `groups`. Validate `admin_group`/
       `restricted_group` are non-empty **and equal the names the blueprint creates** — that link is
       currently two independent hand-written strings (F17-2/F17-3), so make it structural or validate it.
-- [ ] T3.3 Create `modules/devops/forgejo/mantle/` = `harbor_robot_account` +
+- [ ] T3.3 ⏸️ **PARKED 2026-10-13 (DEF-15).** Create `modules/devops/forgejo/mantle/` = `harbor_robot_account` +
       `forgejo_repository_action_secret` (names `HARBOR_USER` / `HARBOR_TOKEN`), `variables`, `outputs`,
       `providers`.
       **⛔ Pass 18 (G18-2): `forgejo_repository_action_secret` takes a NUMERIC `repository_id`, not
@@ -184,9 +188,9 @@ gitignored.
       plan's *preferred* narrow-PATCH route works, so the over-broad `forgejo_repository` **import is
       avoidable** (G18-3/O20-2). Gate: `GET /api/v1/repos/<owner>/<repo>/actions/secrets` → **200**.
       Probe repo left in place: `breakglass/actions-probe` (private, disposable).
-- [ ] T3.6 **Decide the repo list** for `forgejo_registry_repos` (owner/name) — the plan does not name
+- [ ] T3.6 ⏸️ **PARKED 2026-10-13 (DEF-15).** **Decide the repo list** for `forgejo_registry_repos` (owner/name) — the plan does not name
       them. Default `[]` means **no secrets are created** and V-E4 cannot pass.
-- [ ] T3.7 **Declare `forgejo_registry_repos`** in `stacks/mantle/variables.tf` and thread it into the
+- [ ] T3.7 ⏸️ **PARKED 2026-10-13 (DEF-15).** **Declare `forgejo_registry_repos`** in `stacks/mantle/variables.tf` and thread it into the
       module (it was in the parked prototype; currently unowned).
 - [ ] T3.4 `git rm` the superseded old `modules/devops/forgejo/*.tf` — do NOT leave both
 - [ ] T3.5 **⛔ GATE:** `tofu fmt` clean on every new/changed file
@@ -368,9 +372,9 @@ python3 "$ROOT/.tmp/forgejo-split-move.py" "$TS"
 1. **T1.5** blueprint applies cleanly on a scratch app
 2. **T1.7** fidelity — `redirect_uris` (not `allowed_redirect_uris`)
 3. **T2.3** core validates with empty `extra_blueprints`
-4. **T3.5** fmt clean; **T3.6** repo list decided; **T3.8** ✅ the Actions repo-unit is enabled —
-   `DISABLED_REPO_UNITS = ""` **applied & verified live** (Pass 21) plus a per-repo PATCH on the
-   pre-existing repos (T3.3); without the per-repo write the goal's second half ships **inert** (G18-1)
+4. **T3.5** fmt clean; ~~**T3.6** repo list decided~~ ⏸️ **parked (DEF-15)**; **T3.8** ✅ the Actions repo-unit is enabled —
+   `DISABLED_REPO_UNITS = ""` **applied & verified live** (Pass 21). ⏸️ The per-repo PATCH (T3.3) and the
+   Harbor→Actions path (V-E4) are **parked (DEF-15)** — the split does not depend on them.
 5. **T4.8** both stacks validate
 6. **T5.7 / T5.8** both plans show **0 destroys** on protected objects (T5.7 also enumerates expected adds/update)
 7. **T6.0** fresh **DR set** taken — `forgejo dump` + `aws s3 sync` + state pulls + Velero

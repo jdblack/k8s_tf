@@ -32,7 +32,24 @@ Parked as a user todo: see `todo-backup-policy` in memory.
   **⚠️ Pass 17 (E17-3): LOAD-BEARING** — the only backup shares a failure domain with the cluster it would
   have to rebuild.
 
-## Follow-ups on this change
+## PARKED — the Harbor → Actions half (owner decision, 2026-10-13)
+
+- **DEF-15 · The `forgejo/mantle` module is PARKED.** Owner: *"I don't care about actions right now. Can we
+  work on that later?"* Parked: **T3.3** (`forgejo/mantle` = `harbor_robot_account` +
+  `forgejo_repository_action_secret`), **T3.6** (the `forgejo_registry_repos` list), **T3.7** (declare the
+  variable), and the per-repo PATCH.
+  **Data for when it unparks** — I scanned all 26 `jblack/*` repos: **12 have a `Dockerfile`**, **6 have a
+  CI workflow**, and **3 have both** (`jblack/billmebabe-api`, `jblack/ellmephant`, `jblack/newsapi`) —
+  those three are the obvious first entries. Zero repos have `.forgejo/workflows`, i.e. nobody has ever used
+  Forgejo Actions here (corroborates G18-1).
+  **What this does NOT park:** the split itself — T3.1/T3.2/T3.4/T3.5 and all of Phases 1, 2, 4, 5 are
+  **independent** of every parked task. The instance still moves to `core`; only the Harbor push stays
+  unbuilt.
+  **Consequences while parked:** gate 4 cannot fully pass (T3.6 undecided); T6.4 (apply mantle → robot +
+  secrets) becomes a no-op; and **validation section E (V-E1…V-E6) is inapplicable.**
+  **NOT parked:** **T3.8** — the global flag is already cleared and applied (Pass 21); reverting it would be
+  pointless churn.
+  When: whenever CI pushing images to Harbor actually matters.
 
 - **DEF-4 · Forgejo provider registration-token endpoint is deprecated.** The swagger marks
   `GET /api/v1/admin/actions/runners/registration-token` deprecated as of Forgejo 15; the deployed image
