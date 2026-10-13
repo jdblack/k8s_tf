@@ -35,12 +35,17 @@ Status: REVIEWED — Q1–Q10 answered, D1–D9 decided; full pass trail in `FOR
   the app's `meta_*` match, both custom scope expressions are **byte-identical**, both groups keep their
   pks and membership, both bindings match the §10 baseline, and the scope set is **5/5**. **No defects
   found.**
-- **Next: Phase 4-mantle, then Phase 5.** In order: **T4.5** (`data.authentik_group` replaces
-  `module.forgejo.{admin,user}_group_id`), **T4.6** (runner literals), **T4.4** (**drop** `module "forgejo"`
-  from `stacks/mantle` — see the task; do NOT repoint), **T3.4** (`git rm` the flat module), `tofu validate`
-  both stacks — **then Phase 5's state surgery in the same sitting** (C7c: never `apply` between the T4.4
-  config edit and the state push). ⚠️ `client_id` is **`sensitive`** — a root output referencing it must
-  declare `sensitive = true`, or `tofu plan` fails at the root.
+- **✅ PHASES 4-6 ARE DONE (2026-10-13).** The surgery landed (mantle 0 `module.forgejo` / 444 resources,
+  core 18 / 207; T5.7 `4 add / 2 change / 0 destroy`, T5.8 `No changes`) and **the cluster never noticed** —
+  same pod, helm unchanged, same PVC. Then **Phase 6 ran live**: the DR set was taken and verified (8.39 GB
+  dump, `gzip -t` OK, 87/87 repos), a **guarded apply** of the pinned plan ran (`4 added, 2 changed, 0
+  destroyed`) → Forgejo helm rev **7**, authentik rev **20** — and **the blueprint adopted the live objects
+  (same pks) with the provider's `client_secret` now EQUAL to the Forgejo release's. SSO verified working.**
+- **⚠️ OPEN (DEF-16): the worker's `blueprints_discovery` did NOT create a `BlueprintInstance` at worker
+  start.** The blueprint's content is applied but it is **unmanaged** — no drift detection, no re-apply.
+  Re-check after the periodic scan; if the row never appears, **D2's delivery needs a fix.**
+- **🖱️ ONE USER ACTION OUTSTANDING: click the SSO button in a browser.** It is the only true end-to-end test
+  and the only thing not yet verified.
 - **Phase 3:** T3.8's global half is **done** (Pass 21); add only the per-repo PATCH for the pre-existing
   repos (T3.3) — the goal's second half is otherwise unblocked.
 - **⏸️ PARKED (owner, 2026-10-13): the Harbor → Actions half** — `forgejo/mantle` (T3.3), the

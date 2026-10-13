@@ -958,3 +958,39 @@ Verified first: mantle references `module.forgejo` in exactly **three** files �
 - **⚠️ The order that must not be broken (C7c):** edit the config **and** move the state in one sitting. An
   `apply` between them is a plan that **destroys the namespace** — mantle's config without the module, its
   state still holding the 18 entries.
+
+---
+
+## Pass 28 — Phase 6 executed LIVE, and D2's discovery did not fire (2026-10-13)
+
+### What was done
+- **T6.0** — fresh DR set: `dump/` **8.39 GB** (`gzip -t` OK, 10,880 members, **87/87 repos**, `app.ini` +
+  `forgejo.db`), `s3/` re-synced (`EXIT=0`, additive), `tfstate/` fresh, Velero both `Completed`.
+- **T6.1** — pinned plan: **`4 to add, 2 to change, 0 to destroy`**. A shell **guard** applied it only if the
+  summary matched — it did.
+- **Apply** → `Apply complete! Resources: 4 added, 2 changed, 0 destroyed.` Forgejo helm rev **7**, authentik
+  rev **20**, new pod, **same PVC** (`pvc-1c01d7ea…`).
+- **The handover ADOPTED, did not recreate:** `model_updated` on provider pk **57**, app **03666c87**, both
+  bindings (**20e35690** / **3d4decc6**), groups **e99a0ce2** / **0e04476d**; `invalidation_flow` still
+  `fbfe9f96`. **And the decisive check: the provider's `client_secret` now EQUALS the Forgejo helm release's.**
+
+### ⚠️ The finding — D2's "on worker start" discovery did NOT fire
+The Secret mounted perfectly (`/blueprints/mounted/secret-forgejo-blueprint/forgejo.yaml`, structurally
+identical to the working `secret-authentik-tfdeploykey`) — **but no `BlueprintInstance` row was created**
+(`BPI_TOTAL` stayed **32**; tfdeploy is the only `mounted/` row). `blueprints_discovery` was **enqueued** at
+boot, and the worker's other tasks are all `done` — yet nothing appeared.
+
+**Measured consequence:** the provider kept the **OLD** `client_secret` while Forgejo — restarted with the
+new helm values — re-synced its `login_source` to the **NEW** one. The two **disagreed**: E17-4's **silent**
+shape, where the login page renders and the token exchange fails. **SSO was down in that window.**
+
+**Mitigation applied:** the blueprint was applied through the **verified Pass-24 route** —
+`Importer.from_string('/blueprints/mounted/secret-forgejo-blueprint/forgejo.yaml')` → **`VALID True`** →
+**`APPLIED True`** → secrets confirmed **equal**. SSO restored.
+
+**→ DEF-16 (open):** confirm the worker's **periodic** discovery eventually creates the row. If it does, the
+boot-time miss was a race and D2 holds with a caveat. **If it never does, D2's delivery is broken** — the
+blueprint would be content-correct but **unmanaged**, with no drift detection and no re-apply.
+
+**This is the second defect that only a live run could surface** (after J19-1). D2 asserted "on worker start
+or the periodic scan (default 60 min)"; the *worker start* half did not hold.

@@ -57,6 +57,23 @@ Parked as a user todo: see `todo-backup-policy` in memory.
   pointless churn.
   When: whenever CI pushing images to Harbor actually matters.
 
+## Follow-ups on this change
+
+- **DEF-16 · `blueprints_discovery` did NOT create a `BlueprintInstance` for the new blueprint at worker
+  start (Pass 28 — found LIVE).** The Secret mounted correctly
+  (`/blueprints/mounted/secret-forgejo-blueprint/forgejo.yaml`), the discovery task was enqueued at boot, and
+  the worker's other tasks ran `done` — yet `BlueprintInstance.objects.count()` stayed at **32** with no row
+  for it. **D2 (§5) asserts discovery happens "on worker start or the periodic scan (default 60 min)"; the
+  worker-start half did not hold.**
+  **Impact:** the blueprint's content is applied (SSO verified working, via client_secret equality) but the
+  blueprint is **unmanaged** — no drift detection, no re-apply. So `extra_blueprints` may be insufficient on
+  its own. In the window between the pod restart and a manual apply, SSO was **silently broken** (provider on
+  the old secret, Forgejo on the new one).
+  **Action:** after a periodic scan, re-check — expect
+  `BlueprintInstance.objects.count() > 32` with path `mounted/secret-forgejo-blueprint/forgejo.yaml` and
+  `status = successful`. **If the row never appears, D2's delivery needs a fix** (an explicit out-of-band
+  `BlueprintInstance`, or a periodic in-cluster `apply_blueprint` job for exactly this reason).
+  When: within the hour of 2026-10-13 13:29 UTC.
 - **DEF-4 · Forgejo provider registration-token endpoint is deprecated.** The swagger marks
   `GET /api/v1/admin/actions/runners/registration-token` deprecated as of Forgejo 15; the deployed image
   is **16.0.5-rootless** and it **still works** (verified).
