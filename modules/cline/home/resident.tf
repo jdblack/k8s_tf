@@ -24,6 +24,18 @@ resource "kubernetes_deployment_v1" "resident" {
       }
 
       spec {
+        # A subPath file mount needs its parent dir to exist first.
+        init_container {
+          name    = "mk-settings"
+          image   = var.resident_image
+          command = ["sh", "-c", "mkdir -p /home/node/.cline/data/settings"]
+
+          volume_mount {
+            name       = "cline-data"
+            mount_path = "/home/node/.cline"
+          }
+        }
+
         container {
           name  = "cline"
           image = var.resident_image
@@ -55,7 +67,14 @@ resource "kubernetes_deployment_v1" "resident" {
             mount_path = "/home/node/.cline"
           }
 
-          # Prove the image first; the resident loop (and its MCP config) is a later decision.
+          # Its own MCP config: remember through `mempal`, not the shared ellmephant.
+          volume_mount {
+            name       = "mcp-config"
+            mount_path = "/home/node/.cline/data/settings/cline_mcp_settings.json"
+            sub_path   = "cline_mcp_settings.json"
+          }
+
+          # Prove the image first; the resident loop itself is a later decision.
           command = ["sh", "-c", "cline --version && sleep infinity"]
         }
 
@@ -66,7 +85,39 @@ resource "kubernetes_deployment_v1" "resident" {
             claim_name = kubernetes_persistent_volume_claim_v1.scratch.metadata[0].name
           }
         }
+
+        volume {
+          name = "mcp-config"
+
+          config_map {
+            name = kubernetes_config_map_v1.resident_mcp[0].metadata[0].name
+          }
+        }
       }
     }
+  }
+}
+
+# The resident's MCP config. Points at `mempal` (in-cluster), NOT the shared ellmephant gateway.
+resource "kubernetes_config_map_v1" "resident_mcp" {
+  count = var.enable_resident ? 1 : 0
+
+  metadata {
+    name      = "resident-cline-mcp"
+    namespace = kubernetes_namespace_v1.home.metadata[0].name
+    labels    = local.resident_labels
+  }
+
+  data = {
+    "cline_mcp_settings.json" = jsonencode({
+      mcpServers = {
+        mempal = {
+          transport = {
+            type = "streamableHttp"
+            url  = "http://mempal:8888/mcp"
+          }
+        }
+      }
+    })
   }
 }
