@@ -14,6 +14,10 @@ locals {
     image = {
       repository = var.image_repository
       tag        = var.image_tag
+      # Half of the constant-tag pair (see `image_tag` in variables.tf): under a MOVING tag the
+      # default `IfNotPresent` lets k8s keep the cached image, so a restart appears to deploy while
+      # running the old build. `Always` is what makes a restart actually move.
+      pullPolicy = "Always"
     }
 
     # The Qwen3-0.6B embedder cold-load spikes past the chart's 2Gi default, so the first

@@ -46,10 +46,12 @@ variable "chart_version" { default = "0.2.0" }
 
 # The chart defaults to the upstream GHCR image; this cluster runs the Harbor mirror.
 variable "image_repository" { default = "harbor.vn.linuxguru.net/library/ellmephant" }
-# `edge` is what the publish workflows build for dev; pin a sha-<short> tag to freeze a build.
-# Pinned 2026-10-14 to 1.2.0 (the projects release: schema v6, so the live v4 store migrates on
-# first boot). Was sha-27a4266 (1.1.0, the upvote-fire retune).
-variable "image_tag" { default = "sha-cad7fca" }
+# The tag is a CONSTANT on purpose. `edge` is what the publish workflows build for `dev`, and a
+# moving tag with a constant string is what lets TF and helm agree: nothing to diff, nothing for a
+# stray helm upgrade to revert. Paired with `pullPolicy = Always` in locals.tf -- without that, k8s
+# reuses the cached image under a moving tag and a restart silently does nothing.
+# To FREEZE a build, pin a sha-<short> here and apply: a deliberate human edit, not a pipeline's.
+variable "image_tag" { default = "edge" }
 
 variable "storage_class" { default = "" }
 variable "storage_size" { default = "2Gi" }
