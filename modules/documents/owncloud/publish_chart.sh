@@ -1,9 +1,11 @@
 #!/bin/sh
 # Publishes the pinned oCIS chart to GitHub Container Registry.
 #
-# ownCloud stopped publishing this chart, so there is no upstream repository to install
-# from. This repo publishes it once instead, from the commit that pins it, and the module
-# installs what lands here -- the commit below is the provenance of the artifact.
+# ownCloud never publishes this chart as an artifact -- their docs say "we have not yet
+# published the oCIS Helm charts" and send you to a git clone. There is no index, no OCI
+# artifact and no release asset to install from. This repo publishes it once instead, from
+# the commit that pins it, and the module installs what lands here -- the commit below is
+# the provenance of the artifact.
 #
 # Needs a token carrying write:packages: run `helm registry login ghcr.io -u <user>` first.
 set -eu

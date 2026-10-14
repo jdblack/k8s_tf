@@ -1,7 +1,8 @@
 # Published to GitHub Container Registry by publish_chart.sh, from the commit recorded in
-# that script: ownCloud stopped publishing this chart (owncloud.github.io/ocis-charts 301s
-# to owncloud.dev, which 404s, and the repo has no gh-pages branch, no OCI artifact and no
-# release asset), so there is no upstream repository to install from.
+# that script: ownCloud never publishes this chart as an artifact -- their docs send you to a
+# git clone (owncloud.github.io/ocis-charts 301s to owncloud.dev, which 404s; no gh-pages
+# branch, no OCI artifact, no release asset), so there is no upstream repository to install
+# from.
 #
 # 900s rather than the usual 600: this is one release of thirty-odd services, and the three
 # holding ReadWriteOnce claims roll one replica at a time.
