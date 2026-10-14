@@ -49,7 +49,7 @@ variable "capacity" { default = 1 }
 variable "job_timeout" { default = "3h" }
 
 # We build our own copy of this chart. The `forgejo-chart-vendor` script
-# (repo git.vn.linuxguru.net/jblack/support) chains:
+# (repo git.vn.linuxguru.net/Linuxguru/support) chains:
 #   upstream code.forgejo.org/forgejo-helm/forgejo-runner (publishes NO OCI artifact)
 #     -> pull-mirror git.vn.linuxguru.net/forgejo/forgejo-runner   (native, refreshed every 72h)
 #     -> clone + `helm package` + `helm push` to this Harbor path  (public project, anonymous pull)

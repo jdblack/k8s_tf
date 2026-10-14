@@ -7,7 +7,7 @@
 # cannot be written. Forgejo hides the actions-secrets API behind the unit (`reqOwner(unit.TypeActions)`),
 # so a repo with it off returns 404. New repos get the unit by default; PRE-EXISTING ones do not
 # and need a one-off `PATCH /api/v1/repos/<owner>/<repo> {"has_actions":true}` (done by hand for
-# jblack/ellmephant). There is no narrow terraform-native way to do it: the provider's
+# Linuxguru/ellmephant). There is no narrow terraform-native way to do it: the provider's
 # `forgejo_repository` resource rewrites the whole repository from defaults -- forcing every unit
 # on, un-archiving archived repos -- which is far too broad a handle for a stack that is not the
 # repo's owner. Keeping this out of terraform is the lesser evil.
