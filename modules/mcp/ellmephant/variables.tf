@@ -46,9 +46,10 @@ variable "chart_version" { default = "0.2.0" }
 
 # The chart defaults to the upstream GHCR image; this cluster runs the Harbor mirror.
 variable "image_repository" { default = "harbor.vn.linuxguru.net/library/ellmephant" }
-# `edge` is what harbor-publish.sh builds locally; pin a sha-<short> tag to freeze a build.
-# Pinned 2026-10-13 to the upvote-fire retune (payload cue, batch upvote, unvoted_hot).
-variable "image_tag" { default = "sha-27a4266" }
+# `edge` is what the publish workflows build for dev; pin a sha-<short> tag to freeze a build.
+# Pinned 2026-10-14 to 1.2.0 (the projects release: schema v6, so the live v4 store migrates on
+# first boot). Was sha-27a4266 (1.1.0, the upvote-fire retune).
+variable "image_tag" { default = "sha-cad7fca" }
 
 variable "storage_class" { default = "" }
 variable "storage_size" { default = "2Gi" }
