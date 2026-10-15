@@ -8,7 +8,7 @@ locals {
       pullPolicy = "IfNotPresent"
     }
 
-    replicaCount = 1
+    replicaCount = var.replica_count
 
     # The chart renders the DinD sidecar unconditionally, and dockerd needs a privileged pod.
     securityContext = { privileged = true }

@@ -44,8 +44,26 @@ variable "labels" {
   ]
 }
 
-# Jobs to run at once. Keep at 1: the shared DinD daemon lets concurrent jobs see each other.
+# Jobs to run at once PER RUNNER POD. Keep at 1: every job in a pod shares that pod's DinD daemon, so
+# concurrent jobs can see each other's containers and images. Raise concurrency with `replica_count`
+# below, not this -- separate pods get separate daemons, which is the isolation these privileged pods
+# exist for in the first place.
 variable "capacity" { default = 1 }
+
+# Runner PODS. Each one is a whole runner: its own process, its own privileged DinD sidecar, its own
+# docker cache. This -- not `capacity` -- is how concurrency is raised: three pods run three jobs at
+# once and no job can see another's.
+#
+# The replicas share ONE registered identity: the chart's pre-install Job registers once, and every
+# replica's init container copies the same `.runner`. That is the chart's own scaling mode (it ships
+# an HPA), and it is harmless -- the forge hands out a task per claim, so the pods take *different*
+# tasks rather than the same one. What it costs is a truthful runner list: Forgejo shows one entry
+# with the capacity it declared, not the number of pods actually running.
+#
+# N runners == N privileged pods (the DinD sidecar needs it) until the rootless-builder spike
+# (`todo-buildah-rootless-runner`) lands. Mind the node budget: each pod's dind may burst to
+# `var.dind_resources.limits`.
+variable "replica_count" { default = 3 }
 variable "job_timeout" { default = "3h" }
 
 # We build our own copy of this chart. The `forgejo-chart-vendor` script
