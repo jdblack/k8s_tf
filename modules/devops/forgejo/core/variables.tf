@@ -12,7 +12,22 @@ variable "gateway_namespace" { default = "kube-network" }
 # The egress peer the namespace's NetworkPolicy admits: the private gateway pod serves both
 # authentik (OIDC discovery, token exchange) and SeaweedFS (s3.<domain>), so this name carries S3
 # traffic as well as auth. It is not an auth-only knob.
+# The egress peer the namespace's NetworkPolicy admits: the private gateway pod serves both
+# authentik (OIDC discovery, token exchange) and SeaweedFS (s3.<domain>), so this name carries S3
+# traffic as well as auth. It is not an auth-only knob.
 variable "auth_gateway_name" { default = "private" }
+
+variable "agent_namespaces" {
+  type        = list(string)
+  default     = []
+  description = "Selves' rooms whose hands may clone/push over HTTP in-cluster. Each gets an ingress peer on the WEB port only — never SSH, never any other port."
+
+  validation {
+    condition     = alltrue([for ns in var.agent_namespaces : ns != var.namespace])
+    error_message = "The agent room list must not contain Forgejo's own namespace; the namespace already admits itself."
+  }
+}
+
 
 # Web host is <hostname>.<domain>; the SSH VIP carries its own name because it is a second IP.
 variable "hostname" { default = "git" }

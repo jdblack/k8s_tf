@@ -26,6 +26,11 @@ module "forgejo" {
   gateway_name      = module.network.gateway_name
   gateway_namespace = module.network.gateway_namespace
 
+  # ★ WHERE SELF-DIRECTED WORK LIVES (James, 2026-10-17): in the self's room, not on a laptop. A
+  # hand that can reach `forgejo-http` commits and pushes as itself, with its own token — so the
+  # audit trail and the commit object finally agree. HTTP/push only; no SSH, no other port.
+  agent_namespaces = ["agent-stet"]
+
   # The stack literals are the ones the running instance already has, so the rendered login_source row
   # does not move. Its sibling values come from `forgejo_oidc`, which is where the client is created.
   oidc = {
