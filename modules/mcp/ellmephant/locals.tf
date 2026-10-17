@@ -15,6 +15,13 @@ locals {
   base_values = {
     fullnameOverride = var.name
 
+    # ★ DECLARED, NOT SCALED BY HAND. On 2026-10-17 the old store was scaled to 0 with kubectl after
+    # the cutover to `agent-stet`, and the declaration kept saying 1 — so `stacks/mantle` planned a
+    # 1-resource update and any apply would have RESURRECTED it: the chart's default replicaCount
+    # reapplied, a frozen 389-memory self back on `ellmephant.vn`, and a rollback copy that is quietly
+    # running again. Rollback is now a deliberate edit (set to 1), not an accident of the next apply.
+    replicaCount = var.replicas
+
     image = {
       repository = var.image_repository
       tag        = var.image_tag
