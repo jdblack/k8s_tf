@@ -119,17 +119,10 @@ resource "kubernetes_cron_job_v1" "activity" {
                 sub_path   = "cline_mcp_settings.json"
               }
 
-              # ★ A BELL READS THE SAME HOME. If the door runs the claim's `bin/` and a bell runs the
-              # image's, they are two programs with one name — the exact split this move exists to end.
-              dynamic "volume_mount" {
-                for_each = var.home_claim == "" ? [] : [var.home_claim]
-
-                content {
-                  name       = "home"
-                  mount_path = "/home/node/cline-home"
-                }
-              }
-
+              # ★ NO HOME MOUNT HERE, ON PURPOSE. A bell is an ephemeral job: it runs the IMAGE's
+              # `bin/` and talks to the brain over HTTP. If a bell needed the self's files, it would
+              # make the home multi-reader — which is exactly the constraint that put an S3 gateway in
+              # the boot path. A bell that needs the home is a bell that should not be ephemeral.
               volume_mount {
                 name       = "ephemeral"
                 mount_path = "/home/node/cline-home/.tmp"
@@ -148,18 +141,6 @@ resource "kubernetes_cron_job_v1" "activity" {
               volume_mount {
                 name       = "ephemeral"
                 mount_path = "/home/node/.cline/hands/db"
-              }
-            }
-
-            dynamic "volume" {
-              for_each = var.home_claim == "" ? [] : [var.home_claim]
-
-              content {
-                name = "home"
-
-                persistent_volume_claim {
-                  claim_name = volume.value
-                }
               }
             }
 

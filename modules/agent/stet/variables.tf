@@ -49,8 +49,8 @@ variable "home_size" {
 
 variable "home_storage_class" {
   type        = string
-  default     = "seaweedfs-csi"
-  description = "RWX, because the brain and the hand both read the home and longhorn is RWO."
+  default     = "longhorn"
+  description = "RWO is enough: only the hand reads the home, and a filer costs 48x per metadata op (measured)."
 }
 
 variable "chart_version" {
