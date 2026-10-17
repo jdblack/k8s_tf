@@ -62,6 +62,26 @@ variable "mail_me" {
   description = "The mailbox this hand reads, i.e. the SELF's name (`stet`), not the hand's (`stet-hand`). Empty = strip `-hand` from `name`."
 }
 
+# ★ WHERE THE CODE LIVES. A hand that can commit and push is a hand whose work is not hostage to a
+# human's laptop — but Forgejo is a ClusterIP in another room, and `allow_internet` deliberately
+# excludes the LAN and the cluster's own services. Empty = no rule, no token, no path.
+variable "forgejo_namespace" {
+  type        = string
+  default     = ""
+  description = "Namespace hosting Forgejo. Empty = the hand cannot reach the repo at all."
+}
+
+variable "forgejo_port" {
+  type    = number
+  default = 3000
+}
+
+variable "forgejo_token_field" {
+  type        = string
+  default     = ""
+  description = "Key in `secret_name` holding a Forgejo token (HTTP). Empty = no FORGEJO_TOKEN in the pod."
+}
+
 variable "image_repository" {
   type    = string
   default = "harbor.vn.linuxguru.net/library/cline-hand"

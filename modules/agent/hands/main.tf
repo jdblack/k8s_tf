@@ -186,6 +186,24 @@ resource "kubernetes_deployment_v1" "hand" {
             }
           }
 
+          # ★ MY OWN GIT CREDENTIAL, AND ONLY MINE. A token, not a key on someone's laptop: the push
+          # then authenticates as this self, so the audit trail and the commit agree. Absent by default
+          # (a room with no forgejo must not fail to start over a missing key).
+          dynamic "env" {
+            for_each = var.forgejo_token_field == "" ? [] : [var.forgejo_token_field]
+
+            content {
+              name = "FORGEJO_TOKEN"
+
+              value_from {
+                secret_key_ref {
+                  name = var.secret_name
+                  key  = env.value
+                }
+              }
+            }
+          }
+
           volume_mount {
             name       = "mcp-config"
             mount_path = "/home/node/.cline/hands/settings/cline_mcp_settings.json"
