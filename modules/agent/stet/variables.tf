@@ -134,12 +134,19 @@ variable "backup_cron" {
 }
 
 
-# ★ THE HAND'S OWN GIT IDENTITY. Forgejo is a ClusterIP in another room; a hand with "internet" still
-# cannot reach it, so both a rule and a token are needed before a self can commit its own code.
-variable "forgejo_namespace" {
+# ★ THE HAND'S OWN GIT PATH. The repo is another room's ClusterIP behind the private gateway, so the
+# rule lives HERE (the module that needs it) and goes through the gateway — never a direct peer on a
+# shared service's namespace.
+variable "repo_host" {
   type        = string
   default     = ""
-  description = "Namespace hosting Forgejo. Empty = the hand has no path to the repo."
+  description = "Hostname for the repo, e.g. git.vn.linuxguru.net. Empty = the hand has no path to a repo."
+}
+
+variable "repo_gateway_service" {
+  type        = string
+  default     = ""
+  description = "Service whose ClusterIP serves repo_host. Empty = the gateway chart's `<name>-<name>`."
 }
 
 variable "forgejo_token_field" {

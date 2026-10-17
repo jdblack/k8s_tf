@@ -9,6 +9,15 @@ locals {
   mail_me    = var.mail_me == "" ? trimsuffix(var.name, "-hand") : var.mail_me
 }
 
+data "kubernetes_service_v1" "repo_gateway" {
+  count = var.repo_host == "" ? 0 : 1
+
+  metadata {
+    name      = var.repo_gateway_service != "" ? var.repo_gateway_service : "${var.gateway_name}-${var.gateway_name}"
+    namespace = var.gateway_namespace
+  }
+}
+
 # The finger's MCP config: the SAME store as the hand, reached in-namespace. One brain per room is the
 # whole point of the move; a config pointing at another namespace would undo it quietly.
 resource "kubernetes_config_map_v1" "mcp" {
@@ -66,6 +75,19 @@ resource "kubernetes_deployment_v1" "hand" {
       }
 
       spec {
+        # ★ THE NAME MUST MEAN SOMETHING IN HERE. `repo_host` is a public name: outside the cluster it
+        # resolves to the LAN VIP, which a pod cannot route. The gateway's ClusterIP is what a pod CAN
+        # reach, and keeping the NAME means Host and SNI stay right — so the certificate validates and
+        # Forgejo never learns that a tenant exists.
+        dynamic "host_aliases" {
+          for_each = var.repo_host == "" ? [] : [1]
+
+          content {
+            ip        = data.kubernetes_service_v1.repo_gateway[0].spec[0].cluster_ip
+            hostnames = [var.repo_host]
+          }
+        }
+
         security_context {
           fs_group = 1000
         }

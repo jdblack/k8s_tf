@@ -26,8 +26,11 @@ module "hands" {
   # The mailbox is the SELF, not the hand: `stet`, not `stet-hand`.
   mail_me = var.name
 
-  # The repo lives in another room; the door and the token travel together.
-  forgejo_namespace   = var.forgejo_namespace
+  # The repo is reached THROUGH THE PRIVATE GATEWAY, by its public name — so Forgejo needs no rule
+  # about this room, and this room needs no knowledge of Forgejo's port.
+  repo_host            = var.repo_host
+  repo_gateway_service = var.repo_gateway_service
+
   forgejo_token_field = var.forgejo_token_field
 
   secret_name = var.secret_name

@@ -26,19 +26,28 @@ module "ingress_gateway" {
 #
 # ONE destination, ONE port, HTTP only: this buys `git clone/push`, not a general path to the estate.
 # Off unless the caller names a namespace, because a room with no forgejo should not have the rule.
-module "egress_forgejo" {
+# ★ THE REPO IS SOUGHT THROUGH THE GATEWAY, NOT AT ITS POD. First attempt (withdrawn on review) put a
+# direct egress peer on the Forgejo namespace, and then asked the Forgejo module to learn my name —
+# a shared service taught about its tenants. The house already has the right shape: `immich` reaches
+# the AUTH GATEWAY as a peer, and the Forgejo runner "polls the instance over its public name,
+# through the same gateway as everyone else".
+#
+# So: one peer, port 443, the private gateway's data plane. Forgejo needs NO change — its own ingress
+# already admits the gateway pod on 3000. The hostname still has to mean something inside the pod
+# (the public name resolves to the LAN VIP, which no pod can route), hence the hostAlias in main.tf.
+module "egress_repo" {
   source = "../../network/firewalls/policy"
-  count  = var.forgejo_namespace == "" ? 0 : 1
+  count  = var.repo_host == "" ? 0 : 1
 
   direction    = "egress"
   namespace    = var.namespace
-  name         = "${var.name}-forgejo-egress"
+  name         = "${var.name}-repo-egress"
   pod_selector = local.labels
 
   peers = [{
-    namespace    = var.forgejo_namespace
-    pod_selector = { "app.kubernetes.io/name" = "forgejo" }
-    ports        = [{ port = var.forgejo_port }]
+    namespace    = var.gateway_namespace
+    pod_selector = { "gateway.networking.k8s.io/gateway-name" = var.gateway_name }
+    ports        = [{ port = 443 }]
   }]
 }
 
