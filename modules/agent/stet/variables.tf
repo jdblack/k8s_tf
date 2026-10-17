@@ -49,11 +49,31 @@ variable "image_tag" {
   default = "edge"
 }
 
-# The model key + the door token, in one Secret created OUT OF BAND (see the hands submodule). Neither
-# value belongs in state or in tfvars.
+# The model key + the door token, in one Secret this module creates (see secret.tf). ★ Read from FILES
+# on the applying machine, never from tfvars: the key already lives at 600 under ~/.cline/secrets.
 variable "secret_name" {
   type    = string
   default = "stet-secrets"
+}
+
+variable "model_key_file" {
+  type    = string
+  default = "~/.cline/secrets/deepseek-hands"
+}
+
+variable "door_token_file" {
+  type    = string
+  default = "~/.cline/secrets/stet-door-token"
+}
+
+variable "model_key_field" {
+  type    = string
+  default = "deepSeekApiKey"
+}
+
+variable "door_token_field" {
+  type    = string
+  default = "doorToken"
 }
 
 variable "hands_image_tag" {
