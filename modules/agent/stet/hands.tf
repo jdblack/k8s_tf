@@ -4,7 +4,9 @@ locals {
   # that cline-home needed to let a pod talk to `mcp` does not exist here, because it is not needed.
   brain_service = "${var.name}-brain"
   brain_url     = "http://${local.brain_service}.${var.namespace}.svc.cluster.local:8888/mcp"
-  sel           = { "app.kubernetes.io/name" = "ellmephant", "app.kubernetes.io/instance" = local.brain_service }
+  # `instance` is the RELEASE name = the self, because the backup schedule drags the claim in by the
+  # pod it mounts on, and "whose" is the question a selector should answer.
+  sel = { "app.kubernetes.io/name" = "ellmephant", "app.kubernetes.io/instance" = var.name }
 }
 
 module "hands" {

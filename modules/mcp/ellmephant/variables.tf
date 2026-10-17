@@ -6,7 +6,13 @@ variable "namespace" {
 variable "name" {
   type        = string
   default     = "ellmephant"
-  description = "Release name; the chart pins fullnameOverride to it, so the Service, PVC and selectors all share this name."
+  description = "The WORKLOAD name; the chart pins fullnameOverride to it, so the Service, PVC and selectors all share this name. Say what it is — `stet-brain`, not `stet`."
+}
+
+variable "release_name" {
+  type        = string
+  default     = ""
+  description = "The Helm RELEASE name, which becomes app.kubernetes.io/instance. Name it after the SELF (`stet`), not the workload: the label says WHOSE the object is. Empty = the workload name, which every existing caller gets."
 }
 
 variable "domain" {

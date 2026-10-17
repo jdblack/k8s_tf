@@ -9,8 +9,9 @@
 module "brain" {
   source = "../../mcp/ellmephant"
 
-  name      = "${var.name}-brain"
-  namespace = kubernetes_namespace_v1.room.metadata[0].name
+  name         = "${var.name}-brain"
+  release_name = var.name
+  namespace    = kubernetes_namespace_v1.room.metadata[0].name
 
   domain      = var.domain
   cert_issuer = var.cert_issuer

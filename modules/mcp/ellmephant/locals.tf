@@ -1,9 +1,13 @@
 locals {
-  # The chart derives these from `nameOverride` (`ellmephant`) and the release name; the firewall
+  # ★ THE RELEASE IS THE INSTANCE (the self); the WORKLOAD is the object (the anatomy). They differ
+  # when an object should say what it is while its labels say whose it is.
+  release = coalesce(var.release_name, var.name)
+
+  # The chart derives these from `nameOverride` (`ellmephant`) and the RELEASE name; the firewall
   # policies below have to select on exactly the same pair.
   selector_labels = {
     "app.kubernetes.io/name"     = "ellmephant"
-    "app.kubernetes.io/instance" = var.name
+    "app.kubernetes.io/instance" = local.release
   }
 
   fqdn = "${var.name}.${var.domain}"

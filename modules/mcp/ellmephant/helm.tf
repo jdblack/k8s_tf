@@ -1,5 +1,5 @@
 resource "helm_release" "ellmephant" {
-  name       = var.name
+  name       = local.release
   namespace  = var.namespace
   repository = var.chart_repository
   chart      = var.chart
