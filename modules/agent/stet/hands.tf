@@ -27,5 +27,10 @@ module "hands" {
   image_tag   = var.hands_image_tag
   activities  = var.activities
 
+  # ★ The finger writes AS the self. Without this it writes as `anonymous`, and the store's
+  # `ELLMEPHANT_LEASERS=hands` then refuses every lease it takes — PROTECTED work becomes unreachable
+  # from a bell. The proof lives in `var.secret_name` under `handsIdentitySecret`.
+  identity = var.hands_identity
+
   depends_on = [module.brain]
 }

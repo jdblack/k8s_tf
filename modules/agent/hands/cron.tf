@@ -87,6 +87,32 @@ resource "kubernetes_cron_job_v1" "activity" {
                 }
               }
 
+              # ★ A BELL MUST PROVE ITSELF TOO. The CronJobs write as the same self: without the pair
+              # a scheduled activity banks, mails and claims as `anonymous`, and its leases are refused.
+              dynamic "env" {
+                for_each = var.identity == "" ? [] : [var.identity]
+
+                content {
+                  name  = "ELLMEPHANT_IDENTITY"
+                  value = env.value
+                }
+              }
+
+              dynamic "env" {
+                for_each = var.identity == "" ? [] : [1]
+
+                content {
+                  name = "ELLMEPHANT_IDENTITY_SECRET"
+
+                  value_from {
+                    secret_key_ref {
+                      name = var.secret_name
+                      key  = var.identity_secret_field
+                    }
+                  }
+                }
+              }
+
               volume_mount {
                 name       = "mcp-config"
                 mount_path = "/home/node/.cline/hands/settings/cline_mcp_settings.json"

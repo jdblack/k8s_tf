@@ -1,3 +1,7 @@
+locals {
+  has_hands_identity = var.hands_identity != "" && fileexists(pathexpand(var.hands_identity_file))
+}
+
 # THE SELF'S CREDENTIALS, IN THE GRAPH.
 #
 # ★ WHY THIS IS TERRAFORM AND NOT A HAND-CREATED SECRET: a greenfield apply must be ONE apply. The hands
@@ -19,10 +23,18 @@ resource "kubernetes_secret_v1" "credentials" {
 
   type = "Opaque"
 
-  data = {
-    (var.model_key_field)  = trimspace(file(pathexpand(var.model_key_file)))
-    (var.door_token_field) = trimspace(file(pathexpand(var.door_token_file)))
-  }
+  data = merge(
+    {
+      (var.model_key_field)  = trimspace(file(pathexpand(var.model_key_file)))
+      (var.door_token_field) = trimspace(file(pathexpand(var.door_token_file)))
+    },
+    # ★ THE FINGER'S PROOF, when the box has one. Optional on purpose: `file()` on a missing path
+    # fails the WHOLE plan, and a self that has not minted `hands` yet should not be un-appliable.
+    # Without it the pod fails at CreateContainerConfigError — loud, and no silent anonymous writes.
+    local.has_hands_identity ? {
+      handsIdentitySecret = trimspace(file(pathexpand(var.hands_identity_file)))
+    } : {}
+  )
 
   lifecycle {
     ignore_changes = [data]

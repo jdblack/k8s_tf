@@ -142,6 +142,35 @@ resource "kubernetes_deployment_v1" "hand" {
             }
           }
 
+          # ★ WHO IS SPEAKING. A finger that cannot prove its name writes as `anonymous` — and since
+          # the store's `ELLMEPHANT_LEASERS` names this identity, an anonymous hand cannot take a lease
+          # at all (measured 2026-10-17: the deployment had no identity, so PROTECTED writes from the
+          # finger were impossible while the image looked fine). BOTH OR NEITHER: the client sends the
+          # pair, and the store refuses a name without its proof, so a half-set pair fails loudly.
+          dynamic "env" {
+            for_each = var.identity == "" ? [] : [var.identity]
+
+            content {
+              name  = "ELLMEPHANT_IDENTITY"
+              value = env.value
+            }
+          }
+
+          dynamic "env" {
+            for_each = var.identity == "" ? [] : [1]
+
+            content {
+              name = "ELLMEPHANT_IDENTITY_SECRET"
+
+              value_from {
+                secret_key_ref {
+                  name = var.secret_name
+                  key  = var.identity_secret_field
+                }
+              }
+            }
+          }
+
           volume_mount {
             name       = "mcp-config"
             mount_path = "/home/node/.cline/hands/settings/cline_mcp_settings.json"

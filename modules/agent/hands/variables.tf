@@ -85,6 +85,23 @@ variable "door_token_field" {
   default = "doorToken"
 }
 
+# ★ WHO THE FINGER SPEAKS FOR. Empty = no identity, which is only right for a hand that never writes:
+# an anonymous finger's `claim_acquire` is refused whenever `ELLMEPHANT_LEASERS` names a real identity.
+# Setting this WITHOUT the secret field present is the failure mode to avoid — the pod dies at
+# CreateContainerConfigError rather than writing anonymously, which is the loud failure we want.
+variable "identity" {
+  type        = string
+  default     = ""
+  description = "The proven identity this hand writes as, e.g. `hands`. Empty disables identity entirely."
+}
+
+# The key in `secret_name` that holds THIS identity's proof (the value, not the `name:secret` table).
+variable "identity_secret_field" {
+  type        = string
+  default     = "handsIdentitySecret"
+  description = "Secret key carrying the raw X-Stet-Auth value for `identity`."
+}
+
 variable "cpu_request" {
   type    = string
   default = "100m"

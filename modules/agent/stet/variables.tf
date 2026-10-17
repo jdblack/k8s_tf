@@ -93,6 +93,18 @@ variable "hands_expose" {
   description = "Publish the doorbell at <name>-hand.<domain>."
 }
 
+variable "hands_identity" {
+  type        = string
+  default     = "hands"
+  description = "★ The proven identity the finger writes as; empty disables it (and its leases are then refused under a leaser allowlist)."
+}
+
+variable "hands_identity_file" {
+  type        = string
+  default     = "~/.cline/secrets/identity-hands"
+  description = "File holding the raw proof for `hands_identity`. Optional: an existing Secret's `data` is ignored, so a rotation is a file edit + `kubectl delete secret` + re-apply."
+}
+
 variable "activities" {
   type = map(object({
     schedule = string
