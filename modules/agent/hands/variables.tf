@@ -62,18 +62,20 @@ variable "mail_me" {
   description = "The mailbox this hand reads, i.e. the SELF's name (`stet`), not the hand's (`stet-hand`). Empty = strip `-hand` from `name`."
 }
 
-# ★ WHERE THE CODE LIVES. A hand that can commit and push is a hand whose work is not hostage to a
-# human's laptop — but Forgejo is a ClusterIP in another room, and `allow_internet` deliberately
-# excludes the LAN and the cluster's own services. Empty = no rule, no token, no path.
-variable "forgejo_namespace" {
+# ★ WHERE THE CODE LIVES, AND HOW A POD GETS THERE. The public name resolves to the LAN VIP (no pod
+# can route it), so the pod is given a hostAlias pointing the name at the gateway's ClusterIP: the
+# request goes pod -> private gateway :443 -> Forgejo, with Host/SNI intact so the certificate
+# validates. Empty `repo_host` = no rule, no alias, no token.
+variable "repo_host" {
   type        = string
   default     = ""
-  description = "Namespace hosting Forgejo. Empty = the hand cannot reach the repo at all."
+  description = "Hostname the hand clones from, e.g. git.vn.linuxguru.net. Empty = no path to a repo."
 }
 
-variable "forgejo_port" {
-  type    = number
-  default = 3000
+variable "repo_gateway_service" {
+  type        = string
+  default     = ""
+  description = "Service (in gateway_namespace) whose ClusterIP serves repo_host. Empty = `<gateway_name>-<gateway_name>`, the gateway chart's own naming."
 }
 
 variable "forgejo_token_field" {
