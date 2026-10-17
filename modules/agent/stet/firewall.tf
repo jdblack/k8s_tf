@@ -18,10 +18,15 @@ module "egress_baseline" {
 
 # Baseline admit: the namespace talks to itself and the controller reaches every pod. Node IPs come
 # with the module, so probes and CNI health checks survive the default-deny.
+#
+# ★ NAMED `-baseline-ingress`, NOT `<name>-ingress`: the brain's own ingress policy already takes
+# `<name>-ingress` (it is the rule that admits the gateway on the MCP port). Two policies in one
+# namespace cannot share a name, and the collision only surfaced in the first FULL apply — a targeted
+# apply of the room alone would have looked clean and failed later.
 module "ingress_baseline" {
   source    = "../../network/firewalls/policy"
   direction = "ingress"
 
   namespace = kubernetes_namespace_v1.room.metadata[0].name
-  name      = "${var.name}-ingress"
+  name      = "${var.name}-baseline-ingress"
 }
