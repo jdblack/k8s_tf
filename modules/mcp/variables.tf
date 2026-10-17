@@ -12,3 +12,10 @@ variable "auth_token" {
   type      = string
   sensitive = true
 }
+
+# ★ DECLARED SCALE, not a hand scale (2026-10-17). `0` keeps the store and stops the workload, so
+# `stacks/mantle` can be applied without resurrecting the old self. Rollback = set 1.
+variable "ellmephant_replicas" {
+  type    = number
+  default = 1
+}
