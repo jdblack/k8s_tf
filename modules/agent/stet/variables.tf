@@ -39,6 +39,20 @@ variable "storage_size" {
   description = "★ The DATABASE is ~6.5 MB; nearly all of this is the embedder model cache, which re-downloads."
 }
 
+# ★ THE FILES, which are small and numerous. Separate claim from the database on purpose: a restore
+# of the brain must not be able to overwrite the home, and vice versa.
+variable "home_size" {
+  type        = string
+  default     = "10Gi"
+  description = "The self's home: tools, notes, work, inbox. Text and scripts, not media."
+}
+
+variable "home_storage_class" {
+  type        = string
+  default     = "seaweedfs-csi"
+  description = "RWX, because the brain and the hand both read the home and longhorn is RWO."
+}
+
 variable "chart_version" {
   type    = string
   default = "0.2.0"
