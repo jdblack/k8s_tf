@@ -178,6 +178,18 @@ resource "kubernetes_deployment_v1" "hand" {
           }
 
           # Transcripts, logs and sessions live in RAM: they die with the pod and never touch a volume.
+          # ★ THE HOME, OVER THE IMAGE'S COPY. Mounted before the `.tmp` submount below so the baked
+          # `bin/` and `dist/` are replaced wholesale by the claim — the image becomes the installer,
+          # not the record. `.tmp` stays an emptyDir even here: scratch is supposed to be disposable.
+          dynamic "volume_mount" {
+            for_each = var.home_claim == "" ? [] : [var.home_claim]
+
+            content {
+              name       = "home"
+              mount_path = "/home/node/cline-home"
+            }
+          }
+
           volume_mount {
             name       = "ephemeral"
             mount_path = "/home/node/cline-home/.tmp"
@@ -196,6 +208,18 @@ resource "kubernetes_deployment_v1" "hand" {
           volume_mount {
             name       = "ephemeral"
             mount_path = "/home/node/.cline/hands/db"
+          }
+        }
+
+        dynamic "volume" {
+          for_each = var.home_claim == "" ? [] : [var.home_claim]
+
+          content {
+            name = "home"
+
+            persistent_volume_claim {
+              claim_name = volume.value
+            }
           }
         }
 

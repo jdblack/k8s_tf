@@ -85,6 +85,15 @@ variable "door_token_field" {
   default = "doorToken"
 }
 
+# ★ THE SELF'S FILES. Empty keeps the image-baked home, which is what a hand ran on before the claim
+# existed. Setting it mounts the claim at CLINE_HOME, so `bin/` and `dist/` come from the HOME — which
+# means the home must be COMPLETE before this is on (`dist/hands` is load-bearing, not build output).
+variable "home_claim" {
+  type        = string
+  default     = ""
+  description = "PVC holding the self's home, mounted at /home/node/cline-home. Empty keeps the baked home."
+}
+
 # ★ WHO THE FINGER SPEAKS FOR. Empty = no identity, which is only right for a hand that never writes:
 # an anonymous finger's `claim_acquire` is refused whenever `ELLMEPHANT_LEASERS` names a real identity.
 # Setting this WITHOUT the secret field present is the failure mode to avoid — the pod dies at

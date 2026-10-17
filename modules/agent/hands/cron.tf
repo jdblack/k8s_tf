@@ -119,6 +119,17 @@ resource "kubernetes_cron_job_v1" "activity" {
                 sub_path   = "cline_mcp_settings.json"
               }
 
+              # ★ A BELL READS THE SAME HOME. If the door runs the claim's `bin/` and a bell runs the
+              # image's, they are two programs with one name — the exact split this move exists to end.
+              dynamic "volume_mount" {
+                for_each = var.home_claim == "" ? [] : [var.home_claim]
+
+                content {
+                  name       = "home"
+                  mount_path = "/home/node/cline-home"
+                }
+              }
+
               volume_mount {
                 name       = "ephemeral"
                 mount_path = "/home/node/cline-home/.tmp"
@@ -137,6 +148,18 @@ resource "kubernetes_cron_job_v1" "activity" {
               volume_mount {
                 name       = "ephemeral"
                 mount_path = "/home/node/.cline/hands/db"
+              }
+            }
+
+            dynamic "volume" {
+              for_each = var.home_claim == "" ? [] : [var.home_claim]
+
+              content {
+                name = "home"
+
+                persistent_volume_claim {
+                  claim_name = volume.value
+                }
               }
             }
 

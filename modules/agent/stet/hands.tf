@@ -32,5 +32,9 @@ module "hands" {
   # from a bell. The proof lives in `var.secret_name` under `handsIdentitySecret`.
   identity = var.hands_identity
 
+  # ★ THE CUTOVER. With this set the hand stops reading the image's baked home and reads the claim:
+  # `bin/` and `dist/` come from the self's files, so a code change is a file change, not a rebuild.
+  home_claim = kubernetes_persistent_volume_claim_v1.home.metadata[0].name
+
   depends_on = [module.brain]
 }
