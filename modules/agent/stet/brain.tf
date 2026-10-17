@@ -25,6 +25,9 @@ module "brain" {
   chart_version = var.chart_version
   image_tag     = var.image_tag
 
+  # Credentials the chart cannot name: `ELLMEPHANT_IDENTITIES` and friends arrive as a secretKeyRef.
+  extra_env = var.extra_env
+
   # The room has to exist before the release's Service, PVC and policies land in it.
   depends_on = [kubernetes_namespace_v1.room]
 }

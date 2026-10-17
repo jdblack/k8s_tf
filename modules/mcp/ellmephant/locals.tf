@@ -51,6 +51,10 @@ locals {
       storageClass = var.storage_class
       size         = var.storage_size
     }
+
+    # Credentials the chart does not know by name: `ELLMEPHANT_IDENTITIES` is a table of
+    # `name:secret` pairs, so the values must stay in a Secret rather than in these values.
+    env = var.extra_env
   }
 
   # The chart renders the same ListenerSet + HTTPRoute + ReferenceGrant trio the in-house

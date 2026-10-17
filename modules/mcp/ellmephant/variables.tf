@@ -9,6 +9,12 @@ variable "name" {
   description = "The WORKLOAD name; the chart pins fullnameOverride to it, so the Service, PVC and selectors all share this name. Say what it is — `stet-brain`, not `stet`."
 }
 
+variable "extra_env" {
+  type        = list(any)
+  default     = []
+  description = "Extra env vars for the brain container. The chart appends them after its built-ins, so a credential can arrive as a secretKeyRef without the chart knowing its name."
+}
+
 variable "release_name" {
   type        = string
   default     = ""

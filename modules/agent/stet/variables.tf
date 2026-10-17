@@ -76,6 +76,12 @@ variable "door_token_field" {
   default = "doorToken"
 }
 
+variable "extra_env" {
+  type        = list(any)
+  default     = []
+  description = "Extra env vars for the brain (passed straight to the chart's `env`)."
+}
+
 variable "hands_image_tag" {
   type    = string
   default = "0.1.3"
