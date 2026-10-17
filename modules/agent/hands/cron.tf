@@ -76,6 +76,20 @@ resource "kubernetes_cron_job_v1" "activity" {
                 value = local.health_url
               }
 
+              # ★ A BELL ASKS THE MAILBOX TOO, and it is the FIRST thing it does — the predicate has to
+              # read `unread_mail` before it can decide whether to spend a finger. Pointing that at the
+              # public name made every tick answer "COULD NOT ASK", which is a predicate that can never
+              # be satisfied: autonomy silently stops, and the log says nothing is wrong.
+              env {
+                name  = "MAIL_URL"
+                value = local.brain_root
+              }
+
+              env {
+                name  = "MAIL_ME"
+                value = local.mail_me
+              }
+
               env {
                 name = "DEEPSEEK_API_KEY"
 

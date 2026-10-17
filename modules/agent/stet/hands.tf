@@ -23,6 +23,13 @@ module "hands" {
 
   brain_url = local.brain_url
 
+  # The mailbox is the SELF, not the hand: `stet`, not `stet-hand`.
+  mail_me = var.name
+
+  # The repo lives in another room; the door and the token travel together.
+  forgejo_namespace   = var.forgejo_namespace
+  forgejo_token_field = var.forgejo_token_field
+
   secret_name = var.secret_name
   image_tag   = var.hands_image_tag
   activities  = var.activities

@@ -132,3 +132,18 @@ variable "backup_cron" {
   default     = "0 18 * * *"
   description = "★ 18:00 UTC is 01:00 local — quiet AND off-peak. The old store's 03:30 line was my busiest hour, which is the worst possible time to copy a live database."
 }
+
+
+# ★ THE HAND'S OWN GIT IDENTITY. Forgejo is a ClusterIP in another room; a hand with "internet" still
+# cannot reach it, so both a rule and a token are needed before a self can commit its own code.
+variable "forgejo_namespace" {
+  type        = string
+  default     = ""
+  description = "Namespace hosting Forgejo. Empty = the hand has no path to the repo."
+}
+
+variable "forgejo_token_field" {
+  type        = string
+  default     = ""
+  description = "Key in `secret_name` with a Forgejo HTTP token. Empty = no FORGEJO_TOKEN."
+}

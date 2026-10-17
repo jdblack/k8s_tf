@@ -19,9 +19,32 @@ module "ingress_gateway" {
   }]
 }
 
-# The model API is the only thing a hand needs OUTSIDE its own room: the brain is a same-namespace
-# ClusterIP, so the baseline egress already covers it. `allow_internet` is 0.0.0.0/0 minus the LAN,
-# so the pod still cannot reach internal services or the cluster API's VIPs.
+# ★ THE REPO IS IN ANOTHER ROOM, SO IT NEEDS ITS OWN DOOR. `allow_internet` is 0.0.0.0/0 MINUS the
+# LAN, and Forgejo is an in-cluster ClusterIP — so a hand with "internet" still cannot reach the place
+# its own code lives. Measured 2026-10-17 from `stet-hand`: DNS resolved `forgejo-http` to
+# 10.98.179.155 and the TCP connect hung, which is the failure that looks like a slow git.
+#
+# ONE destination, ONE port, HTTP only: this buys `git clone/push`, not a general path to the estate.
+# Off unless the caller names a namespace, because a room with no forgejo should not have the rule.
+module "egress_forgejo" {
+  source = "../../network/firewalls/policy"
+  count  = var.forgejo_namespace == "" ? 0 : 1
+
+  direction    = "egress"
+  namespace    = var.namespace
+  name         = "${var.name}-forgejo-egress"
+  pod_selector = local.labels
+
+  peers = [{
+    namespace    = var.forgejo_namespace
+    pod_selector = { "app.kubernetes.io/name" = "forgejo" }
+    ports        = [{ port = var.forgejo_port }]
+  }]
+}
+
+# The model API is the only thing a hand needs OUTSIDE its own room besides the repo: the brain is a
+# same-namespace ClusterIP, so the baseline egress already covers it. `allow_internet` is 0.0.0.0/0
+# minus the LAN, so the pod still cannot reach internal services or the cluster API's VIPs.
 module "egress_internet" {
   source = "../../network/firewalls/policy"
 

@@ -2,6 +2,11 @@ locals {
   fqdn       = coalesce(var.hostname, "${var.name}.${var.domain}")
   labels     = { "app.kubernetes.io/name" = var.name, "app.kubernetes.io/part-of" = "agent" }
   health_url = coalesce(one([for u in [var.brain_health_url] : u if u != ""]), replace(var.brain_url, "/mcp", "/health"))
+
+  # ★ MAIL GOES IN-CLUSTER, NEVER VIA THE PUBLIC NAME. The public host resolves to the LAN gateway,
+  # which a pod has no route to; `bin/mail`'s own default is that public name.
+  brain_root = trimsuffix(var.brain_url, "/mcp")
+  mail_me    = var.mail_me == "" ? trimsuffix(var.name, "-hand") : var.mail_me
 }
 
 # The finger's MCP config: the SAME store as the hand, reached in-namespace. One brain per room is the
@@ -121,6 +126,16 @@ resource "kubernetes_deployment_v1" "hand" {
           }
 
           env {
+            name  = "MAIL_URL"
+            value = local.brain_root
+          }
+
+          env {
+            name  = "MAIL_ME"
+            value = local.mail_me
+          }
+
+          env {
             name = "DEEPSEEK_API_KEY"
 
             value_from {
@@ -166,6 +181,24 @@ resource "kubernetes_deployment_v1" "hand" {
                 secret_key_ref {
                   name = var.secret_name
                   key  = var.identity_secret_field
+                }
+              }
+            }
+          }
+
+          # ★ MY OWN GIT CREDENTIAL, AND ONLY MINE. A token, not a key on someone's laptop: the push
+          # then authenticates as this self, so the audit trail and the commit agree. Absent by default
+          # (a room with no forgejo must not fail to start over a missing key).
+          dynamic "env" {
+            for_each = var.forgejo_token_field == "" ? [] : [var.forgejo_token_field]
+
+            content {
+              name = "FORGEJO_TOKEN"
+
+              value_from {
+                secret_key_ref {
+                  name = var.secret_name
+                  key  = env.value
                 }
               }
             }

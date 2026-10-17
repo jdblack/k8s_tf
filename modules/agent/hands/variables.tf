@@ -53,6 +53,35 @@ variable "brain_health_url" {
   description = "Where the maintenance predicate asks for the store's snapshot age. Defaults to brain_url with /health."
 }
 
+# ★ THE MAILBOX IS THE BRAIN. `bin/mail` defaults to the PUBLIC host, and a pod cannot reach the LAN
+# address that name resolves to — so a bell asks, hangs, and reports "could not ask", which looks
+# exactly like an empty inbox. Measured in agent-stet 2026-10-17 (the first mail bell there).
+variable "mail_me" {
+  type        = string
+  default     = ""
+  description = "The mailbox this hand reads, i.e. the SELF's name (`stet`), not the hand's (`stet-hand`). Empty = strip `-hand` from `name`."
+}
+
+# ★ WHERE THE CODE LIVES. A hand that can commit and push is a hand whose work is not hostage to a
+# human's laptop — but Forgejo is a ClusterIP in another room, and `allow_internet` deliberately
+# excludes the LAN and the cluster's own services. Empty = no rule, no token, no path.
+variable "forgejo_namespace" {
+  type        = string
+  default     = ""
+  description = "Namespace hosting Forgejo. Empty = the hand cannot reach the repo at all."
+}
+
+variable "forgejo_port" {
+  type    = number
+  default = 3000
+}
+
+variable "forgejo_token_field" {
+  type        = string
+  default     = ""
+  description = "Key in `secret_name` holding a Forgejo token (HTTP). Empty = no FORGEJO_TOKEN in the pod."
+}
+
 variable "image_repository" {
   type    = string
   default = "harbor.vn.linuxguru.net/library/cline-hand"
