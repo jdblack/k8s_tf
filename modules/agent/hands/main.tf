@@ -2,6 +2,11 @@ locals {
   fqdn       = coalesce(var.hostname, "${var.name}.${var.domain}")
   labels     = { "app.kubernetes.io/name" = var.name, "app.kubernetes.io/part-of" = "agent" }
   health_url = coalesce(one([for u in [var.brain_health_url] : u if u != ""]), replace(var.brain_url, "/mcp", "/health"))
+
+  # ★ MAIL GOES IN-CLUSTER, NEVER VIA THE PUBLIC NAME. The public host resolves to the LAN gateway,
+  # which a pod has no route to; `bin/mail`'s own default is that public name.
+  brain_root = trimsuffix(var.brain_url, "/mcp")
+  mail_me    = var.mail_me == "" ? trimsuffix(var.name, "-hand") : var.mail_me
 }
 
 # The finger's MCP config: the SAME store as the hand, reached in-namespace. One brain per room is the
@@ -118,6 +123,16 @@ resource "kubernetes_deployment_v1" "hand" {
           env {
             name  = "ELLMEPHANT_HEALTH_URL"
             value = local.health_url
+          }
+
+          env {
+            name  = "MAIL_URL"
+            value = local.brain_root
+          }
+
+          env {
+            name  = "MAIL_ME"
+            value = local.mail_me
           }
 
           env {

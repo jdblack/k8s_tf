@@ -53,6 +53,15 @@ variable "brain_health_url" {
   description = "Where the maintenance predicate asks for the store's snapshot age. Defaults to brain_url with /health."
 }
 
+# ★ THE MAILBOX IS THE BRAIN. `bin/mail` defaults to the PUBLIC host, and a pod cannot reach the LAN
+# address that name resolves to — so a bell asks, hangs, and reports "could not ask", which looks
+# exactly like an empty inbox. Measured in agent-stet 2026-10-17 (the first mail bell there).
+variable "mail_me" {
+  type        = string
+  default     = ""
+  description = "The mailbox this hand reads, i.e. the SELF's name (`stet`), not the hand's (`stet-hand`). Empty = strip `-hand` from `name`."
+}
+
 variable "image_repository" {
   type    = string
   default = "harbor.vn.linuxguru.net/library/cline-hand"

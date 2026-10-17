@@ -23,6 +23,9 @@ module "hands" {
 
   brain_url = local.brain_url
 
+  # The mailbox is the SELF, not the hand: `stet`, not `stet-hand`.
+  mail_me = var.name
+
   secret_name = var.secret_name
   image_tag   = var.hands_image_tag
   activities  = var.activities
