@@ -22,6 +22,14 @@ variable "cert_issuer" {
 variable "gateway_name" { default = "private" }
 variable "gateway_namespace" { default = "kube-network" }
 
+# The address, when it should not be `<name>.<domain>`. ★ Object names and addresses answer different
+# questions: a workload should say WHAT IT IS (`stet-brain`), while the address someone types should
+# be the self's name (`stet.vn.linuxguru.net`). Empty = derive from the name, as before.
+variable "hostname" {
+  type    = string
+  default = ""
+}
+
 # Expose the MCP endpoint on the shared Gateway. Off leaves the Service cluster-internal.
 variable "expose" {
   type    = bool

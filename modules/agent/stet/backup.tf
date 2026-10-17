@@ -6,7 +6,7 @@ module "backup" {
   source = "../../storage/backup/schedule"
 
   namespace = kubernetes_namespace_v1.room.metadata[0].name
-  target    = "${var.name}-data"
+  target    = "${local.brain_service}-data"
   selector  = local.sel
   cron      = var.backup_cron
 

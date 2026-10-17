@@ -22,9 +22,23 @@ locals {
 
     # The Qwen3-0.6B embedder cold-load spikes past the chart's 2Gi default, so the first
     # embedding tool call (search/add/update) OOMKills the pod; give it headroom.
+    #
+    # SIZED FROM EVIDENCE, 2026-10-15 (the same lesson as mempal -- modules/cline/home/mem.tf):
+    # 4Gi was NOT enough headroom. Prometheus `container_memory_max_usage_bytes` -- an UNSAMPLED
+    # cgroup HIGH-WATER MARK, so scrape timing cannot hide a spike -- read 4022.9 MiB against this
+    # 4096 MiB limit: ~73 MiB of room, one spike from an OOMKill. The ENCODER is the working set
+    # (~2.8-4.0 GiB; `memory.db` is 5 MB), not the store.
+    #
+    # It matters MORE than it looks: `memory_reembed` CLEARS the vec0 table before rebuilding it, so
+    # an OOM mid-reembed leaves the vector index EMPTY (rows are the source of truth, so it is
+    # recoverable -- but semantic search silently returns nothing until a clean re-run).
+    #
+    # CPU is deliberately left unset: this namespace has no LimitRange capping it, and an encoder
+    # wants cores. (mempal must set it explicitly -- cline-home's LimitRange would pin it at 250m,
+    # "at which point embedding crawls".)
     resources = {
       requests = { cpu = "100m", memory = "1Gi" }
-      limits   = { memory = "4Gi" }
+      limits   = { memory = "6Gi" }
     }
 
     # The store (`memory.db`) is the whole point: without it every memory dies with the pod.
@@ -46,6 +60,7 @@ locals {
       port             = 443
       certIssuer       = var.cert_issuer
       domain           = var.domain
+      hostname         = var.hostname
     }
   } : {}
 

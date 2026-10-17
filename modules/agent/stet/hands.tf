@@ -2,8 +2,9 @@ locals {
   # ★ THE PRIZE OF THE MOVE, expressed as one line: the hand reaches the brain over a same-namespace
   # ClusterIP. No gateway hop, no cross-namespace egress rule, no post-DNAT selector — the plumbing
   # that cline-home needed to let a pod talk to `mcp` does not exist here, because it is not needed.
-  brain_url = "http://${var.name}.${var.namespace}.svc.cluster.local:8888/mcp"
-  sel       = { "app.kubernetes.io/name" = "ellmephant", "app.kubernetes.io/instance" = var.name }
+  brain_service = "${var.name}-brain"
+  brain_url     = "http://${local.brain_service}.${var.namespace}.svc.cluster.local:8888/mcp"
+  sel           = { "app.kubernetes.io/name" = "ellmephant", "app.kubernetes.io/instance" = local.brain_service }
 }
 
 module "hands" {
