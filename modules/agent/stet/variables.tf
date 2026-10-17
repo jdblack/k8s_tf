@@ -77,7 +77,7 @@ variable "door_token_field" {
 }
 
 variable "extra_env" {
-  type        = list(any)
+  type        = any
   default     = []
   description = "Extra env vars for the brain (passed straight to the chart's `env`)."
 }

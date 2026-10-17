@@ -10,7 +10,7 @@ variable "name" {
 }
 
 variable "extra_env" {
-  type        = list(any)
+  type        = any
   default     = []
   description = "Extra env vars for the brain container. The chart appends them after its built-ins, so a credential can arrive as a secretKeyRef without the chart knowing its name."
 }
